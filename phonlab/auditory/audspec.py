@@ -407,20 +407,20 @@ class Audspec(object):
         sgram = (np.abs(A)).astype(self.sgram.dtype)
         return (sgram, t)
 
-    def make_zgram(self, signal, chan=0, fs_in=16000, preemph = 0, **kwargs):
+    def make_zgram(self, sig, chan=0, fs_in=16000, preemph = 0, **kwargs):
         '''Make an auditory spectrogram by creating an acoustic spectrogram and then applying critical-band filters to it, using the filter shapes described by Patterson (1976).  The function creates the auditory spectrogram and stores it in `self.zgram`.
 
 Parameters
 ----------
 
-signal : ndarray or str
+sig : ndarray or str
     Audio data, either as a one dimensional numpy array or the name of a wav file.
 
 chan : {0,1}, default = 0
     The channel of a two channel signal to analyze. Use 0 for the left channel, 1 for the right.  This is ignored if the signal is mono.
 
 fs_in : int, default = 16000
-    If signal is an array of audio samples, the sampling rate of the audio must be provided in fs_in.
+    If sig is an array of audio samples, the sampling rate of the audio must be provided in fs_in.
 
 preemp : float, default = 1.0
     The amount of preemphasis to apply before filtering.
@@ -434,7 +434,7 @@ References
     Patterson, R.D. (1976) Auditory filter shapes derived with noise stimuli. J. Acoust. Soc. Am. 59, 640-54.
         '''
         
-        x, fs = get_signal(signal,chan = chan, fs = self.fs, fs_in = fs_in, pre = preemph)
+        x, fs = get_signal(sig,chan = chan, fs = self.fs, fs_in = fs_in, pre = preemph)
 
         (sgram, self.time_axis) = self._make_sgram(x, kwargs)
         self.sgram = sgram + self.loud

@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from ..utils.get_signal_ import get_signal
 
-def sgram(signal,chan=0,start=0,end=-1,fs_in = 22050, tf=8000,band='wb',
+def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000,band='wb',
           preemph = 0.94, save_name='',slice_time=-1,cmap='Greys'):
     """Make pretty good looking spectrograms
 
@@ -21,7 +21,7 @@ def sgram(signal,chan=0,start=0,end=-1,fs_in = 22050, tf=8000,band='wb',
 
     Parameters
     ==========
-    signal : Path or ndarray
+    sig : Path or ndarray
         name of a wav file or array to plot
     chan : int, default = 0
         choose a channel if the file is stereo -  0 (default) = left channel, 1 = right channel
@@ -30,7 +30,7 @@ def sgram(signal,chan=0,start=0,end=-1,fs_in = 22050, tf=8000,band='wb',
     end : float, default = -1
         ending time (in seconds) of the waveform chunk to plot (-1 means go to the end)
     fs_in : integer
-        The sampling frequency of `signal` if it is an array of samples, ignored if it is a file name.
+        The sampling frequency of `sig` if it is an array of samples, ignored if it is a file name.
     tf : integer, default = 8000
         the top frequency (in Hz) to show in the spectrogram
     band : string, {'wb','nb'}
@@ -122,7 +122,7 @@ def sgram(signal,chan=0,start=0,end=-1,fs_in = 22050, tf=8000,band='wb',
     window = windows.blackmanharris(nperseg)
     
     # ----------- read and condition waveform -----------------------
-    x, fs = get_signal(signal,chan = chan, fs = fs, fs_in = fs_in, pre = preemph)
+    x, fs = get_signal(sig,chan = chan, fs = fs, fs_in = fs_in, pre = preemph)
 
     i1 = int(start * fs)   # index of starting time: seconds to samples
     i2 = int(end * fs)     # index of ending time

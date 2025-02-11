@@ -5,7 +5,7 @@ import numpy as np
 import librosa
 import pandas as pd
 
-def egg2oq(signal,egg_channel=1,hop_dur = 0.005, min_f0 = 60, max_f0 = 400,
+def egg2oq(sig,egg_channel=1,hop_dur = 0.005, min_f0 = 60, max_f0 = 400,
            hp_cut = 70, hp_order = 8, threshold=0.43):
     """Get glottal open quotient from electroglottography data
     
@@ -21,7 +21,7 @@ def egg2oq(signal,egg_channel=1,hop_dur = 0.005, min_f0 = 60, max_f0 = 400,
     Parameters
     ==========
         
-        signal : string
+        sig : string
             path to a two channel audio file with EGG data in one of the channels
         egg_channel : int, default = 1
             audio channel (0 or 1) where EGG signal will be found
@@ -69,7 +69,7 @@ def egg2oq(signal,egg_channel=1,hop_dur = 0.005, min_f0 = 60, max_f0 = 400,
 
         
     """
-    data, fs = librosa.load(signal, sr=16000, mono=False) # this is the slowest step in the function 
+    data, fs = librosa.load(sig, sr=16000, mono=False) # this is the slowest step in the function 
 
     window_length = (1.0/min_f0) * 1.5 # add 25% for alignment?
     win = int(window_length*fs)  # window for the longest period 

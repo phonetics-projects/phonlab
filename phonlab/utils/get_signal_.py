@@ -5,19 +5,19 @@ import librosa
 from scipy.signal import resample
 
 
-def get_signal(signal, fs = 22050, fs_in=22050, chan = 0, pre = 0, outtype = "float", quiet = False):
+def get_signal(sig, fs = 22050, fs_in=22050, chan = 0, pre = 0, outtype = "float", quiet = False):
     """ A utility function to prepare an audio waveform for acoustic analysis.  Calls Librosa.load() if a file name is passed in `signal`, and conditions the audio array according to the paramters.  If `signal` is an array of samples, you should pass in the sampling rate of the audio in `fs_in`.
     
 Parameters
 ==========
-    signal : string or array
+    sig : string or array
         Either a path to a sound file to read, or a numpy array with audio samples in it. If the audio (either from the soundfile or in the array) is stereo, only one channel will be kept.
 
     fs : int, default = 22050
         The desired sampling rate of the audio samples that will be returned by the function.  Set fs=None if you are opening a sound file and want to use the native sampling rate of the file.
      
     fs_in : int, default=22050
-        The sampling rate of the sound if 'signal' is an array.  This parameter is ignored if 'sound' is a filename.
+        The sampling rate of the sound if **sig** is an array.  This parameter is ignored if **sig** is a filename.
 
     chan : int, default = 0
         which channel of a stereo file to keep - default is 0 (the left channel)
@@ -50,8 +50,8 @@ Open a sound file and use the existing (native) sampling rate of the file.
 
     """
     
-    if type(signal) == np.ndarray:
-        x = signal
+    if type(sig) == np.ndarray:
+        x = sig
         if fs==None: 
             if not quiet: print('fs is being set to 22050, was None')
             fs=22050  # None 
@@ -60,11 +60,11 @@ Open a sound file and use the existing (native) sampling rate of the file.
             resample_ratio = fs/fs_in
             new_size = int(len(x) * resample_ratio)  # size of the downsampled version
             x = resample(x,new_size)  # now sampled at desired sampling freq
-    else:  # signal is a file name
+    else:  # sig is a file name
         try:
-            x, fs = librosa.load(signal, sr=fs,dtype=np.float32)  # read waveform
+            x, fs = librosa.load(sig, sr=fs,dtype=np.float32)  # read waveform
         except OSError:
-            print('cannot open sound file: ', signal)
+            print('cannot open sound file: ', sig)
     
     if len(x.shape) == 2:  # if this is a stereo file, use one of the channels
             if not quiet: print(f'Stereo file, using channel {chan}')

@@ -76,8 +76,8 @@ def get_rhythm_spectrum(x,fs,chunk_size = 4):
     # Downsample and remove DC component.
     y = rem_dc(scipy.signal.decimate(x, ds_factor, ftype = 'fir', zero_phase=True))
     y = y * scipy.signal.tukey(len(y), 0.1)  # Shape downsampled signal with a Tukey window.
-    sig = y / np.sqrt(np.var(y))  # Normalize to unit variance.
-    freq, powsd = scipy.signal.periodogram(sig,   # find frequency spectrum of the amplitude envelope
+    norm_frame = y / np.sqrt(np.var(y))  # Normalize to unit variance.
+    freq, powsd = scipy.signal.periodogram(norm_frame,   # find frequency spectrum of the amplitude envelope
                                            fs=ds_rate, nfft=npoints, scaling="spectrum")
     min_freq = 1/(chunk_size*(1/2))
     i = np.where((freq < 7) & (freq > min_freq))  # pick indices for spectrum less than lowpass Hz
@@ -92,7 +92,7 @@ def rhythmogram(signal):
     Parameters
     ==========
 
-    signal : string
+    sig : string
         The name of an audio file
 
     Returns
@@ -140,7 +140,7 @@ def rhythmogram(signal):
 
     """
     
-    fs, x = scipy.io.wavfile.read(signal)
+    fs, x = scipy.io.wavfile.read(sig)
     x_t = np.arange(len(x)) / fs  # time axes
     print(f"file is {len(x)/fs} seconds long")
 
@@ -163,8 +163,8 @@ def rhythmogram(signal):
     t = frames_to_time(range(len(frames)), sr=fs_env, hop_length=step,n_fft = frame_length)
     w = scipy.signal.windows.tukey(frame_length,0.1)
     frames = np.multiply(frames,w)   # apply a Tukey window to each frame
-    sig = frames.T / np.sqrt(np.var(frames,axis=1))  # normalize the amplitudes in the frames
-    freq, psd = scipy.signal.periodogram(sig.T,fs=fs_env, nfft=512, scaling="spectrum")  # spectrum
+    norm_frames = frames.T / np.sqrt(np.var(frames,axis=1))  # normalize the amplitudes in the frames
+    freq, psd = scipy.signal.periodogram(norm_frames.T,fs=fs_env, nfft=512, scaling="spectrum")  # spectrum
     min_freq = 1/(flen_sec*(1/2))
     i = np.where((freq < 7) & (freq > min_freq))  # pick indices for spectrum less than lowpass Hz
     f = freq[i]

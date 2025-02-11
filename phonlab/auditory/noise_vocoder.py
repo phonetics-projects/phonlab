@@ -122,7 +122,7 @@ Returns
         y[idx] = scipy.signal.sosfiltfilt(coefs, x)  # filter each band
     return y
 
-def vocode(signal, bands, fs = 16000, fs_in = 22050, chan=0):
+def vocode(sig, bands, fs = 16000, fs_in = 22050, chan=0):
     """ 
     Noise vocoding - replace sound with bandpassed noise, using a bank of filters defined by bands.
 
@@ -132,21 +132,21 @@ Keith Johnson added the "Shannon" vocoding scheme and altered some of the functi
         
 Parameters
 ==========
-signal : string or ndarray
+sig : string or ndarray
     the name of a wav file, or audio samples in a 1-D numpy array
 bands : list
     A list of n bandpass filter lower/upper cut off freqs (n,2), as returned by third_octive_bands() or shannon_bands()
 fs : int, default 16000
     the desired frequency of the resulting vocoded signal.
 fs_in : int, default 22050
-    the sampling frequency of the audio samples in signal, if signal is an array of samples.
+    the sampling frequency of the audio samples in **sig**, if **sig** is an array of samples.
 chan : int, default = 0
-    if signal is stereo, select a channel (0 = left, 1 = right)
+    if **sig** is stereo, select a channel (0 = left, 1 = right)
         
 Returns
 =======
 y : ndarray
-    an array of samples, the same length as signal
+    an array of samples, the same length as **sig**
 fs : int
     the sampling frequency of y
 
@@ -166,7 +166,7 @@ Example
 
 
     """
-    x, fs = get_signal(signal,chan = chan, fs = fs, fs_in = fs_in, pre=0, quiet = True)
+    x, fs = get_signal(sig,chan = chan, fs = fs, fs_in = fs_in, pre=0, quiet = True)
 
     n_channels = len(bands)
     n_samples = x.shape[-1]

@@ -1,4 +1,4 @@
-__all__=['get_f0','get_f0_srh','get_f0_ac', 'get_f0_a']
+__all__=['get_f0','get_f0_srh','get_f0_ac']
 
 import numpy as np
 import scipy.signal
@@ -7,21 +7,21 @@ import librosa
 from pandas import DataFrame
 from ..utils.get_signal_ import get_signal
   
-def get_f0(signal, f0_range = [63,400], chan = 0, pre = 1.0, fs_in=12000):
+def get_f0(sig, f0_range = [63,400], chan = 0, pre = 1.0, fs_in=12000):
     """Track the fundamental frequency of voicing (f0)
 
     The method in this function mirrors that used in track_formants().  LPC coefficients are calculated for each frame and the audio signal is inverse filtered with these, resulting in a quasi glottal waveform. Then autocorrelation is used to estimate the fundamental frequency.  Probability of voicing is given from a logistic regression formula using `rms` and `c` trained to predict the voicing state as determined by EGG data using the function `phonlab.egg2oq()` over the 10 speakers in the ASC corpus of Mandarin speech. The log odds of voicing in that training data was given by `odds = -4.31 + 0.17*rms + 13.29*c`, and probability of voicing is thus:  `probv = odds / (1 + odds)`.
 
     Parameters
     ==========
-        signal : string or ndarray
+        sig : string or ndarray
             The name of a sound file, or an array of audio samples
         f0_range : list of two integers, default = [63,400]
             The lowest and highest values to consider in pitch tracking.
         chan : int, default = 0
-            If the audio in signal is stereo, which channel should be analyzed?
+            If the audio in sig is stereo, which channel should be analyzed?
         fs_in : int
-            if `signal` is an array, pass the sampling rate, if signal is a file name this parameter is ignored.
+            if sig is an array, pass the sampling rate, if sig is a file name this parameter is ignored.
 
     Returns
     =======
@@ -62,7 +62,7 @@ def get_f0(signal, f0_range = [63,400], chan = 0, pre = 1.0, fs_in=12000):
     frame_length_sec = 0.075
     step_sec = 0.01
     
-    x, fs = get_signal(signal, fs = 12000, fs_in=fs_in, chan=chan, pre = 0)  # read waveform, no preemphasis
+    x, fs = get_signal(sig, fs = 12000, fs_in=fs_in, chan=chan, pre = 0)  # read waveform, no preemphasis
 
     frame_length = int(fs * frame_length_sec) 
     half_frame = frame_length//2
@@ -105,12 +105,12 @@ def get_f0(signal, f0_range = [63,400], chan = 0, pre = 1.0, fs_in=12000):
 
 
 
-def get_f0_srh(signal, f0_range = [60,400], chan = 0, pre = 0.94, fs_in=12000):
+def get_f0_srh(sig, f0_range = [60,400], chan = 0, pre = 0.94, fs_in=12000):
     # constants and global variables
     frame_length_sec = 0.1
     step_sec = 0.01
     
-    x, fs = get_signal(signal, fs = 12000, fs_in=fs_in, chan=chan, pre = 0)  # read waveform, no preemphasis
+    x, fs = get_signal(sig, fs = 12000, fs_in=fs_in, chan=chan, pre = 0)  # read waveform, no preemphasis
 
     frame_length = int(fs * frame_length_sec) 
     half_frame = frame_length//2
@@ -156,14 +156,14 @@ def get_f0_srh(signal, f0_range = [60,400], chan = 0, pre = 0.94, fs_in=12000):
                     'probv': probv[:nb], 'voiced':voiced[:nb]})
 
 
-def get_f0_ac(signal, f0_range = [60,400], fs_in= -1,chan = 0):
+def get_f0_ac(sig, f0_range = [60,400], fs_in= -1,chan = 0):
 
     # constants and global variables
     frame_length_sec = 1/f0_range[0]
     step_sec = 0.005
 
     # read waveform, no preemphasis, up-sample
-    x, fs = get_signal(signal, fs = 48000, fs_in=fs_in, chan=chan, pre = 0)  
+    x, fs = get_signal(sig, fs = 48000, fs_in=fs_in, chan=chan, pre = 0)  
 
     frame_length = int(fs * frame_length_sec) 
     half_frame = frame_length//2
@@ -198,20 +198,6 @@ def get_f0_ac(signal, f0_range = [60,400], fs_in= -1,chan = 0):
     return DataFrame({'sec': sec[:nb], 'f0':f0[:nb], 'rms':rms[:nb], 'c':c[:nb],
                     'probv': probv[:nb], 'voiced':voiced[:nb]})
 
-def get_f0_a(signal, f0_range = [60,400], chan = 0, pre = 0.94, fs_in=12000):
-
-    # constants and global variables
-    frame_length_sec = 1/f0_range[0]
-    step_sec = 0.005
-
-    # read waveform, no preemphasis, up-sample
-    x, fs = get_signal(signal, fs = 2000, fs_in=fs_in, chan=chan, pre = 0)  
-
-    # 
-    
-
-    return DataFrame({'sec': sec[:nb], 'f0':f0[:nb], 'rms':rms[:nb], 'c':c[:nb],
-                    'probv': probv[:nb], 'voiced':voiced[:nb]})
 
 
 

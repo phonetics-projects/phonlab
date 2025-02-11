@@ -2,7 +2,7 @@ __all__ = ['hz2bark', 'fricative']
 
 import nitime.algorithms as tsa  # has the multitaper routine
 import numpy as np
-import scipy.signal as sig
+import scipy.signal as signal
 
 def dB(x, out=None):
     if out is None:
@@ -137,25 +137,25 @@ def fricative(x,t,fs):
     mode = '500/80%/6dB'
     min_height =  np.min(spec) + (np.max(spec)-np.min(spec))*0.8  # 80% of the range in this spectrum
     min_prom = 6  # dB
-    (peaks,prop) = sig.find_peaks(spec[bottom_freq:top_freq], height=min_height,
+    (peaks,prop) = signal.find_peaks(spec[bottom_freq:top_freq], height=min_height,
                                   distance=min_dist, prominence=min_prom)
     if (len(peaks)<1):  # if we didn't find any peaks, relax the constraints
         mode = '500/70%/6dB'
         min_height =  np.min(spec) + (np.max(spec)-np.min(spec))*0.7
         min_prom = 6  # dB
-        (peaks,prop) = sig.find_peaks(spec[bottom_freq:top_freq],height=min_height,
+        (peaks,prop) = signal.find_peaks(spec[bottom_freq:top_freq],height=min_height,
                                       distance=min_dist, prominence=min_prom)
     if (len(peaks)<1):
         mode = '500/65%/4dB'
         min_height =  np.min(spec) + (np.max(spec)-np.min(spec))*0.65
         min_prom = 4  # dB
-        (peaks,prop) = sig.find_peaks(spec[bottom_freq:top_freq],height=min_height,
+        (peaks,prop) = signal.find_peaks(spec[bottom_freq:top_freq],height=min_height,
                                       distance=min_dist, prominence=min_prom)
     if (len(peaks)<1):
         mode = '500/33%/3dB'
         min_height =  np.min(spec) + (np.max(spec)-np.min(spec))*0.33
         min_prom = 3  # dB
-        (peaks,prop) = sig.find_peaks(spec[bottom_freq:top_freq],height=min_height,
+        (peaks,prop) = signal.find_peaks(spec[bottom_freq:top_freq],height=min_height,
                                       distance=min_dist, prominence=min_prom)
     if (len(peaks)<1):
         mode = 'no peak found'

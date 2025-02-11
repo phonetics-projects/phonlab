@@ -34,7 +34,7 @@ def peak_rms(y):
 
     return np.max(rms)
 
-def add_noise(signal,noise_type, fs_in = 22050, fs = 22050, chan = 0, snr = 0, target_amp = -2):
+def add_noise(sig,noise_type, fs_in = 22050, fs = 22050, chan = 0, snr = 0, target_amp = -2):
     """Add noise to audio
 
     This function is partially adapted from matlab code written by Kamil Wojcicki, UTD, July 2011. It does the following:
@@ -47,14 +47,14 @@ def add_noise(signal,noise_type, fs_in = 22050, fs = 22050, chan = 0, snr = 0, t
 
 Parameters
 ==========
-signal : Path or array
+sig : Path or array
         the name of a .wav file, or an array of audio samples
         
 noise_type : string
         The type of noise - one of "pink", "white", or "brown", or the name of a .wav file to be mixed with the signal_file.
 
 fs_in : int, default = 22050
-    If signal is an array, this is the sampling frequency of the audio in signal
+    If **sig** is an array, this is the sampling frequency of the audio in **sig**
 
 fs : int, default = 22050
     The desired sampling frequency of the output signal
@@ -100,7 +100,7 @@ This example adds white noise at a signal-to-noise ratio (SNR) of 3 dB
 
     """
 
-    x, fs = get_signal(signal,chan = chan, fs = fs, fs_in = fs_in, pre=0, quiet = True)
+    x, fs = get_signal(sig,chan = chan, fs = fs, fs_in = fs_in, pre=0, quiet = True)
 
     signal_peak = peak_rms(x)
     
