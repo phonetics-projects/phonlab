@@ -1,4 +1,4 @@
-__all__=['sgram']
+__all__=['compute_sgram','sgram']
 
 import scipy.io.wavfile as wavfile
 from scipy.signal import spectrogram
@@ -7,7 +7,50 @@ import numpy as np
 import matplotlib.pyplot as plt
 from ..utils.get_signal_ import get_signal
 
-def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000,band='wb',
+def compute_sgram(x,fs,w,preemph=0.94):
+    """Compute a spectrogram from input waveform array of samples.
+    
+    Parameters
+    ==========
+    x : ndarray
+        array of audio samples
+    fs : integer
+        The sampling frequency of the audio samples in `x` 
+    w : float
+        Length in seconds of the analysis window.  For an effective filter bandwidth of 300 Hz use w = 0.008, and for an effective filter bandwidth of 45 Hz use w = 0.04.
+    preemph : float, default = 0.94
+        add high frequency preemphasis before making the spectrogram, a value between 0 and 1
+
+    Returns
+    ======= 
+    f : ndarray
+        Array of sample frequencies.
+    t : ndarray
+        Array of segment times.
+    Sxx : ndarray
+        Spectrogram of the audio. By default, the last axis of Sxx corresponds to the segment times.
+        It is the magnitude spectrum on the decibel scale, so 20 * log10(Sxx) of the spectrogram
+        returned by scipy.signal.spectrogram.
+
+
+    """
+    step = 0.001  # step size between spectral slices (sec)
+    order = 13    # FFT size = 2 ^ order
+    
+    # set up parameters for signal.spectrogram()
+    noverlap = int((w-step)*fs) # skip forward by step between each frame
+    nperseg = int(w*fs)         # number of samples per waveform window
+    nfft = np.power(2,order)    # number of points in the fft
+    window = windows.blackmanharris(nperseg)
+
+    f,ts,Sxx = spectrogram(x,fs=fs,noverlap = noverlap, window=window, nperseg = nperseg, 
+                              nfft = nfft, scaling='spectrum', mode = 'magnitude', detrend = 'linear')
+    Sxx = 20 * np.log10(Sxx+1)  # put spectrum on decibel scale
+
+    return (f,ts, Sxx)
+    
+
+def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
           preemph = 0.94, save_name='',slice_time=-1,cmap='Greys'):
     """Make pretty good looking spectrograms
 
@@ -45,8 +88,7 @@ def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000,band='wb',
         name of a matplotlib colormap for the spectrogram
 
     Returns
-    =======
-    
+    ======= 
     ax : a matplotlib axes object
         The plot axes is returned
     f : ndarray
@@ -94,32 +136,19 @@ def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000,band='wb',
        ..
 
     """
-    
     fs = tf*2    # top frequency is the Nyquist frequency for the analysis
-    nb = 0.04    # analysis window size for narrow band spectrogram (sec)
-    wb = 0.008   # analysis window size for wide band spectrogram
-    step = 0.001  # step size between spectral slices (sec)
-    order = 13    # FFT size = 2 ^ order
-    
+
     if band=='nb':
-        w = nb
+        w = 0.04    # analysis window size for narrow band spectrogram (sec)
     else:
-        w = wb
-     
+        w = 0.008   # analysis window size for wide band spectrogram
+
     # set up parameters for the spectrogram window
     figheight = 4.5  # height in inches
     max_figwidth = 12 # maximum figure width in inches
     inches_per_sec = 6.5 # desired width scaling of printed spectrogram
     slice_width = 1.5  # how much space to give to the spectral slice
     cmap = plt.get_cmap(cmap)
-
-    # set up parameters for signal.spectrogram()
-    noverlap = int((w-step)*fs) # skip forward by step between each frame
-    nperseg = int(w*fs)         # number of samples per waveform window
-    nfft = np.power(2,order)    # number of points in the fft
-    scaling = 'spectrum'        # see signal.spectrogram documentation
-    mode = 'magnitude'
-    window = windows.blackmanharris(nperseg)
     
     # ----------- read and condition waveform -----------------------
     x, fs = get_signal(sig,chan = chan, fs = fs, fs_in = fs_in, pre = preemph)
@@ -133,11 +162,8 @@ def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000,band='wb',
     
     x2 = np.rint(32000 * (x[i1:i2]/max(x[i1:i2]))).astype(np.intc)  # scale the signal chunk
 
-
     # ----------- compute the spectrogram ---------------------------------
-    f,ts,Sxx = spectrogram(x2,fs=fs,noverlap = noverlap, window=window, nperseg = nperseg, 
-                              nfft = nfft, scaling=scaling, mode = mode, detrend = 'linear')
-    Sxx = 20 * np.log10(Sxx+1)  # put spectrum on decibel scale
+    f,ts,Sxx = compute_sgram(x2,fs,w,preemph)
     
     # ------------ display in a matplotlib figure --------------------
     ts = np.add(ts,start)  # increment the spectrogram time by the start value
@@ -154,7 +180,6 @@ def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000,band='wb',
         ax1 = fig.add_subplot(111)
 
     extent = (min(ts),max(ts),min(f),max(f))  # get the time and frequency values for indices.
-
     im = ax1.imshow(Sxx, aspect='auto', interpolation='nearest', cmap=cmap, vmin = 25, 
                 extent = extent, origin='lower')
     ax1.grid(which='major', axis='y', linestyle=':')  # add grid lines
