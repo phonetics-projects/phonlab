@@ -1,6 +1,5 @@
 __all__=['Audspec', ]
 
-import itertools
 import librosa
 import numpy as np
 from numpy.polynomial import Polynomial
