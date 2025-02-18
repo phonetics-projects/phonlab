@@ -33,6 +33,8 @@ def compute_sgram(x,fs,w,preemph=0.94):
 
 
     """
+    x2 = np.rint(32000 * (x/max(x))).astype(np.intc)  # scale the signal
+
     step = 0.001  # step size between spectral slices (sec)
     order = 13    # FFT size = 2 ^ order
     
@@ -42,7 +44,7 @@ def compute_sgram(x,fs,w,preemph=0.94):
     nfft = np.power(2,order)    # number of points in the fft
     window = windows.blackmanharris(nperseg)
 
-    f,ts,Sxx = spectrogram(x,fs=fs,noverlap = noverlap, window=window, nperseg = nperseg, 
+    f,ts,Sxx = spectrogram(x2,fs=fs,noverlap = noverlap, window=window, nperseg = nperseg, 
                               nfft = nfft, scaling='spectrum', mode = 'magnitude', detrend = 'linear')
     Sxx = 20 * np.log10(Sxx+1)  # put spectrum on decibel scale
 
@@ -159,10 +161,9 @@ def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
     if i1>i2:              # don't let start follow end
         i1=0
     
-    x2 = np.rint(32000 * (x[i1:i2]/max(x[i1:i2]))).astype(np.intc)  # scale the signal chunk
-
+    
     # ----------- compute the spectrogram ---------------------------------
-    f,ts,Sxx = compute_sgram(x2,fs,w,preemph)
+    f,ts,Sxx = compute_sgram(x,fs,w,preemph)
     
     # ------------ display in a matplotlib figure --------------------
     ts = np.add(ts,start)  # increment the spectrogram time by the start value
