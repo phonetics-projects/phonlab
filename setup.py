@@ -13,7 +13,7 @@ setup(
     'numpy', 'pandas', 'librosa',
     'nitime','matplotlib',
     'praat-parselmouth', 'scipy',
-    'soundfile',
+      'soundfile', 'srt', 'colorednoise',
   ],
   scripts = [
   ],
