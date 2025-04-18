@@ -2,6 +2,7 @@ Acoustic Phonetics
 ==================
 
 .. autofunction:: phonlab.sgram
+.. autofunction:: phonlab.compute_sgram
 .. autofunction:: phonlab.track_formants	
 .. autofunction:: phonlab.fricative
 .. autofunction:: phonlab.burst

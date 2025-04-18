@@ -1,8 +1,62 @@
-__all__=['get_signal']
+__all__=['loadsig','get_signal']
 
 import numpy as np
 import librosa
 from scipy.signal import resample
+
+def loadsig(path, chansel=[], offset=0.0, duration=None, rate=None, dtype=np.float32):
+    '''
+    Load signal(s) from an audio file via `librosa.load`.
+    
+    This function does *not* follow librosa's default practices of (1) resampling
+    to a standard sample rate; or (2) conversion of multichannel audio to mono.
+    By default audio samples are returned at the same rate as the input file, and channels
+    are returned along the first dimension of the output array `y`.
+
+    Parameters
+    ----------
+
+    path : string, int, pathlib.Path, soundfile.SoundFile, audioread object, or file-like object
+    The input audio file.
+
+    chansel : int, list of int (default [])
+    Selection of channels to be returned from the input audio file, starting
+    with `0` for the first channel. For empty list `[]`, return all channels
+    in order as they appear in the input audio file. This parameter can be used to
+    select channels out of order, drop channels, and repeat channels.
+
+    offset : float (default 0.0)
+    start reading after this time (in seconds)
+
+    duration : float
+    only load up to this much audio (in seconds)
+
+    rate : number > 0 [scalar]
+    target sampling rate. 'None' returns `y` at the file's native sampling rate.
+
+    dtype : numeric type (default float32)
+    data type of `y`. No scaling is performed when the requested dtype differs from
+    the native dtype of the file. Float types are usually scaled to the range `[-1.0, 1.0)`,
+    and integer types potentially make use of the full range of integers available to
+    their size, e.g. `int16` may be in the range `[-32768, 32767]`.
+
+    Returns
+    -------
+
+    y : np.ndarray [shape=(n,) or (..., n)]
+    audio time series. Multichannel is supported.
+
+    rate : number > 0 [scalar]
+    sampling rate of `y` 
+    '''
+    y, rate = librosa.load(
+        path, sr=rate, mono=False, offset=offset, duration=duration, dtype=dtype
+    )
+    if y.ndim == 1:
+        y = np.expand_dims(y, axis=0)
+    if chansel == []:
+        chansel = np.arange(y.shape[0], dtype=np.int16)
+    return *list(y[chansel, :]), rate
 
 
 def get_signal(sig, fs = 22050, fs_in=22050, chan = 0, pre = 0, outtype = "float", quiet = False):
@@ -62,7 +116,7 @@ Open a sound file and use the existing (native) sampling rate of the file.
             x = resample(x,new_size)  # now sampled at desired sampling freq
     else:  # sig is a file name
         try:
-            x, fs = librosa.load(sig, sr=fs,dtype=np.float32)  # read waveform
+            x, fs = librosa.load(sig, sr=fs, mono=False, dtype=np.float32)  # read waveform
         except OSError:
             print('cannot open sound file: ', sig)
     
