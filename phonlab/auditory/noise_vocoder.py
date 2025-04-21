@@ -2,7 +2,7 @@ __all__=["shannon_bands", "third_octave_bands", "vocode", "apply_filterbank"]
 
 import numpy as np
 import scipy
-from ..utils.get_signal_ import get_signal
+from ..utils.get_signal_ import prep_audio
 from ..acoustic.amp_env import amplitude_envelope
 
 
@@ -166,7 +166,7 @@ Example
 
 
     """
-    x, fs = get_signal(sig,chan = chan, fs = fs, fs_in = fs_in, pre=0, quiet = True)
+    x, fs = prep_audio(sig,chan = chan, fs = fs, fs_in = fs_in, pre=0, quiet = True)
 
     n_channels = len(bands)
     n_samples = x.shape[-1]

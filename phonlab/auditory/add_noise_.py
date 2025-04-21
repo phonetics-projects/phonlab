@@ -3,7 +3,7 @@ __all__ = ["peak_rms", "add_noise"]
 import numpy as np
 import matplotlib.pyplot as plt
 import random
-from ..utils.get_signal_ import get_signal
+from ..utils.get_signal_ import prep_audio
 
 
 import colorednoise as cn  # installed from: https://github.com/felixpatzelt/colorednoise
@@ -100,7 +100,7 @@ This example adds white noise at a signal-to-noise ratio (SNR) of 3 dB
 
     """
 
-    x, fs = get_signal(sig,chan = chan, fs = fs, fs_in = fs_in, pre=0, quiet = True)
+    x, fs = prep_audio(sig,chan = chan, fs = fs, fs_in = fs_in, pre=0, quiet = True)
 
     signal_peak = peak_rms(x)
     

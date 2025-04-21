@@ -5,7 +5,7 @@ import numpy as np
 from numpy.polynomial import Polynomial
 from scipy.fft import rfft
 import scipy.stats as stats
-from ..utils.get_signal_ import get_signal
+from ..utils.get_signal_ import prep_audio
 
 class Audspec(object):
     """ Create an an Audspec object; analysis parameters and routines for creating auditory spectrograms.
@@ -433,7 +433,7 @@ References
     Patterson, R.D. (1976) Auditory filter shapes derived with noise stimuli. J. Acoust. Soc. Am. 59, 640-54.
         '''
         
-        x, fs = get_signal(sig,chan = chan, fs = self.fs, fs_in = fs_in, pre = preemph)
+        x, fs = prep_audio(sig,chan = chan, fs = self.fs, fs_in = fs_in, pre = preemph)
 
         (sgram, self.time_axis) = self._make_sgram(x, kwargs)
         self.sgram = sgram + self.loud

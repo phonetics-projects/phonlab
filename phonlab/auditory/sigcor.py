@@ -2,7 +2,7 @@ __all__=["sigcor_noise"]
 
 import librosa
 import numpy as np
-from ..utils.get_signal_ import get_signal
+from ..utils.get_signal_ import prep_audio
 
 def sigcor_noise(sig, flip_rate = 0.5, start=0, end = -1, fs_in = 22050, fs = 22050, chan=0):
     """Add signal correlated noise to an audio file. 
@@ -44,7 +44,7 @@ def sigcor_noise(sig, flip_rate = 0.5, start=0, end = -1, fs_in = 22050, fs = 22
     converted to mono (if not mono already) by adding the left and right channels.
         
     """
-    x,fs = get_signal(sig, fs=fs, fs_in=fs_in, pre=0, chan = chan)
+    x,fs = prep_audio(sig, fs=fs, fs_in=fs_in, pre=0, chan = chan)
     
     start = int(start*fs)
     end = int(end*fs)

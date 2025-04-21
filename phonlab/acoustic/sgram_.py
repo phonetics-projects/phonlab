@@ -4,9 +4,9 @@ from scipy.signal import spectrogram
 from scipy.signal import windows
 import numpy as np
 import matplotlib.pyplot as plt
-from ..utils.get_signal_ import get_signal
+from ..utils.get_signal_ import prep_audio
 
-def compute_sgram(x,fs,w,preemph=0.94):
+def compute_sgram(x,fs,w):
     """Compute a spectrogram from input waveform array of samples.
     
     Parameters
@@ -17,8 +17,6 @@ def compute_sgram(x,fs,w,preemph=0.94):
         The sampling frequency of the audio samples in `x` 
     w : float
         Length in seconds of the analysis window.  For an effective filter bandwidth of 300 Hz use w = 0.008, and for an effective filter bandwidth of 45 Hz use w = 0.04.
-    preemph : float, default = 0.94
-        add high frequency preemphasis before making the spectrogram, a value between 0 and 1
 
     Returns
     ======= 
@@ -152,7 +150,7 @@ def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
     cmap = plt.get_cmap(cmap)
     
     # ----------- read and condition waveform -----------------------
-    x, fs = get_signal(sig,chan = chan, fs = fs, fs_in = fs_in, pre = preemph)
+    x, fs = prep_audio(sig,chan = chan, fs = fs, fs_in = fs_in, pre = preemph)
 
     i1 = int(start * fs)   # index of starting time: seconds to samples
     i2 = int(end * fs)     # index of ending time
@@ -163,7 +161,7 @@ def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
     
     
     # ----------- compute the spectrogram ---------------------------------
-    f,ts,Sxx = compute_sgram(x,fs,w,preemph)
+    f,ts,Sxx = compute_sgram(x[i1:i2],fs,w)
     
     # ------------ display in a matplotlib figure --------------------
     ts = np.add(ts,start)  # increment the spectrogram time by the start value

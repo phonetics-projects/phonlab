@@ -2,7 +2,7 @@ __all__=['amplitude_envelope']
 
 import numpy as np
 import scipy
-from ..utils.get_signal_ import get_signal
+from ..utils.get_signal_ import prep_audio
 
 def amplitude_envelope(sig, bounds = [], fs_in=22050, fs=22050, chan = 0, cutoff=30, order=2 ):
     """ Get the amplitude envelope of an audio signal.  
@@ -59,7 +59,7 @@ def amplitude_envelope(sig, bounds = [], fs_in=22050, fs=22050, chan = 0, cutoff
 
     """
     
-    x, fs = get_signal(sig,chan = chan, fs = fs, fs_in = fs_in, pre=0, quiet = True)
+    x, fs = prep_audio(sig,chan = chan, fs = fs, fs_in = fs_in, pre=0, quiet = True)
 
     if bounds:
         coefs = scipy.signal.butter(8, bounds, fs=fs, btype='bandpass', output='sos')

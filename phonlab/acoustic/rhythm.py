@@ -84,7 +84,7 @@ def get_rhythm_spectrum(x,fs,chunk_size = 4):
     
     return (freq[i],powsd[i]) 
     
-def rhythmogram(signal):
+def rhythmogram(sig):
     """Return a rhythm spectrogram - ala Tilsen & Johnson, 2008
 
     This approach to measuring rythmicity was described by Tilsen and Johnson (2008).  The code here and in `get_rhythm_spectrum` is a translation and extension of Tilsen's Matlab code.  This function takes the name of an audio file and computes spectra of the bandpass filtered amplitude envelope. Spectra are computed twice a second (i.e. the step size is 0.5 seconds) over windows that are 4 seconds long. It finds periodicity in the amplitude envelope and returns a spectrogram with a frequency range from 1 to 7 Hz, tracking components that repeat at intervals of 1 second down to a repetition rate of 140 ms.

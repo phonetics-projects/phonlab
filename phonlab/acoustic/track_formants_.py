@@ -10,7 +10,7 @@ from scipy import signal
 from scipy import fft
 import librosa
 from pandas import DataFrame
-from ..utils.get_signal_ import get_signal
+from ..utils.get_signal_ import prep_audio
 
 # constants and global variables
 SR = 12000
@@ -774,7 +774,7 @@ def LPC_tracking(sig, f0_range = [63,400], lpc_order = -1, chan = 0, preemphasis
 
     if not quiet: print(f"LPC_tracking(), with order set to {lpc_order}, and pitch range {f0_range}")
 
-    x, fs = get_signal(sig, fs = SR, fs_in=fs_in, chan=chan, pre = 0,quiet = quiet)  # read waveform, no preemphasis
+    x, fs = prep_audio(sig, fs = SR, fs_in=fs_in, chan=chan, pre = 0,quiet = quiet)  # read waveform, no preemphasis
 
     rms = librosa.feature.rms(y=x,frame_length=frame_length, hop_length=step)[0,1:-1] # get rms amplitude
     rms = 20*np.log10(rms/np.max(rms))
@@ -830,7 +830,7 @@ def IFC_tracking(sig, chan = 0, preemphasis = 1.0, fs_in=12000,
         print(f"IFC_tracking(), using method {g_method}, with speaker set to {speaker}, and pitch range {f0_range}")
 
 
-    x, fs = get_signal(sig, fs = SR, fs_in=fs_in, chan=chan, 
+    x, fs = prep_audio(sig, fs = SR, fs_in=fs_in, chan=chan, 
                        pre = 0, quiet = quiet)  # read waveform, no preemphasis
 
     rms = librosa.feature.rms(y=x,frame_length=frame_length, hop_length=step)[0,1:-1] # get rms amplitude
@@ -938,10 +938,10 @@ Use Inverse Filter Control to track formants in a file
 >>> df = phon.track_formants("sf3_cln.wav",method='ifc',speaker=1)
 
 The next example uses LPC analysis, which by default will try to pick the correct `lpc_order` for the speaker.
-An array of samples is loaded by `get_signal()` and then passed to `track_formants()`.  Then `sgram()` plots
+An array of samples is loaded by `prep_audio()` and then passed to `track_formants()`.  Then `sgram()` plots
 the spectrogram of `x`, and the seaborn graphics package is used to add the formants to the spectrogram.
 
->>> x,fs = phon.get_signal("sf3_cln.wav")
+>>> x,fs = phon.prep_audio("sf3_cln.wav")
 >>> df = phon.track_formants(x,fs_in=fs)
 >>>
 >>> phon.sgram(x, fs_in=fs, cmap="Blues")  # plot the spectrogram

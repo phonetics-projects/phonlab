@@ -1,4 +1,4 @@
-__all__=['loadsig','get_signal']
+__all__=['loadsig','prep_audio']
 
 import numpy as np
 import librosa
@@ -59,28 +59,33 @@ def loadsig(path, chansel=[], offset=0.0, duration=None, rate=None, dtype=np.flo
     return *list(y[chansel, :]), rate
 
 
-def get_signal(sig, fs = 22050, fs_in=22050, chan = 0, pre = 0, outtype = "float", quiet = False):
-    """ A utility function to prepare an audio waveform for acoustic analysis.  Calls Librosa.load() if a file name is passed in `signal`, and conditions the audio array according to the paramters.  If `signal` is an array of samples, you should pass in the sampling rate of the audio in `fs_in`.
+def prep_audio(sig, fs = 22050, fs_in=22050, chan = 0, pre = 0, scale = True, outtype = "float", quiet = False):
+    """ A utility function to prepare an audio waveform for acoustic analysis.  Calls loadsig() if a file name is passed in `sig`, and conditions the audio array according to the paramters.  If `sig` is an array of samples, you should pass in the sampling rate of the audio in `fs_in`.
     
 Parameters
 ==========
-    sig : string or array
-        Either a path to a sound file to read, or a numpy array with audio samples in it. If the audio (either from the soundfile or in the array) is stereo, only one channel will be kept.
+    sig : path or ndarray
+        Either a  sound file to open with loadsig (a string, int, pathlib.Path, soundfile.Soundfile, audioread object, or file-like object), or a numpy array with audio samples in it. 
 
     fs : int, default = 22050
-        The desired sampling rate of the audio samples that will be returned by the function.  Set fs=None if you are opening a sound file and want to use the native sampling rate of the file.
+        The desired sampling rate of the audio samples that will be returned by the function.  
+        Set **fs**=None if you want to use the native sampling rate of the file or the **fs_in** sampling rate of **sig**.
      
     fs_in : int, default=22050
-        The sampling rate of the sound if **sig** is an array.  This parameter is ignored if **sig** is a filename.
+        The sampling rate of the sound if **sig** is an array.  This parameter is ignored if **sig** is a path.
 
     chan : int, default = 0
-        which channel of a stereo file to keep - default is 0 (the left channel)
+        which channel of multichannel audio to keep - default is 0 (the left channel)
 
-    preemphasis : float, default = 0
+    pre : float, default = 0
         how much high frequency preemphasis to apply (between 0 and 1).
 
+    scale: boolean, default = True
+        scale the samples to use the full range for audio samples 
+
     outtype : string {"float", "int"), default = "float"
-        In some cases (like for IFC formant tracking) we want the audio in integer format. 
+        The "int" waveform is 16 bit integers - in the range from [-32768, 32767].
+        The "float" waveform is 32 bit floating point numbers - in the range from [-1, 1].
 
 
 Returns
@@ -89,7 +94,7 @@ Returns
         a 1D numpy array with audio samples 
     
     fs : int
-        the sampling rate of the audio in **y** - should match parameter **fs**
+        the sampling rate of the audio in **y** - should match parameter **fs** if a number was given there, otherwise is the native sampling rate of the file, or is the **fs_in** of the input array.
 
 Raises
 ======
@@ -107,8 +112,11 @@ Open a sound file and use the existing (native) sampling rate of the file.
     if type(sig) == np.ndarray:
         x = sig
         if fs==None: 
-            if not quiet: print('fs is being set to 22050, was None')
-            fs=22050  # None 
+            if not quiet: print('sampling rate is being set to 22050, was None')
+            fs=fs_in  # None 
+        if len(x.shape) == 2:  # if this is a 2D array, use one of the channels
+            if not quiet: print(f'Stereo file, using channel {chan}')
+            x = x[:,chan]
         if (fs_in != fs):  # resample to 'fs' samples per second
             if not quiet: print(f'Resampling from {fs_in} to {fs}')
             resample_ratio = fs/fs_in
@@ -116,17 +124,19 @@ Open a sound file and use the existing (native) sampling rate of the file.
             x = resample(x,new_size)  # now sampled at desired sampling freq
     else:  # sig is a file name
         try:
-            x, fs = librosa.load(sig, sr=fs, mono=False, dtype=np.float32)  # read waveform
+            *chans, fs = loadsig(sig, rate=fs)  # read waveform
         except OSError:
             print('cannot open sound file: ', sig)
-    
-    if len(x.shape) == 2:  # if this is a stereo file, use one of the channels
+        if len(chans) > 1:
             if not quiet: print(f'Stereo file, using channel {chan}')
-            x = x[:,chan]
+            x = chans[chan]
+        else:
+            x = chans[0]  # in the case of a mono file
+    
     if (np.max(x) + np.min(x)) < 0:  x = -x   #  set the polarity of the signal
-    if outtype == "int":  
-        x = np.rint(32000 * (x/np.max(x))).astype(np.float64)  
     if (pre > 0): y = np.append(x[0], x[1:] - pre * x[:-1])  # apply pre-emphasis
     else: y = x
-    
+    if scale: y = y/np.max(y) * 0.99  # scale to about full range
+    if outtype == "int":  y = np.rint(np.iinfo(np.int16).max * y).astype(np.int16)
+
     return y,fs
