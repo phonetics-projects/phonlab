@@ -11,43 +11,53 @@ def loadsig(path, chansel=[], offset=0.0, duration=None, rate=None, dtype=np.flo
     This function does *not* follow librosa's default practices of (1) resampling
     to a standard sample rate; or (2) conversion of multichannel audio to mono.
     By default audio samples are returned at the same rate as the input file, and channels
-    are returned along the first dimension of the output array `y`.
+    are returned along the first dimension of the output array **y**.
 
-    Parameters
-    ----------
+Parameters
+==========
 
     path : string, int, pathlib.Path, soundfile.SoundFile, audioread object, or file-like object
-    The input audio file.
+        The input audio file.
 
     chansel : int, list of int (default [])
-    Selection of channels to be returned from the input audio file, starting
-    with `0` for the first channel. For empty list `[]`, return all channels
-    in order as they appear in the input audio file. This parameter can be used to
-    select channels out of order, drop channels, and repeat channels.
+        Selection of channels to be returned from the input audio file, starting with `0` for the first channel. For empty list `[]`, return all channels in order as they appear in the input audio file. This parameter can be used to select channels out of order, drop channels, and repeat channels.
 
     offset : float (default 0.0)
-    start reading after this time (in seconds)
+        start reading after this time (in seconds)
 
     duration : float
-    only load up to this much audio (in seconds)
+        only load up to this much audio (in seconds)
 
     rate : number > 0 [scalar]
-    target sampling rate. 'None' returns `y` at the file's native sampling rate.
+        target sampling rate. 'None' returns **y** at the file's native sampling rate.
 
     dtype : numeric type (default float32)
-    data type of `y`. No scaling is performed when the requested dtype differs from
-    the native dtype of the file. Float types are usually scaled to the range `[-1.0, 1.0)`,
-    and integer types potentially make use of the full range of integers available to
-    their size, e.g. `int16` may be in the range `[-32768, 32767]`.
+        data type of **y**. No scaling is performed when the requested dtype differs from the native dtype of the file. Float types are usually scaled to the range `[-1.0, 1.0)`, and integer types potentially make use of the full range of integers available to their size, e.g. `int16` may be in the range `[-32768, 32767]`.
 
-    Returns
-    -------
-
+Returns
+=======
     y : np.ndarray [shape=(n,) or (..., n)]
-    audio time series. Multichannel is supported.
+        audio time series. Multichannel is supported.
 
-    rate : number > 0 [scalar]
-    sampling rate of `y` 
+    fs : number > 0 [scalar]
+        sampling rate of **y** 
+
+Example
+=======
+Load a stereo audio file, report the sampling rate of the file, and plot the left channel.  Note, this will produce an error with a one channel file.
+
+>>> left, right, fs = loadsig('stereo.wav')
+>>> print(fs)
+>>> plt.plot(left);
+
+Load a wav file that has an unknown number of channels, downsampling to 12 kHz sampling rate. 
+Use **len(chans)** to determine how many channels there are in the file, and plot the last channel.
+
+>>> *chans, fs = loadsig('threechan.wav', rate = 12000)
+>>> print(len(chans))      # the number of channels
+>>> plt.plot(chans[-1])    # plot the last of the channels
+
+
     '''
     y, rate = librosa.load(
         path, sr=rate, mono=False, offset=offset, duration=duration, dtype=dtype
@@ -60,7 +70,7 @@ def loadsig(path, chansel=[], offset=0.0, duration=None, rate=None, dtype=np.flo
 
 
 def prep_audio(sig, fs = 22050, fs_in=22050, chan = 0, pre = 0, scale = True, outtype = "float", quiet = False):
-    """ A utility function to prepare an audio waveform for acoustic analysis.  Calls loadsig() if a file name is passed in `sig`, and conditions the audio array according to the paramters.  If `sig` is an array of samples, you should pass in the sampling rate of the audio in `fs_in`.
+    """ A utility function to prepare an audio waveform for acoustic analysis.  Calls phonlab.loadsig() if a file name is passed in `sig`, and conditions the audio array according to the paramters.  If `sig` is an array of samples, you should pass in the sampling rate of the audio in `fs_in`.
     
 Parameters
 ==========
@@ -105,7 +115,7 @@ Example
 =======
 Open a sound file and use the existing (native) sampling rate of the file.
 
->>> x,fs = phon.get_signal("sound.wav", pre=1,fs=None)
+>>> x,fs = phon.prep_audio("sound.wav", pre=1,fs=None)
 
     """
     

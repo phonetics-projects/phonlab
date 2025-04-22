@@ -8,7 +8,7 @@ Acoustic Phonetics
 .. autofunction:: phonlab.burst
 .. autofunction:: phonlab.amplitude_envelope
 .. autofunction:: phonlab.get_f0
-
+.. autofunction:: phonlab.get_f0_acd
 
 Tidypraat functions
 -------------------
