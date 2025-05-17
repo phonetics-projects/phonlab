@@ -1,7 +1,7 @@
 __all__=['get_f0','get_f0_srh','get_f0_cor', 'get_f0_acd']
 
 import numpy as np
-from scipy.signal import windows, find_peaks, spectrogram
+from scipy.signal import windows, find_peaks, spectrogram, peak_prominences
 from scipy import fft
 from librosa import feature, util, lpc
 from pandas import DataFrame
@@ -106,7 +106,6 @@ def get_f0(sig, f0_range = [63,400], chan = 0, pre = 1.0, fs_in=12000):
 
 
 def get_f0_srh(sig, f0_range = [60,400], chan = 0, pre = 0.94, fs_in=12000):
-    # constants and global variables
     frame_length_sec = 0.1
     step_sec = 0.01
     
@@ -169,7 +168,7 @@ def get_f0_cor(sig, f0_range = [60,400], fs_in= -1,chan = 0):
     half_frame = frame_length//2
     step = int(fs * step_sec)  # number of samples between frames
 
-    rms = feature.rms(y=x,frame_length=frame_length, hop_length=step)[0,1:-1] # get rms amplitude
+    rms = feature.rms(y=x,frame_length=frame_length, hop_length=step)[0,0:-1] # get rms amplitude
     rms = 20*np.log10(rms/np.max(rms))
 
     frames = util.frame(x, frame_length=frame_length, hop_length=step,axis=0)    
@@ -213,18 +212,26 @@ def f0_from_harmonics(f_p,i,h):
     thresh = 0.05 * f0[0]  # 5% of the f0 value
     ex = 0  # number of harmonics over h=11
 
-    h = h+1  # now look for the next harmonic
-
     for j in range(i+1,N):  # step through the spectral peaks
-        if abs((f_p[j]/h)-f0[0]) < thresh:  # close enough to be the next harmonic
-            m[j] = h
-            f0 = np.append(f0,f_p[j]/h)
+        lowest_deviation = 1000
+        best_f0 = np.nan
+        for k in range(h+1,7):  # step through harmonics
+            test_f0 = f_p[j]/k
+            deviation = abs(test_f0-f0[0])
+            if deviation < lowest_deviation: # pick the best harmonic number for this peak
+                lowest_deviation = deviation
+                best_f0 = test_f0
+                best_k = k
+        if lowest_deviation < thresh:  # close enough to be a harmonic
+            m[j] = best_k
+            f0 = np.append(f0,best_f0)
             if (h>11): ex = ex + 1
             h=h+1
     C = ((h-1) + (N - ex))/ np.count_nonzero(m)
+    
     return C,np.mean(f0)  #,np.int32(m)
     
-def get_f0_acd(sig, f0_range = [60,400], fs_in= -1,chan = 0, crit_c = 3.5):
+def get_f0_acd(sig, f0_range = [60,500], fs_in= -1,chan = 0, crit_c = 3.5,prom=10, peak_height = 0.4):
     """Track the fundamental frequency of voicing (f0)
 
     The method in this function implements the 'approximate common denominator" algorithm proposed by Aliik, Mihkla and Ross (1984), which was an improvement on the method proposed by Duifuis, Willems and Sluyter (1982).  The method finds candidate harmonic peaks in the spectrum up to 6 times the highest possible F0 given in the **f0_range** parameter, and chooses a value of f0 that will give the best fit for the harmonic pattern.
@@ -275,12 +282,10 @@ def get_f0_acd(sig, f0_range = [60,400], fs_in= -1,chan = 0, crit_c = 3.5):
        ..
 
     """
-
     down_fs = f0_range[1] * 6  # allow for 5 harmonics of the highest f0
     x, fs = prep_audio(sig, fs = down_fs, fs_in = fs_in, pre=0, chan=chan)  
 
-    frame_length_sec = 1/f0_range[0]
-    step_sec = 0.005
+    step_sec = 0.002
     N = 512    # FFT size
 
     frame_len = int(down_fs*0.04)  # forty ms frame
@@ -297,11 +302,21 @@ def get_f0_acd(sig, f0_range = [60,400], fs_in= -1,chan = 0, crit_c = 3.5):
     c = np.empty((nb))
     rms = 20 * np.log10(np.sqrt(np.divide(np.sum(np.square(Sxx),axis=0),len(f)))) 
     
-    min_height = 0.01 * np.max(Sxx)  # 10% of the max peak in the spectrogram
-    print(np.max(Sxx), np.min(Sxx))
+    Sxx = 20 * np.log10(Sxx)
+
+    min_height = np.max(Sxx) - peak_height * np.abs(np.max(Sxx) - np.min(Sxx)) 
     min_dist = int(f0_range[0]/(down_fs/N)) # min distance btw harmonics
+    max_dist = int(f0_range[1]/(down_fs/N)) 
+    print(f'min_height = {min_height}, max = {np.max(Sxx)}, min = {np.min(Sxx)}')
+
     for idx in range(nb):
-        peaks,props = find_peaks(Sxx[:,idx], height = min_height, distance = min_dist)
+        peaks,props = find_peaks(Sxx[:,idx], height = min_height, 
+                                 distance = min_dist, prominence=prom, 
+                                 wlen=max_dist)
+        if idx==45: 
+            proms = peak_prominences(Sxx[:,idx], peaks, wlen=max_dist)
+            print(props['peak_heights'],proms[0])
+            
         c[idx] = 5
         f0[idx] = np.nan
         if len(peaks)>2:  # we did find some harmonics?
@@ -309,6 +324,7 @@ def get_f0_acd(sig, f0_range = [60,400], fs_in= -1,chan = 0, crit_c = 3.5):
                 for h in range(1,4): # treat it as one of the first three harmonics
                     C,_f0 = f0_from_harmonics(f[peaks],p,h)
                     if C < c[idx]:  # keep the best peak/harmonic alignment
+                        #print(f'frame {idx}, C = {C}')
                         c[idx] = C
                         if C<crit_c: 
                             f0[idx] = _f0

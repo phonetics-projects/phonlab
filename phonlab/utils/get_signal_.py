@@ -79,13 +79,13 @@ Parameters
 
     fs : int, default = 22050
         The desired sampling rate of the audio samples that will be returned by the function.  
-        Set **fs**=None if you want to use the native sampling rate of the file or the **fs_in** sampling rate of **sig**.
+        Set **fs** = None if you want to use the native sampling rate of the file or the **fs_in** sampling rate of **sig**.
      
     fs_in : int, default=22050
         The sampling rate of the sound if **sig** is an array.  This parameter is ignored if **sig** is a path.
 
     chan : int, default = 0
-        which channel of multichannel audio to keep - default is 0 (the left channel)
+        which channel of multichannel audio to keep - default is 0 (the left channel in stereo audio)
 
     pre : float, default = 0
         how much high frequency preemphasis to apply (between 0 and 1).
@@ -132,11 +132,8 @@ Open a sound file and use the existing (native) sampling rate of the file.
             resample_ratio = fs/fs_in
             new_size = int(len(x) * resample_ratio)  # size of the downsampled version
             x = resample(x,new_size)  # now sampled at desired sampling freq
-    else:  # sig is a file name
-        try:
-            *chans, fs = loadsig(sig, rate=fs)  # read waveform
-        except OSError:
-            print('cannot open sound file: ', sig)
+    else:  # sig is a file
+        *chans, fs = loadsig(sig, rate=fs)  # read waveform, resample to desired sampling rate
         if len(chans) > 1:
             if not quiet: print(f'Stereo file, using channel {chan}')
             x = chans[chan]
