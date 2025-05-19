@@ -267,7 +267,7 @@ Note
         divdf = df.merge(divdf, left_index=True, right_index=True)
     return divdf
 
-def interpolate_measures(meas_df, meas_ts, interp_df=None, interp_ts=None):
+def interpolate_measures(meas_df, meas_ts, interp_df=None, interp_ts=None, tol=None):
     '''
     Interpolate measurements from an analysis dataframe consisting of a time-based
     column and one or more columns containing measurement values. Linear interpolation
@@ -296,6 +296,12 @@ interp_ts : str, array-like or list
     If a string, `interp_ts` is the name of a time column in `interp_df`. If an array
     or list of time values, then `interp_df` must be `None`.
 
+tol : float (default None)
+    Maximum allowed distance from each interpolation timepoint to its nearest
+    measurement timepoint. If None, the tolerance will be automatically
+    calculated as half the mean step between measurement timepoints.
+
+
 Returns
 -------
 
@@ -309,6 +315,22 @@ df : dataframe
     
     interp_ts = interp_ts if interp_df is None else interp_df[interp_ts]
     meas_ts = meas_df[meas_ts]
+    # Default tolerance is half the apparent measurement timestep.
+    tol = np.mean(np.diff(meas_ts)) / 2 if tol is None else tol
+    # An interpolation timepoint is out of tolerance if its minimum absolute
+    # distance to a measurement timepoint is greater than `tol`
+    outoftol = np.min(
+        np.abs(
+            np.expand_dims(meas_ts, axis=0) - np.expand_dims(interp_ts, axis=1)
+        ),
+        axis=1
+    ) > tol
+    try:
+        assert(not outoftol.any())
+    except AssertionError:
+        with np.printoptions(threshold=3):
+            msg = f'The maximum distance allowed from an interpolation timepoint to the nearest measurement timepoint is {tol}, and that tolerance is exceeded at interpolation timepoints {interp_ts[outoftol].values}. Use the `tol` param to adjust the tolerance or exclude these interpolation timepoint(s).'
+        raise ValueError(msg) from None
     try:
         assert(np.all(np.diff(meas_ts) > 0))
     except AssertionError:
