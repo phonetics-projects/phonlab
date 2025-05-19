@@ -1,4 +1,4 @@
 Articulatory Phonetics
 ======================
 
-.. autofunction:: phonlab.egg2oq
+.. autofunction:: phonlab.egg_to_oq

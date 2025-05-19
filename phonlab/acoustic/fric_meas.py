@@ -30,7 +30,7 @@ def hz2bark(hz):
     
     return 7 * np.arcsinh(hz/650)
 
-def fricative(x,t,fs):
+def fricative(x,fs,t):
     """
     Measure fricative acoustic values, from a 20 ms window, centered on time `t`.
 
@@ -49,10 +49,11 @@ def fricative(x,t,fs):
 
     x : ndarray
         a one-dimensional array of audio samples
-    t : float
-        the time (in seconds) at which to take measurements (this is usually in a fricative, but doesn't have to be).
     fs : int
         the sampling frequency of `x` (ideally should be at least 16000)
+    t : float
+        the time (in seconds) at which to take measurements (this is usually in a fricative, but doesn't have to be).
+
 
     Returns
     =======
@@ -85,8 +86,8 @@ def fricative(x,t,fs):
     audio samples returned by `get_signal()`. The major peak and COG frequencies 
     are indicated in a plot of the spectrum.
     
-    >>> x,fs = phon.get_signal("sf3_cln.wav")
-    >>> Fm,FmB,Am,mode,COG,SD,Skew,Kurtosis,spec,freq = phon.fricative(x,2.25,fs)
+    >>> x,fs = phon.prep_audio("sf3_cln.wav")
+    >>> Fm,FmB,Am,mode,COG,SD,Skew,Kurtosis,spec,freq = phon.fricative(x,fs,2.25)
     >>>
     >>> print(f"first major peak at {Fm:.1f}, Center of Gravity is {COG:.1f}")
     >>> plt.plot(freq,spec)

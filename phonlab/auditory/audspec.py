@@ -1,11 +1,11 @@
-__all__=['Audspec', ]
+__all__=[ 'Audspec' ]
 
 import librosa
 import numpy as np
 from numpy.polynomial import Polynomial
 from scipy.fft import rfft
 import scipy.stats as stats
-from ..utils.get_signal_ import prep_audio
+from ..utils.prep_audio_ import prep_audio
 
 class Audspec(object):
     """ Create an an Audspec object; analysis parameters and routines for creating auditory spectrograms.

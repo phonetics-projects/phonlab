@@ -5,23 +5,21 @@ from scipy.signal import windows, find_peaks, spectrogram, peak_prominences
 from scipy import fft
 from librosa import feature, util, lpc
 from pandas import DataFrame
-from ..utils.get_signal_ import prep_audio
+from ..utils.prep_audio_ import prep_audio
   
-def get_f0(sig, f0_range = [63,400], chan = 0, pre = 1.0, fs_in=12000):
+def get_f0(x, fs, f0_range = [63,400], pre = 1.0):
     """Track the fundamental frequency of voicing (f0)
 
     The method in this function mirrors that used in track_formants().  LPC coefficients are calculated for each frame and the audio signal is inverse filtered with these, resulting in a quasi glottal waveform. Then autocorrelation is used to estimate the fundamental frequency.  Probability of voicing is given from a logistic regression formula using `rms` and `c` trained to predict the voicing state as determined by EGG data using the function `phonlab.egg2oq()` over the 10 speakers in the ASC corpus of Mandarin speech. The log odds of voicing in that training data was given by `odds = -4.31 + 0.17*rms + 13.29*c`, and probability of voicing is thus:  `probv = odds / (1 + odds)`.
 
     Parameters
     ==========
-        sig : string or ndarray
-            The name of a sound file, or an array of audio samples
+        x : string or ndarray
+            A one-dimensional array of audio samples
+        fs : int
+            Sampling rate of **x**, if it is an array.
         f0_range : list of two integers, default = [63,400]
             The lowest and highest values to consider in pitch tracking.
-        chan : int, default = 0
-            If the audio in sig is stereo, which channel should be analyzed?
-        fs_in : int
-            if sig is an array, pass the sampling rate, if sig is a file name this parameter is ignored.
 
     Returns
     =======
@@ -39,11 +37,11 @@ def get_f0(sig, f0_range = [63,400], chan = 0, pre = 1.0, fs_in=12000):
 
     Example
     =======
-    There is one lie in this example.  F0 measurements in nonsonorants were removed prior to actually making this plot.  See the examples folder for how that is done.
-    
-    >>> f0df = get_f0(x,fs_in=fs, f0_range= [63,400])
+
+    >>> x,fs = phon.loadsig("sf3_cln.wav",chansel=[0])
+    >>> f0df = get_f0(x, fs, f0_range= [63,400])
     >>>
-    >>> ret = phon.sgram(x,fs_in = fs,cmap='Blues') # draw the spectrogram from the array of samples
+    >>> ret = phon.sgram(x,fs,cmap='Blues') # draw the spectrogram from the array of samples
     >>> ax1 = ret[0]  # the first item returned, is the matplotlib axes of the spectrogram
     >>> ax2 = ax1.twinx()
     >>> ax2.plot(f0df.sec,f0df.f0, 'go')  
@@ -62,7 +60,7 @@ def get_f0(sig, f0_range = [63,400], chan = 0, pre = 1.0, fs_in=12000):
     frame_length_sec = 0.075
     step_sec = 0.01
     
-    x, fs = prep_audio(sig, fs = 12000, fs_in=fs_in, chan=chan, pre = 0)  # read waveform, no preemphasis
+    x, fs = prep_audio(x, fs, target_fs=12000, pre = 0)  # read waveform, no preemphasis, for RMS calc
 
     frame_length = int(fs * frame_length_sec) 
     half_frame = frame_length//2
@@ -105,11 +103,44 @@ def get_f0(sig, f0_range = [63,400], chan = 0, pre = 1.0, fs_in=12000):
 
 
 
-def get_f0_srh(sig, f0_range = [60,400], chan = 0, pre = 0.94, fs_in=12000):
+def get_f0_srh(x, fs, f0_range = [60,400], pre = 0.94):
+    """Track the fundamental frequency of voicing (f0)
+
+    This function is an implementation of Drugman and Alwan's (2011) "Summation of Residual Harmonics" (SRH) method of pitch tracking.  The signal is inverse filtered with LPC analysis, and then harmonics are found in the spectrum of the residual signal.
+
+    Parameters
+    ==========
+        x : string or ndarray
+            A one-dimensional array of audio samples
+        fs : int
+            Sampling rate of **x**, if it is an array.
+        f0_range : list of two integers, default = [63,400]
+            The lowest and highest values to consider in pitch tracking.
+
+    Returns
+    =======
+        df - a pandas dataframe  measurements at 0.01 sec intervals.
+
+    Note
+    ====
+    The columns in the returned dataframe are for each frame of audio:
+        * sec - time at the midpoint of each frame
+        * f0 - estimate of the fundamental frequency
+        * rms - estimate of the rms amplitude found with `librosa.feature.rms()`
+        * c - value of SRH
+        * probv - estimated probability of voicing
+        * voiced - a boolean, true if probv>0.5
+
+    References
+    ==========
+
+    Drugman, Thomas & Alwan, Abeer (2011) Joint robust voicing detection and pitch estimation based on residual harmonics. ISCA (Florence, Italy) pp. 1973ff
+    
+    """
     frame_length_sec = 0.1
     step_sec = 0.01
     
-    x, fs = prep_audio(sig, fs = 12000, fs_in=fs_in, chan=chan, pre = 0)  # read waveform, no preemphasis
+    x, fs = prep_audio(x, fs, target_fs=12000, pre = 0)  # downsample the waveform, no preemphasis
 
     frame_length = int(fs * frame_length_sec) 
     half_frame = frame_length//2
@@ -137,15 +168,17 @@ def get_f0_srh(sig, f0_range = [60,400], chan = 0, pre = 0.94, fs_in=12000):
         S = np.abs(np.fft.rfft(y,2**16)) # compute the power spectrum
         T = len(S)/fs
         srh_max = 0
+        max_harmonic = 7
         for f in range(f0_range[0], f0_range[1]): 
             fT = int(f*T)  # test this as frequency of H1
-            for k in range(2,5):
-                h = S[fT*k] - S[int(fT*(k-0.5))]
-            srh = S[fT] + h
+            h = S[fT]
+            for k in range(2,max_harmonic):
+                h += S[fT*k] - S[int(fT*(k-0.5))]
+            srh = h/(max_harmonic-1)
             if srh > srh_max:
                 srh_max = srh
-                f0[i] = f
-                c[i] = srh
+                f0[i] = f        
+        c[i] = srh_max
 
     odds = np.exp(-4.2 + (0.17*rms[:nb]) + (13.2*c[:nb]))  # logistic formula, trained on ASC corpus
     probv = odds / (1 + odds)
@@ -155,14 +188,14 @@ def get_f0_srh(sig, f0_range = [60,400], chan = 0, pre = 0.94, fs_in=12000):
                     'probv': probv[:nb], 'voiced':voiced[:nb]})
 
 
-def get_f0_cor(sig, f0_range = [60,400], fs_in= -1,chan = 0):
+def get_f0_cor(x, fs, f0_range = [60,400]):
 
     # constants and global variables
     frame_length_sec = 1/f0_range[0]
     step_sec = 0.005
 
     # read waveform, no preemphasis, up-sample
-    x, fs = prep_audio(sig, fs = 48000, fs_in=fs_in, chan=chan, pre = 0)  
+    x, fs = prep_audio(x, fs, target_fs = 48000, pre = 0)  
 
     frame_length = int(fs * frame_length_sec) 
     half_frame = frame_length//2
@@ -231,24 +264,27 @@ def f0_from_harmonics(f_p,i,h):
     
     return C,np.mean(f0)  #,np.int32(m)
     
-def get_f0_acd(sig, f0_range = [60,500], fs_in= -1,chan = 0, crit_c = 3.5,prom=10, peak_height = 0.4):
+def get_f0_acd(x, fs, f0_range = [60,300], prom=20, peak_height = 0.45, crit_c=3.5):
     """Track the fundamental frequency of voicing (f0)
 
-    The method in this function implements the 'approximate common denominator" algorithm proposed by Aliik, Mihkla and Ross (1984), which was an improvement on the method proposed by Duifuis, Willems and Sluyter (1982).  The method finds candidate harmonic peaks in the spectrum up to 6 times the highest possible F0 given in the **f0_range** parameter, and chooses a value of f0 that will give the best fit for the harmonic pattern.
+    The method in this function implements the 'approximate common denominator" algorithm proposed by Aliik, Mihkla and Ross (1984), which was an improvement on the method proposed by Duifuis, Willems and Sluyter (1982).  The method finds candidate harmonic peaks in the spectrum, and chooses a value of f0 that will give the best fitting harmonic pattern.
 
     Parameters
     ==========
-        sig : string or ndarray
-            The name of a sound file, or an array of audio samples
-        f0_range : list of two integers, default = [63,400]
+        x : ndarray
+            A one-dimensional array of audio samples
+        fs : int
+            the sampling rateof the audio in **x**.
+        f0_range : list of two integers, default = [60,300]
             The lowest and highest values to consider in pitch tracking.
-        chan : int, default = 0
-            If the audio in sig is stereo, which channel should be analyzed?
-        fs_in : int, default = -1
-            if sig is an array, pass the sampling rate, if sig is a file name this parameter is ignored.
-        crit_c: float, default = 3.5
-            c, a spectral fit criterion is computed for each frame.  This critical value can be used to keep F0 
-            measurements in frames that with **c** below the **crit_c** value.  
+        prom : numeric, default = 20
+            In deciding whether a peak in the spectrum is a possible harmonic, this prominence value is passed to 
+            scipy.find_peaks().  A larger value means that the spectral peak must be more prominent to be considered as a 
+            possible harmonic peak.
+        peak_height: numeric, default = 0.45
+            In deciding whether a peak in the spectrum is a possible harmonic, this prominence value is used to 
+            calculate the minimum amplitude required to count as a peak.  The value passed to find_peaks is: 
+            `amplitude_max - peak_height*(amplitude_range)`. 
 
     Returns
     =======
@@ -265,27 +301,28 @@ def get_f0_acd(sig, f0_range = [60,500], fs_in= -1,chan = 0, crit_c = 3.5,prom=1
     Example
     =======
     
-    >>> f0df = get_f0_acd(x,fs_in=fs, f0_range= [63,400])
+    >>> x,fs = phon.loadsig("sf3_cln.wav",chansel=[0])
+    >>> f0df = get_f0_acd(x,fs)
     >>>
-    >>> ret = phon.sgram(x,fs_in = fs,cmap='Blues') # draw the spectrogram from the array of samples
-    >>> ax1 = ret[0]  # the first item returned, is the matplotlib axes of the spectrogram
+    >>> ret = phon.sgram(x, fs, cmap='Blues') # draw the spectrogram from the array of samples
+    >>> ax1 = ret[0]  # the first item returned is the matplotlib axes of the spectrogram
     >>> ax2 = ax1.twinx()
     >>> ax2.plot(f0df.sec,f0df.f0, 'go')  
 
     .. figure:: images/get_f0_acd.png
-       :scale: 90 %
+       :scale: 50 %
        :alt: a 'bluescale' spectrogram with red dots marking the f0
        :align: center
 
-       Marking the f0 found by `phon.get_f0()`
+       Marking the f0 found by `phon.get_f0_acd()`
 
        ..
 
     """
-    down_fs = f0_range[1] * 6  # allow for 5 harmonics of the highest f0
-    x, fs = prep_audio(sig, fs = down_fs, fs_in = fs_in, pre=0, chan=chan)  
+    down_fs = f0_range[1] * 20  # allow for 9 harmonics of the highest f0
+    x, fs = prep_audio(x, fs, target_fs = down_fs, pre=0.94)  
 
-    step_sec = 0.002
+    step_sec = 0.005
     N = 512    # FFT size
 
     frame_len = int(down_fs*0.04)  # forty ms frame
@@ -307,26 +344,25 @@ def get_f0_acd(sig, f0_range = [60,500], fs_in= -1,chan = 0, crit_c = 3.5,prom=1
     min_height = np.max(Sxx) - peak_height * np.abs(np.max(Sxx) - np.min(Sxx)) 
     min_dist = int(f0_range[0]/(down_fs/N)) # min distance btw harmonics
     max_dist = int(f0_range[1]/(down_fs/N)) 
-    print(f'min_height = {min_height}, max = {np.max(Sxx)}, min = {np.min(Sxx)}')
+    
+    #print(f'min_dist = {min_dist}, down_fs={down_fs}, len(f)={len(f)}, N={N}')
+    #print(f'min_height = {min_height}, max = {np.max(Sxx)}, min = {np.min(Sxx)}')
 
     for idx in range(nb):
         peaks,props = find_peaks(Sxx[:,idx], height = min_height, 
                                  distance = min_dist, prominence=prom, 
                                  wlen=max_dist)
-        if idx==45: 
-            proms = peak_prominences(Sxx[:,idx], peaks, wlen=max_dist)
-            print(props['peak_heights'],proms[0])
             
         c[idx] = 5
         f0[idx] = np.nan
-        if len(peaks)>2:  # we did find some harmonics?
+        if len(peaks)>7:  # we did find some harmonics?
             for p in range(3):  # for each of the first three spectral peaks
-                for h in range(1,4): # treat it as one of the first three harmonics
+                for h in range(1,3): # treat it as one of the first three harmonics
                     C,_f0 = f0_from_harmonics(f[peaks],p,h)
                     if C < c[idx]:  # keep the best peak/harmonic alignment
                         #print(f'frame {idx}, C = {C}')
                         c[idx] = C
-                        if C<crit_c: 
+                        if (C<crit_c) & (f0_range[0] < _f0) & (_f0 < f0_range[1]):  # good fit and in range
                             f0[idx] = _f0
                         else:  
                             f0[idx] = np.nan

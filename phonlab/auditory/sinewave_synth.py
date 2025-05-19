@@ -44,7 +44,8 @@ Remez, R. E.; Rubin, P. E.; Pisoni, D. B.; Carrell, T. D. (1981). "Speech percep
 
 Example
 =======
->>> fmtsdf = phon.track_formants("sf3_cln.wav",fs=16000)    # track the formants
+>>> x,fs = phon.loadsig("sf3_cln.wav") 
+>>> fmtsdf = phon.track_formants(x,fs)    # track the formants
 >>> x,fs = phon.sine_synth(fmtsdf,fs=fs)     # produce the sinewave synthesis
 >>> librosa.output.write_wav('sf3_cln_sinewave.wav', x, fs)  # save wav file
 

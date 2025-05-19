@@ -2,9 +2,9 @@ __all__=['amplitude_envelope']
 
 import numpy as np
 import scipy
-from ..utils.get_signal_ import prep_audio
+from ..utils.prep_audio_ import prep_audio
 
-def amplitude_envelope(sig, bounds = [], fs_in=22050, fs=22050, chan = 0, cutoff=30, order=2 ):
+def amplitude_envelope(x, fs, bounds = [], target_fs=22050, cutoff=30, order=2 ):
     """ Get the amplitude envelope of an audio signal.  
     
     This routine rectifies the audio signal and then low pass filters it.  This is different from calculating an RMS amplitude contour because it gives an amplitude measurement at each point in the audio rather than measuring amplitude in discrete windows.  The filter is scipy.signal.sosfiltfilt()- a very stable filter that introduces no phase shift in the ouput waveform.
@@ -13,16 +13,14 @@ def amplitude_envelope(sig, bounds = [], fs_in=22050, fs=22050, chan = 0, cutoff
 
     Parameters
     ==========
-    sig : path or ndarray
-        The name of a wav file, or audio samples in a 1-D array
+    x : ndarray
+        A 1-D array of audio samples
+    fs : int
+        the sampling frequency of the audio in **x** (in Hz)
     bounds : list, default = []
         a list (length 2) with the low and high edges of a bandpass filter
-    fs_in : int, default = 22050
-        if sig is an array, fs_in is the sampling frequency of the sound to be filtered
-    fs : int, default = 22050
-        is the desired sampling frequency of the output array
-    chan : int, default = 0
-        if sig is stereo, select a channel (0 = left, 1 = right)
+    target_fs : int, default = 22050
+        the desired sampling frequency of the output array
     cutoff : float, default = 30
         cutoff freq. for the low-pass envelope filter
     order : int, default = 2
@@ -59,7 +57,7 @@ def amplitude_envelope(sig, bounds = [], fs_in=22050, fs=22050, chan = 0, cutoff
 
     """
     
-    x, fs = prep_audio(sig,chan = chan, fs = fs, fs_in = fs_in, pre=0, quiet = True)
+    x, fs = prep_audio(x,fs, target_fs = target_fs, pre=0, quiet = True)
 
     if bounds:
         coefs = scipy.signal.butter(8, bounds, fs=fs, btype='bandpass', output='sos')

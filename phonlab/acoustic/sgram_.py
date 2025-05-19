@@ -4,7 +4,7 @@ from scipy.signal import spectrogram
 from scipy.signal import windows
 import numpy as np
 import matplotlib.pyplot as plt
-from ..utils.get_signal_ import prep_audio
+from ..utils.prep_audio_ import prep_audio
 
 def compute_sgram(x,fs,w):
     """Compute a spectrogram from input waveform array of samples.
@@ -49,7 +49,7 @@ def compute_sgram(x,fs,w):
     return (f,ts, Sxx)
     
 
-def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
+def sgram(x,fs,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
           preemph = 0.94, save_name='',slice_time=-1,cmap='Greys'):
     """Make pretty good looking spectrograms
 
@@ -63,16 +63,16 @@ def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
 
     Parameters
     ==========
-    sig : Path or ndarray
-        name of a wav file or array to plot
+    x : ndarray
+        a one-dimensional array of audio samples.
+    fs : numeric
+        The sampling rate of the audio in **x**
     chan : int, default = 0
         choose a channel if the file is stereo -  0 (default) = left channel, 1 = right channel
     start : float, default = 0
         starting time (in seconds) of the waveform chunk to plot -- default plot whole file
     end : float, default = -1
         ending time (in seconds) of the waveform chunk to plot (-1 means go to the end)
-    fs_in : integer
-        The sampling frequency of `sig` if it is an array of samples, ignored if it is a file name.
     tf : integer, default = 8000
         the top frequency (in Hz) to show in the spectrogram
     band : string, {'wb','nb'}
@@ -105,7 +105,8 @@ def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
     Plot a spectrogram of a portion of the sound file from 1.5 to 2 seconds.  
     Then add a vertical red line at time 1.71
     
-    >>> phon.sgram("sf3_cln.wav",start=1.5, end=2.0)
+    >>> x,fs = phon.loadsig("sf3_cln.wav") 
+    >>> phon.sgram(x,fs,start=1.5, end=2.0)
     >>> plt.axvline(1.71,color="red")
 
     .. figure:: images/burst.png
@@ -120,10 +121,10 @@ def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
     Read a file into an array `x`, track the formant frequencies in the file, use them to produce
     sine wave speech, and then plot a spectrogram of the resulting signal.
     
-    >>> x,fs = librosa.load("sf3_cln.wav",sr=12000) 
-    >>> fmtsdf = phon.track_formants(x,fs_in = fs)    # track the formants
+    >>> x,fs = phon.loadsig("sf3_cln.wav") 
+    >>> fmtsdf = phon.track_formants(x,fs)    # track the formants
     >>> x2,fs2 = phon.sine_synth(fmtsdf)     # use the formants to produce sinewave synthesis
-    >>> ax1,f,t,Sxx = phon.sgram(x2,fs_in=fs2, preemph=0)  # plot a spectrogram of it
+    >>> ax1,f,t,Sxx = phon.sgram(x2,fs2, preemph=0)  # plot a spectrogram of it
 
     .. figure:: images/sine_synth.png
        :scale: 90 %
@@ -150,7 +151,7 @@ def sgram(sig,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
     cmap = plt.get_cmap(cmap)
     
     # ----------- read and condition waveform -----------------------
-    x, fs = prep_audio(sig,chan = chan, fs = fs, fs_in = fs_in, pre = preemph)
+    x, fs = prep_audio(x,fs, target_fs = tf*2, pre = preemph)
 
     i1 = int(start * fs)   # index of starting time: seconds to samples
     i2 = int(end * fs)     # index of ending time

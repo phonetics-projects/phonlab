@@ -2,7 +2,7 @@ __all__=["shannon_bands", "third_octave_bands", "vocode", "apply_filterbank"]
 
 import numpy as np
 import scipy
-from ..utils.get_signal_ import prep_audio
+from ..utils.prep_audio_ import prep_audio
 from ..acoustic.amp_env import amplitude_envelope
 
 
@@ -122,7 +122,7 @@ Returns
         y[idx] = scipy.signal.sosfiltfilt(coefs, x)  # filter each band
     return y
 
-def vocode(sig, bands, fs = 16000, fs_in = 22050, chan=0):
+def vocode(x, fs, bands, target_fs = None):
     """ 
     Noise vocoding - replace sound with bandpassed noise, using a bank of filters defined by bands.
 
@@ -132,23 +132,21 @@ Keith Johnson added the "Shannon" vocoding scheme and altered some of the functi
         
 Parameters
 ==========
-sig : string or ndarray
-    the name of a wav file, or audio samples in a 1-D numpy array
+x : ndarray
+    A one-dimensional array of audio samples
+fs : int
+    the sampling frequency of the audio samples in **x**.
 bands : list
     A list of n bandpass filter lower/upper cut off freqs (n,2), as returned by third_octive_bands() or shannon_bands()
-fs : int, default 16000
-    the desired frequency of the resulting vocoded signal.
-fs_in : int, default 22050
-    the sampling frequency of the audio samples in **sig**, if **sig** is an array of samples.
-chan : int, default = 0
-    if **sig** is stereo, select a channel (0 = left, 1 = right)
+target_fs : int, default None
+    the desired frequency of the resulting vocoded signal.  **None** keeps the rate at the value passed in **fs**.
         
 Returns
 =======
 y : ndarray
     an array of samples, the same length as **sig**
 fs : int
-    the sampling frequency of y
+    the sampling frequency of **y**
 
 Example
 =======
@@ -166,18 +164,18 @@ Example
 
 
     """
-    x, fs = prep_audio(sig,chan = chan, fs = fs, fs_in = fs_in, pre=0, quiet = True)
+    y, fs = prep_audio(x, fs, target_fs = target_fs, pre=0, quiet = True)
 
     n_channels = len(bands)
-    n_samples = x.shape[-1]
+    n_samples = y.shape[-1]
     noise = np.random.randn(n_samples) 
 
-    filtered_x = apply_filterbank(x, bands, fs)
+    filtered_y = apply_filterbank(y, bands, fs)
     filtered_noise = apply_filterbank(noise, bands, fs)
     vocoded_noise = np.zeros((n_channels, n_samples))
     
-    for idx, (x_band, noise_band) in enumerate(zip(filtered_x, filtered_noise)):
-        envelope,newfs = amplitude_envelope(x_band,fs_in = fs,fs= fs)
+    for idx, (x_band, noise_band) in enumerate(zip(filtered_y, filtered_noise)):
+        envelope,fs = amplitude_envelope(x_band,fs,target_fs=None)
         vocoded_noise[idx] = envelope * noise_band
     return np.sum(vocoded_noise, axis=0), fs
 

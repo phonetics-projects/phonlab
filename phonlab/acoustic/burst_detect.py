@@ -3,7 +3,7 @@ __all__=["burst"]
 import numpy as np
 import librosa
 
-def burst (x, start, end, fs = 16000):
+def burst (x, fs, start, end):
     """Find a stop burst in a short interval of audio
     
 This function takes an array of waveform samples and returns the location in time of the most prominent stop release burst in a segment of audio indicated by the `start` and `end` parameters.  Generally, `start` and `end` are taken from a TextGrid and define a short (50ms to 150ms) segment that has been labeled as containing a consonant of interest (a stop, fricative or nasal for example). In addition to the time of the strongest burst in the time-span, a burst strength score is also returned.
@@ -42,7 +42,8 @@ Example
    
 In this example we open a sound file with `get_signal()` and then search for the best candidate for a stop release burst in the interval from time 1.5 seconds to time 2.0 seconds.  The return value `b_time` is the location of the burst in seconds, and `b_score` is a measure of the burst prominence.  The `sgram()` plot in this example illustrates the use of `start` and `end` to produce a spectrogram of a specified portion of signal.
 
->>> x,fs = phon.get_signal("sf3_cln.wav",pre=1)
+>>> x,fs = phon.loadsig("sf3_cln.wav", chansel=[0])
+>>> x,fs = phon.prep_audio(x,fs, pre=1, target_fs=None)  # add preemphasis, keep the fs of the file
 >>>
 >>> t1 = 1.5
 >>> t2 = 2

@@ -1,11 +1,11 @@
-__all__ = ['egg2oq']
+__all__ = ['egg_to_oq']
 
 import scipy.signal
 import numpy as np
 import librosa
 import pandas as pd
 
-def egg2oq(sig,egg_channel=1,hop_dur = 0.005, min_f0 = 60, max_f0 = 400,
+def egg_to_oq(x, fs, hop_dur = 0.005, min_f0 = 60, max_f0 = 400,
            hp_cut = 70, hp_order = 8, threshold=0.43):
     """Get glottal open quotient from electroglottography data
     
@@ -21,10 +21,10 @@ def egg2oq(sig,egg_channel=1,hop_dur = 0.005, min_f0 = 60, max_f0 = 400,
     Parameters
     ==========
         
-        sig : string
-            path to a two channel audio file with EGG data in one of the channels
-        egg_channel : int, default = 1
-            audio channel (0 or 1) where EGG signal will be found
+        x : ndarray
+            A one-dimensional array of samples in an electroglottograph waveform
+        fs : int
+            the sampling rate of **x**
         hop_dur : float, default = 0.005
             interval in seconds between frames (0.005 seconds = 5 milliseconds)
         min_f0 : int, default = 60
@@ -53,8 +53,9 @@ def egg2oq(sig,egg_channel=1,hop_dur = 0.005, min_f0 = 60, max_f0 = 400,
 
     Example
     =======
-    >>> eggfile = "F1_bha24_1.wav"  # a stereo file with audio in 0 and egg in 1
-    >>> oqdf = phon.egg2oq(eggfile,egg_channel=1)  # return open quotient data
+    >>> file = "F1_bha24_1.wav"  # a stereo file with audio in channel 0 and egg in 1
+    >>> egg,audio,fs = phon.loadsig(file, chansel=[1,0])  # fool with `chansel`
+    >>> oqdf = phon.egg2oq(egg,fs)  # return open quotient data
 
     See the example ipython notebook for the code used to generate this figure
 
@@ -69,15 +70,13 @@ def egg2oq(sig,egg_channel=1,hop_dur = 0.005, min_f0 = 60, max_f0 = 400,
 
         
     """
-    data, fs = librosa.load(sig, sr=16000, mono=False) # this is the slowest step in the function 
-
     window_length = (1.0/min_f0) * 1.5 # add 25% for alignment?
     win = int(window_length*fs)  # window for the longest period 
     hop = int(hop_dur*fs)  # 5ms hop
  
     # highpass filter the egg signal
     coefs = scipy.signal.butter(hp_order, hp_cut, fs=fs, btype='highpass', output='sos')
-    egg = scipy.signal.sosfiltfilt(coefs, data[egg_channel])
+    egg = scipy.signal.sosfiltfilt(coefs, x)
     degg = np.gradient(egg)  # differential of the egg
 
     # scale the filtered egg and degg to (0,1)  -- for long files do this locally?
@@ -86,12 +85,12 @@ def egg2oq(sig,egg_channel=1,hop_dur = 0.005, min_f0 = 60, max_f0 = 400,
     egg_s = pd.Series(egg)
     degg_s = pd.Series(degg)
 
-    rw = 0.3
-    if len(data[egg_channel]) > fs*0.5:  # only do this if the duration is greater than half a second
-        eggmax = egg_s.rolling(int(rw*fs),min_periods=10).max()  # max in a rolling window
-        deggmax = degg_s.rolling(int(rw*fs),min_periods=10).max()
-        eggmin = egg_s.rolling(int(rw*fs),min_periods=10).min()  # min in a rolling window
-        deggmin = degg_s.rolling(int(rw*fs),min_periods=10).min()
+    rw = int(1.5*fs)
+    if len(egg) > fs*5:  # only do this if the duration is greater than 5 second5
+        eggmax = egg_s.rolling(rw,min_periods=10).max()  # max in a rolling window
+        deggmax = degg_s.rolling(rw,min_periods=10).max()
+        eggmin = egg_s.rolling(rw,min_periods=10).min()  # min in a rolling window
+        deggmin = degg_s.rolling(rw,min_periods=10).min()
         eggmax[eggmax/np.max(egg) < 0.05] = np.max(egg)  # require some minimal egg activity
     
     else:  # no need for local max and min, just take the whole signal

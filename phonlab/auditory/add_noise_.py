@@ -3,7 +3,7 @@ __all__ = ["peak_rms", "add_noise"]
 import numpy as np
 import matplotlib.pyplot as plt
 import random
-from ..utils.get_signal_ import prep_audio
+from ..utils.prep_audio_ import prep_audio
 
 
 import colorednoise as cn  # installed from: https://github.com/felixpatzelt/colorednoise
@@ -34,7 +34,7 @@ def peak_rms(y):
 
     return np.max(rms)
 
-def add_noise(sig,noise_type, fs_in = 22050, fs = 22050, chan = 0, snr = 0, target_amp = -2):
+def add_noise(x, fs, noise_type="white", snr = 0, target_amp = -2):
     """Add noise to audio
 
     This function is partially adapted from matlab code written by Kamil Wojcicki, UTD, July 2011. It does the following:
@@ -47,21 +47,13 @@ def add_noise(sig,noise_type, fs_in = 22050, fs = 22050, chan = 0, snr = 0, targ
 
 Parameters
 ==========
-sig : Path or array
-        the name of a .wav file, or an array of audio samples
-        
-noise_type : string
-        The type of noise - one of "pink", "white", or "brown", or the name of a .wav file to be mixed with the signal_file.
-
-fs_in : int, default = 22050
-    If **sig** is an array, this is the sampling frequency of the audio in **sig**
-
-fs : int, default = 22050
-    The desired sampling frequency of the output signal
-
-chan : int, default = 0 
-    if the signal is stereo, select a channel for processing (0 = left, 1 = right)
-    
+x : array
+    A one-dimensional array of audio samples
+fs : int
+    the sampling frequency of the audio in **x**
+   
+noise_type : string, default = "white"
+        The type of noise - one of "pink", "white", or "brown", or the name of a .wav file to be mixed with the signal_file.    
 snr : float, default = 0
         the signal to noise ratio in dB.  0 means that the signal peak RMS amplitude will be the same as the noise amplitude. Less than zero (e.g. -5) means that the signal amplitude will be lower than the noise, and greater than zero means that the signal amplitude will be greater than the noise amplitude.
         
@@ -73,7 +65,7 @@ Returns
     y : ndarray
         The result of adding noise to the signal
     fs : int
-        The sampling rate of the signal in 'mixed'
+        The sampling rate of the signal in **y**
 
 Raises
 ======
@@ -85,8 +77,9 @@ Example
 =======
 This example adds white noise at a signal-to-noise ratio (SNR) of 3 dB
 
->>> x,fs = phon.add_noise("sf3_cln.wav","white",snr=3)
->>> phon.sgram(x,fs_in=fs)
+>>> x,fs = phon.loadsig("sf3_cln.wav")   # illustrating here that we can pass an array to track_formants()
+>>> y,fs = phon.add_noise(x,fs,"white",snr=3)
+>>> phon.sgram(x,fs)
 
 .. figure:: images/add_noise.png
    :scale: 90 %
@@ -99,9 +92,6 @@ This example adds white noise at a signal-to-noise ratio (SNR) of 3 dB
 
 
     """
-
-    x, fs = prep_audio(sig,chan = chan, fs = fs, fs_in = fs_in, pre=0, quiet = True)
-
     signal_peak = peak_rms(x)
     
     pad = np.zeros(int(fs/2))  # number of points in 1/2 a second

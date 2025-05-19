@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
   name = 'phonlab',
-  version = '0.15.1',
+  version = '0.0.1',
   packages = ['phonlab', 'phonlab.third_party',
               'phonlab.acoustic','phonlab.artic',
               'phonlab.auditory','phonlab.utils'],

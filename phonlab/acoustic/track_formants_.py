@@ -10,7 +10,7 @@ from scipy import signal
 from scipy import fft
 import librosa
 from pandas import DataFrame
-from ..utils.get_signal_ import prep_audio
+from ..utils.prep_audio_ import prep_audio
 
 # constants and global variables
 SR = 12000
@@ -74,13 +74,13 @@ def abc_coefs(f,b,fs):
     c = 1.0/(1.0+a+b)
     return (a,b,c)
 
-def inv_filter(x, fr, bw, fs):
+def inv_filter(x, fs, fr, bw):
     ''' inv_filter()  inverse filter x using a list of frequencies and bandwidths for the filters
     Input
         x -  a one-dimensional numpy array
+        fs - the sampling frequency of x
         fr - a list of filter frequencies - the order doesn't seem to  matter
         bw - a list of filter bandwidths
-        fs - the sampling frequency of x
 
     Return
         y - a one-dimensinal numpy array: the inverse filtered verion of x
@@ -138,7 +138,7 @@ def dominant_frequency(y):
         f = FMIN
     return f
 
-def zc_frequency2(y, loop, f_no, in_freq, fs, spkr):
+def zc_frequency2(y, fs, loop, f_no, in_freq, spkr):
     ''' zc_frequency2() is an implementation of Ueda et al.'s 2008 C code using array processing 
     techniques that are available with numpy arrays. One difference from Ueda is that the weight
     function used to calculate the weighted sum of frequency estimates from zero crossing periods
@@ -150,10 +150,10 @@ def zc_frequency2(y, loop, f_no, in_freq, fs, spkr):
         
     Input
         y - a one dimensional numpy array of 240 audio waveform samples
+        fs - the waveform sampling frequency
         loop - which iteration in IFCBLOCK() are we in? - 0,1,2
         f_no - which formant are we measuring - 1,2,3,4
         in_freq - the previously found frequency of this formant (for this frame)
-        fs - the waveform sampling frequency
         spkr - speaker type [0=male, 1=female, 2=child]
     Result
         freq -- the dominant frequency in y
@@ -217,17 +217,17 @@ def zc_frequency2(y, loop, f_no, in_freq, fs, spkr):
         
     return freq
 
-def zc_frequency(x, loop, f_no, in_freq, fs, spkr):
+def zc_frequency(x, fs, loop, f_no, in_freq, spkr):
     ''' zc_frequency - a direct copy of Watenabe/Ueda's zero crossing c code to determine 
     the dominant frequency in y.  This method calculates the weighted mean of the zero-crossing
     period distribution in the frame.
 
     Input
         y - a one dimensional numpy array of 240 audio waveform samples
+        fs - the waveform sampling frequency
         loop - which iteration in IFCBLOCK() are we in? - 0,1,2
         f_no - which formant are we measuring - 1,2,3,4
         in_freq - the previously found frequency of this formant
-        fs - the waveform sampling frequency
         spkr - speaker type [0=male, 1=female, 2=child]
     Result
         freq -- the dominant frequency in y
@@ -329,7 +329,7 @@ def zc_frequency(x, loop, f_no, in_freq, fs, spkr):
     return freq
     
         
-def IFC(x,n,f,b,f0,b0,fs):
+def IFC(x,fs,n,f,b,f0,b0):
     ''' IFC - this is basically just a call to inv_filter() with one frequency to 
     inverse filter out of x.  However, F1 inverse filtering gets an assist from
     an f0 inverse filter.  So if f0 is greater than zero we will use it and b0 
@@ -337,12 +337,12 @@ def IFC(x,n,f,b,f0,b0,fs):
 
     Input
         x - a one-dimensional numpy array with audio waveform files
+        fs - the sampling frequency
         n - the formant number of the formant being removed
         f - the frequency (Hz) of the formant being removed
         b - the bandwidth (Hz) of the formant being removed
         f0 - the f0 frequency (used if n==1) to be removed
         b0 - the bandwidth of f0
-        fs - the sampling frequency
     Result
         y - a numpy array after inverse filtering, with the same shape of x
     '''
@@ -354,20 +354,20 @@ def IFC(x,n,f,b,f0,b0,fs):
         fr = np.array([f])
         bw = np.array([b])
 
-    y = inv_filter(x,fr,bw,fs)
+    y = inv_filter(x,fs,fr,bw)
     return y
 
-def IFCBLOCK(x,nc,fc,bc,nd,fd,bd,f0,b0,fs,spkr):
+def IFCBLOCK(x,fs, nc,fc,bc,nd,fd,bd,f0,b0,spkr):
     '''IFCBLOCK() performs three loops of inverse filtering and frequency estimation
     of two formants (fc and fd).  First one (fc) is filtered out and then the other (fd) is estimated. 
     Then fd is filted out and fc is estimated.
     
     Input
         x - a one-dimensional numpy array with audio waveform files
+        fs - sampling frequency
         fc,bc - center frequency and bandwidth of a formant to be estimated
         fd,bd - center frequency and bandwidth of the other
         f0,b0 - used to help estimate F1
-        fs - sampling frequency
         spkr - speaker type [0=male, 1=female, 2=child]
     Result
         fc, fd - new estimates of the formants
@@ -379,19 +379,19 @@ def IFCBLOCK(x,nc,fc,bc,nd,fd,bd,f0,b0,fs,spkr):
         loop = 1
         
     for i in range(loop):  # Ueda et al do this 3 times
-        y = IFC(x,nc,fc,bc,f0,b0,fs)  # inverse filter fc
+        y = IFC(x,fs,nc,fc,bc,f0,b0)  # inverse filter fc
         if g_method=="ifc_old":
-            fd = zc_frequency(y,i,nd,fd,fs,spkr)
+            fd = zc_frequency(y,fs,i,nd,fd,spkr)
         elif g_method=="ifc":
-            fd = zc_frequency2(y,i,nd,fd,fs,spkr)
+            fd = zc_frequency2(y,fs,i,nd,fd,spkr)
         else:
             fd = dominant_frequency(y)
             
-        y = IFC(x,nd,fd,bd,f0,b0,fs)  # inverse filter fd
+        y = IFC(x,fs,nd,fd,bd,f0,b0)  # inverse filter fd
         if g_method=="ifc_old":
-            fc = zc_frequency(y,i,nc,fc,fs,spkr)
+            fc = zc_frequency(y,fs,i,nc,fc,spkr)
         elif g_method=="ifc":
-            fc = zc_frequency2(y,i,nc,fc,fs,spkr) 
+            fc = zc_frequency2(y,fs,i,nc,fc,spkr) 
         else:
             fc = dominant_frequency(y) 
             
@@ -412,30 +412,30 @@ def design_filter(bounds, fs, order=4):
     
     return signal.butter(order, bounds, fs=fs, btype='bandpass', output='sos')
     
-def band_limit(x, bounds, fs):
+def band_limit(x, fs, bounds):
     '''band_limit(x,bounds,fs) -- bandpass the input array by the upper and lower
     frequency bounts.
 
     Input
         x - a one-dimensional numpy array with audio waveform samples
-        bounds - a two-element array with the lower and upper bounds of the filter
         fs - sampling frequency
-    Result
+        bounds - a two-element array with the lower and upper bounds of the filter
+   Result
         y - the result of passing x through the bandpass filter
     '''
     
     coefs = design_filter(bounds,fs,8)
     return signal.sosfiltfilt(coefs,x)
 
-def get_amplitude_ratios(x, filterbank, fs):
+def get_amplitude_ratios(x, fs, filterbank):
     '''get_amplitude_ratios() - returns the relative amplitude ratios in 
     formant spectral regions.  If we wanted to keep multiple copies of the 
     waveform, we could do this step once for the entire file.
 
     Input
         x - a one-dimensional numpy array with audio waveform samples
-        filterbank - a two dimensional array - upper and lower bounds for each formant
         fs - sampling frequency
+        filterbank - a two dimensional array - upper and lower bounds for each formant
     Result
         r12 - ratio of engery in F2 and F1 in dB:  20*log10(a2/a1)
         r23 - ratio of energy in F3 and F2 regions
@@ -457,7 +457,7 @@ def get_amplitude_ratios(x, filterbank, fs):
     
     return (r12,r23,r34)
     
-def track_pitch(x,fr,bw,f0_range, fs):
+def track_pitch(x,fs, fr,bw,f0_range):
     '''track_pitch() find f0 in a frame of audio, using inverse filtering of formants and bandwidths 
     to derive a glottal waveform.  Uses autocorrelation from the numpy.correlate() function.
 
@@ -473,7 +473,7 @@ def track_pitch(x,fr,bw,f0_range, fs):
     
     th = fs//f0_range[1]
     tl = fs//f0_range[0]
-    y = inv_filter(x,fr,bw,fs)  # get the inverse filtered waveform - an approximation of glottal flow
+    y = inv_filter(x,fs,fr,bw)  # get the inverse filtered waveform - an approximation of glottal flow
     result = np.correlate(y, y, mode='full') # autocorrelation 
     ac = result[result.size//2:] # the autocorrelation is in the last half of the result
     i = np.argmax(ac[th:tl]) + th # index of peak correlation (in range lowest to highest)
@@ -481,15 +481,15 @@ def track_pitch(x,fr,bw,f0_range, fs):
     
     return f0, np.sqrt(ac[i])/np.sqrt(ac[0])
 
-def track_pitch_lpc(x, a, pitch_range, fs):
+def track_pitch_lpc(x, fs, a, pitch_range):
     '''track_pitch() find f0 in a frame of audio, using inverse filtering from LPC coefficients
     to derive a glottal waveform.  Uses autocorrelation from the numpy.correlate() function.
 
     Input
         x - a one-dimensional numpy array with audio waveform samples
+        fs - sampling frequency
         a - an array of LPC coefficients [1,-A] from get_LPC()
         pitch_range - List of [low, high] defining the pitch range to be considered for f0 (in Hz)
-        fs - sampling frequency
     Result
         f0 - the pich of x
         c - peak of the autocorrelation
@@ -522,7 +522,7 @@ def get_rms_amplitude(y):
     
     return np.sqrt(np.mean(y**2))  # RMS amplitude
      
-def IFC_process_frame(x,spkr,fs,f0_range,filterbank):
+def IFC_process_frame(x,fs, spkr,f0_range,filterbank):
     '''IFC_tracking() find formant frequencys, RMS amplitude, and f0 in a 20ms chunk of audio waveform.
     Formants are found using the Inverse Filter Control (IFC) method of Watenabe (2001), Ueda et al. (2007). 
     RMS amplitude is measured after removing energy in the region of F5 and F6. Pitch (f0) is found by 
@@ -530,20 +530,20 @@ def IFC_process_frame(x,spkr,fs,f0_range,filterbank):
 
     Input
         x - a one-dimensional numpy array with one 20ms frame of audio waveform samples (must be sampled at 12kHz)
-        spkr -- a flag relating to vocal tract length (1=long/male; 2=medium/female; 3=short/child)
         fs - the sampling frequency of x
+        spkr -- a flag relating to vocal tract length (1=long/male; 2=medium/female; 3=short/child)
         f0_range - the lowest and highest values to consider in pitch tracking.  Default is [63,400]
         filterbank - filter bank coefficients for determing amplitude ratios in formant bands
 
     Result
         amp,f0,f1,f2,f3,f4 - acoustic measurements for this frame of audio
     '''   
-    y = inv_filter(x,params[spkr]["upper_fs"],params[spkr]["upper_bws"],fs)  # remove upper formants
+    y = inv_filter(x,fs, params[spkr]["upper_fs"],params[spkr]["upper_bws"])  # remove upper formants
 
     # unpack array of starting expected formant frequencies
     f0,f1,f2,f3,f4 = params[spkr]["fr"][[0,1,2,3,4]]
     b0,b1,b2,b3,b4 = params[spkr]["bws"][[0,1,2,3,4]]
-    r12, r23, r34 = get_amplitude_ratios(y,filterbank,fs)  
+    r12, r23, r34 = get_amplitude_ratios(y,fs, filterbank)  
 
     if g_method == "ifc_old" or g_method == "ifc":
         loop = 3
@@ -554,32 +554,32 @@ def IFC_process_frame(x,spkr,fs,f0_range,filterbank):
         b0 = 200
         
         # estimate F2 and F3 first
-        y2 = inv_filter(y,[f4,f0,f1],[b4,b0,b1],fs)  # filter out all but f2 and f3
+        y2 = inv_filter(y,fs,[f4,f0,f1],[b4,b0,b1])  # filter out all but f2 and f3
         if (r23 >= -20): b0 = 100*r23 + 2200
-        f2,f3 = IFCBLOCK(y2,3,f3,b3,2,f2,b2,f0,b0,fs,spkr)
+        f2,f3 = IFCBLOCK(y2,fs,3,f3,b3,2,f2,b2,f0,b0,spkr)
         (f1,f2,f3,f4) = order(f1, f2, f3, f4)
 
         # estimate F1 and F2 next
         if spkr==1:  # longer vocal tract - remove f6 again
-            y2 = inv_filter(y,[5500,f3,f4],[200,b3,b4],fs)
+            y2 = inv_filter(y,fs, [5500,f3,f4],[200,b3,b4])
         else:
-            y2 = inv_filter(y,[f3,f4],[b3,b4],fs) # filter out all but f1 and f2
+            y2 = inv_filter(y,fs, [f3,f4],[b3,b4]) # filter out all but f1 and f2
         
         if (r12 >= -20): b0 = 100*r12 + 2200
-        f1,f2 = IFCBLOCK(y2,1,f1,b1,2,f2,b2,f0,b0,fs,spkr)
+        f1,f2 = IFCBLOCK(y2,fs,1,f1,b1,2,f2,b2,f0,b0,spkr)
         (f1,f2,f3,f4) = order(f1, f2, f3, f4)
 
         # estimate F3 and F4
         
-        y2 = inv_filter(y,[f1,f0,f2],[b1,b0,b2],fs)  # filter out all but f3 and f4
+        y2 = inv_filter(y,fs,[f1,f0,f2],[b1,b0,b2])  # filter out all but f3 and f4
         if (r34 >= -20): b0 = 100*r34 + 2200
-        f3,f4 = IFCBLOCK(y2,3,f3,b3,4,f4,b4,f0,b0,fs,spkr)
+        f3,f4 = IFCBLOCK(y2,fs,3,f3,b3,4,f4,b4,f0,b0,spkr)
         (f1,f2,f3,f4) = order(f1, f2, f3, f4)
     
         oldFs = np.array([f1, f2, f3, f4])    
         
     # track pitch
-    f0,c = track_pitch(y,oldFs,params[spkr]["bws"],f0_range,fs)  # use final estimate formants in pitch tracking
+    f0,c = track_pitch(y,fs,oldFs,params[spkr]["bws"],f0_range)  # use final estimate formants in pitch tracking
 
     return np.round([f1,f2,f3,f4,f0,c],3)
 
@@ -652,16 +652,16 @@ def solve_lpc(x, p):
     
     return [a]
 
-def get_LPC(x,frame_length,p,fs):  # add a flag for computing RMS
+def get_LPC(x,fs, frame_length,p):  # add a flag for computing RMS
     '''get_LPC() -- compute LPC coefficients for a waveform array.  You can,
     and usually do, pass an array of the waveform of a whole file.
 
     Input
         x - a one-dimensional numpy array with audio waveform samples 
             (must be sampled at 12kHz, and at least 'frame_length' long)
+        fs - the sampling frequency of x
         frame_length - the number of samples in a frame
         p - the LPC order (see choose_order())
-        fs - the sampling frequency of x
     Result
         A - a two dimensional array of p coefficients for each frame of the audio file
         G - the variance of the LPC residual
@@ -686,7 +686,7 @@ def get_LPC(x,frame_length,p,fs):  # add a flag for computing RMS
 # ------------ functions for LPC analysis -----------------------
 
 
-def get_LPC_lr(x,frame_length,p,fs):
+def get_LPC_lr(x,fs, frame_length,p):
     '''get_LPC_lr() -- uses librosa functions to compute LPC coefficients for a waveform array.  
     You can, and usually do, pass an array of the waveform of a whole file.  This routine is more than 
     twice as fast as get_LPC() which uses 'solve_lpc() in a for loop.
@@ -694,9 +694,10 @@ def get_LPC_lr(x,frame_length,p,fs):
     Input
         x - a one-dimensional numpy array with audio waveform samples 
             (must be sampled at 12kHz, and at least 'frame_length' long)
+        fs - the sampling frequency of x
         frame_length - the number of samples in a frame
         p - the LPC order (see choose_order())
-        fs - the sampling frequency of x
+
     Result
         A - a two dimensional array of p coefficients for each frame of the audio file
         rms - a one dimensional array of RMS amplitude values.
@@ -748,7 +749,7 @@ def choose_order(x,frame_length,fs):
             lpc_order = order        
     return lpc_order
 
-def LPC_tracking(sig, f0_range = [63,400], lpc_order = -1, chan = 0, preemphasis = 1.0, fs_in=12000):
+def LPC_tracking(x, fs, f0_range = [63,400], lpc_order = -1, preemphasis = 1.0):
     '''LPC_tracking() uses the Librosa implemenation of linear predictive coding 
 (Markel & Gray) to find the vowel formant frequencies in a sound file, or array of audio samples.  Formant freqquencies are found from the LPC coefficients using polynomial root solving.  The function also uses the LPC coefficients to inverse filter the waveform and then calculate f0 (voice pitch) from the quasi glottal waveform using autocorrelation. The peak autocorrelation values are normalized and returned as a voicing score between 0 and 1.  Finally, the RMS amplitude of the waveform in each frame of audio is also returned.  A dataframe of measurements is returned with data at intervals of 10ms.  
  
@@ -774,7 +775,7 @@ def LPC_tracking(sig, f0_range = [63,400], lpc_order = -1, chan = 0, preemphasis
 
     if not quiet: print(f"LPC_tracking(), with order set to {lpc_order}, and pitch range {f0_range}")
 
-    x, fs = prep_audio(sig, fs = SR, fs_in=fs_in, chan=chan, pre = 0,quiet = quiet)  # read waveform, no preemphasis
+    x, fs = prep_audio(x, fs, target_fs = SR, pre = 0,quiet = quiet)  # read waveform, no preemphasis
 
     rms = librosa.feature.rms(y=x,frame_length=frame_length, hop_length=step)[0,1:-1] # get rms amplitude
     rms = 20*np.log10(rms/np.max(rms))
@@ -786,7 +787,7 @@ def LPC_tracking(sig, f0_range = [63,400], lpc_order = -1, chan = 0, preemphasis
         lpc_order = choose_order(y,frame_length,fs)
         if not quiet: print(f"Selected LPC order is: {lpc_order}")
 
-    (A,t) = get_LPC_lr(y,frame_length,lpc_order,fs)  # LPC coefs for whole file using this order
+    (A,t) = get_LPC_lr(y,fs, frame_length,lpc_order)  # LPC coefs for whole file using this order
 
     nb = A.shape[0]  # the number of frames (or blocks) in the LPC analysis
     nf = int((lpc_order-2)/2)  # the number of formants that will be computed
@@ -801,7 +802,7 @@ def LPC_tracking(sig, f0_range = [63,400], lpc_order = -1, chan = 0, preemphasis
         end = int(t[i]*fs+half_frame)
 
         # measure F0 using inverse filtering with the LPC filter A[z]
-        f0[i],c[i] = track_pitch_lpc(y[start:end],A[i,:],f0_range,fs) 
+        f0[i],c[i] = track_pitch_lpc(y[start:end],fs,A[i,:],f0_range) 
 
         roots = np.roots(A[i,:])  # solve for the roots of the polynomial
         roots = roots[np.imag(roots)>=0]  # only keep the positive ones
@@ -823,24 +824,19 @@ def LPC_tracking(sig, f0_range = [63,400], lpc_order = -1, chan = 0, preemphasis
     return df
 
 
-def IFC_tracking(sig, chan = 0, preemphasis = 1.0, fs_in=12000, 
-                 f0_range = [63,400], speaker=0):
+def IFC_tracking(x, fs, preemphasis = 1.0, f0_range = [63,400], speaker=0):
     
     if not quiet: 
         print(f"IFC_tracking(), using method {g_method}, with speaker set to {speaker}, and pitch range {f0_range}")
 
-
-    x, fs = prep_audio(sig, fs = SR, fs_in=fs_in, chan=chan, 
-                       pre = 0, quiet = quiet)  # read waveform, no preemphasis
+    x, fs = prep_audio(x, fs, target_fs = SR, pre = 0)  # downsample waveform, no preemphasis
 
     rms = librosa.feature.rms(y=x,frame_length=frame_length, hop_length=step)[0,1:-1] # get rms amplitude
     rms = 20*np.log10(rms/np.max(rms))
 
-    # convert to int
-    y = np.array([x * np.iinfo(np.int16).max]).astype(np.int16)
+    # apply preemphasis and convert to integer samples
+    y, fs = prep_audio(x,fs,pre=preemphasis,target_fs=fs) #, outtype='int', quiet=quiet)
     
-    if (preemphasis > 0): y = np.append(y[0], y[1:] - preemphasis * y[:-1])  # now apply pre-emphasis
-
     filterbank = [design_filter(b, fs,order=12) for b in params[speaker]["bands"]]  
     time_axis = np.arange(len(y))/fs
 
@@ -850,7 +846,7 @@ def IFC_tracking(sig, chan = 0, preemphasis = 1.0, fs_in=12000,
         t = index/fs
         x_win = y[index-half_frame:index+half_frame+1]
 
-        row = IFC_process_frame(x_win,speaker,fs,f0_range, filterbank)
+        row = IFC_process_frame(x_win,fs,speaker,f0_range, filterbank)
         formants = np.append(formants,[np.concatenate(([t],[rms[frame_count]],row))],axis=0)
         if not quiet:   # count time though the file
             if (t % 0.02) < 0.001:  print(f"\r {t:.2f} sec.", end='')
@@ -862,7 +858,7 @@ def IFC_tracking(sig, chan = 0, preemphasis = 1.0, fs_in=12000,
 
     return df
 
-def track_formants(sig,chan=0, method='lpc', preemphasis = 1.0, fs_in=12000, f0_range = [63,400], speaker = 0, lpc_order= -1, quiet=False):
+def track_formants(x,fs, method='lpc', preemphasis = 1.0, f0_range = [63,400], speaker = 0, lpc_order= -1, quiet=False):
     """Computes the vowel formant values in audio of speech.
     
 The function uses either LPC analysis or the IFC method to calculate vowel formants (the resonant frequencies of the vocal tract) and then returns a dataframe of measurements (formants, f0, voicing, and amplitude) at 10ms intervals for the duration of sound.
@@ -873,18 +869,15 @@ The LPC option uses the Librosa implemenation of linear predictive coding (Marke
 
 Parameters
 ==========
-sig : string or array
-    the name of a sound file, or an array of audio samples
+x : array
+    a one-dimensional array of audio samples
 
-chan : int, default=0
-    if the audio in sound is stereo, which channel should be analyzed? 0 = left, 1 = right
+fs : int
+    the sampling rate of the audio in **x** 
 
 preemphasis : float, default = 1.0
     factor of a preemphasis factor (0-1).
 
-fs_in : int, default = 12000
-    the sampling rate of **sig** if it is an array, it will be resampled to 12 kHz for analysis
-    
 f0_range : list, default = [63,400]
     the lowest and highest values to consider in pitch tracking.
     
@@ -941,10 +934,10 @@ The next example uses LPC analysis, which by default will try to pick the correc
 An array of samples is loaded by `prep_audio()` and then passed to `track_formants()`.  Then `sgram()` plots
 the spectrogram of `x`, and the seaborn graphics package is used to add the formants to the spectrogram.
 
->>> x,fs = phon.prep_audio("sf3_cln.wav")
->>> df = phon.track_formants(x,fs_in=fs)
+>>> x,fs = phon.loadsig("sf3_cln.wav")
+>>> df = phon.track_formants(x,fs)
 >>>
->>> phon.sgram(x, fs_in=fs, cmap="Blues")  # plot the spectrogram
+>>> phon.sgram(x,fs, cmap="Blues")  # plot the spectrogram
 >>>
 >>> seaborn.pointplot(df,x='sec',y='F1',linestyle='none',native_scale=True,marker=".",color='red')
 >>> seaborn.pointplot(df,x='sec',y='F2',linestyle='none',native_scale=True,marker=".",color='red')
@@ -966,13 +959,9 @@ the spectrogram of `x`, and the seaborn graphics package is used to add the form
     globals()['g_method'] = method
     
     if method == 'lpc':
-        df = LPC_tracking(sig, chan=chan, preemphasis = preemphasis, 
-                          fs_in = fs_in, f0_range=f0_range, 
-                          lpc_order=lpc_order)
+        df = LPC_tracking(x, fs, preemphasis = preemphasis, f0_range=f0_range, lpc_order=lpc_order)
     else: 
-        df = IFC_tracking(sig, chan=chan, preemphasis = preemphasis, 
-                          fs_in = fs_in,f0_range=f0_range, 
-                          speaker=speaker)
+        df = IFC_tracking(x, fs, preemphasis = preemphasis, f0_range=f0_range, speaker=speaker)
 
     return df
 

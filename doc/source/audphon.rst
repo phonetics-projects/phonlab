@@ -1,9 +1,6 @@
 Auditory Phonetics
 ==================
 
-.. autofunction:: phonlab.peak_rms
-.. autofunction:: phonlab.hz2bark
-
 Signal Manipulation
 -------------------
 
@@ -14,3 +11,13 @@ Signal Manipulation
 .. autofunction:: phonlab.shannon_bands
 .. autofunction:: phonlab.third_octave_bands
 .. autofunction:: phonlab.apply_filterbank		  
+
+Auditory Representations
+------------------------
+.. autofunction:: phonlab.mfcc2df
+.. autofunction:: phonlab.Audspec
+
+Helper Functions
+----------------
+.. autofunction:: phonlab.peak_rms
+.. autofunction:: phonlab.hz2bark

@@ -1,0 +1,91 @@
+__all__=['prep_audio']
+
+import numpy as np
+from scipy.signal import resample
+from ..utils.phonlablib import loadsig
+
+
+def prep_audio(x, fs, target_fs=22050, chan = 0, pre = 0, scale = True, outtype = "float", quiet = False):
+    """ Prepare an array of audio waveform samples for acoustic analysis. 
+    
+Parameters
+==========
+    x : array
+        a one-dimensional numpy array with audio samples in it. 
+
+    fs : int, default = 22050
+          The sampling rate of the sound in **x**.
+   
+    target_fs : int, default=22050
+        The desired sampling rate of the audio samples that will be returned by the function.  
+        Set **target_fs = None** if you want to keep the same **fs** sampling rate as passed 
+        for the array in **x**.
+
+    chan : int, default = 0
+        which channel of multichannel audio to keep - default is 0 (the left channel in stereo audio)
+
+    pre : float, default = 0
+        how much high frequency preemphasis to apply (between 0 and 1).
+
+    scale: boolean, default = True
+        scale the samples to use the full range for audio samples (based on the peak amplitude in the signal)
+
+    outtype : string {"float", "int"), default = "float"
+        The "int" waveform is 16 bit integers - in the range from [-32768, 32767].
+        The "float" waveform is 32 bit floating point numbers - in the range from [-1, 1].
+
+
+Returns
+=======
+    y : ndarray
+        a 1D numpy array with audio samples 
+    
+    fs : int
+        the sampling rate of the audio in **y**.
+
+Note
+====
+This function is opinionated and so by default will return audio with a sampling rate of 22050Hz and scaled to be in the range from [1,-1]
+
+Raises
+======
+    OSError 
+        if the sound file can't be opened
+
+Example
+=======
+Open a sound file and prepare it for acoustic analysis.  By default, prep_audio() will 
+resample the audio to a sampling rate of 22050, and scale the waveform to use the full range.
+In this example, we have also asked the function to apply a preemphasis factor of 1 (about 6dB/octave).
+
+>>> y,fs = phon.loadsig("sound.wav")
+>>> x,fs = phon.prep_audio(y, fs, pre=1)
+
+Take the right channel, and resample to 16,000 Hz
+
+>>> *chans,fs = phon.loadsig("sound.wav")
+>>> print(f'the old sampling rate is: {fs}')
+>>> y,fs = phon.prep_audio(chans[1],fs, target_fs=16000)
+>>> print(f'the new sampling rate is: {fs}')
+
+    """
+
+
+    #  todo:  handle integer waveform input?  
+
+    if target_fs == None:  # use the input fs as your target, instead of 22050
+        target_fs = fs
+    elif target_fs != fs:  # resample to 'target_fs' samples per second
+        if not quiet: print(f'Resampling from {fs} to {target_fs}')
+        resample_ratio = target_fs/fs
+        new_size = int(len(x) * resample_ratio)  # size of the resampled version
+        x = resample(x,new_size)  # now sampled at desired sampling freq
+
+    if (np.max(x) + np.min(x)) < 0:  x = -x   #  set the polarity of the signal
+    if (pre > 0): y = np.append(x[0], x[1:] - pre * x[:-1])  # apply pre-emphasis
+    else: y = x
+    if scale: y = y/np.max(y) * 0.99  # scale to about full range
+    if outtype == "int":  y = np.rint(np.iinfo(np.int16).max * y).astype(np.int16)
+    if outtype == "int16":  y = np.rint(np.iinfo(np.int16).max * y).astype(np.int16)
+
+    return y,target_fs

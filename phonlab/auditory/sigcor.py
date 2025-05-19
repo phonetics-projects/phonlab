@@ -2,50 +2,47 @@ __all__=["sigcor_noise"]
 
 import librosa
 import numpy as np
-from ..utils.get_signal_ import prep_audio
+from ..utils.prep_audio_ import prep_audio
 
-def sigcor_noise(sig, flip_rate = 0.5, start=0, end = -1, fs_in = 22050, fs = 22050, chan=0):
+def sigcor_noise(x,fs, flip_rate = 0.5, start=0, end = -1):
     """Add signal correlated noise to an audio file. 
     
     The function takes a filename and returns a numpy array that contains the signal 
     with added signal correlated noise.  This by done by flipping the polarity of samples 
     randomly. Note that flip_rate of 0 means no change, and 1 means flip the polarity of all of the 
-    samples, 0.5 means flip 1/2 of the samples (imagine flipping a coin for each sample, heads 
-    leave it as it was, tails multiply it by -1).  So, the maximum "noise" is with flip_rate = 0.5.
+    samples, 0.5 means randomly flip the polarity of 1/2 of the samples (imagine flipping a coin for 
+    each sample, heads leave it as it was, tails multiply it by -1).  So, the maximum "noise" is 
+    with flip_rate = 0.5.
         
     Parameters
     ----------
-        sig : Path, or ndarray
-            Either a string containing the full path to an audio file (wav or mp3), or an array of audio samples.  If **sig** is an array, be sure to specify the sampling rate in fs_in.
+        x : ndarray
+            An one-dimensional array of audio samples. 
+        fs : int
+            the sampling frequency of the audio samples in **x**
         flip_rate : float, 0 <= flip_rate <= 1.0, default = 0.5 
             determines the proportion of samples to flip (0.5 gives maximum noise)    
         start : float, default = 0
             the time (in seconds) at which to start adding noise (default is 0)
         end : float, default = -1
             the time (in seconds) at which to stop adding noise (default is -1, apply to the end of the audio).
-        fs_in : int
-            if **sig** is an array, fs_in is the sampling frequency of the sound to be manipulated
-        fs : int, default = 22050
-            is the desired sampling frequency of the output array
-        chan : int, default = 0
-            if **sig** is a stereo wav file, select a channel (0 = left, 1 = right)
-            
+           
     Returns
     -------
-        signal : ndarray
-            a 1D array that has the altered audio from filename
+        y : ndarray
+            A one-dimensional array derived from **x**
             
         fs : float
-            the sampling rate of the signal (default is 22050)
-            
-    Notes
-    -----
-    librosa.load() is used to open the audio file.  It is resampled to a sampling rate of 22050Hz, and 
-    converted to mono (if not mono already) by adding the left and right channels.
-        
-    """
-    x,fs = prep_audio(sig, fs=fs, fs_in=fs_in, pre=0, chan = chan)
-    
+            the sampling rate of **y**
+
+
+    Example
+    -------
+    Open a file and add signal correlated noise to the section between 1.2 and 1.5 seconds.
+
+    >>> x,fs = phon.loadsig("sf3_cln.wav") 
+    >>> y,fs = phon.sigcor_noise(x,fs,flip_rate=0.4,start=1.2,end=1.5)
+    """    
     start = int(start*fs)
     end = int(end*fs)
         
