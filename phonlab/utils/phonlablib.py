@@ -329,7 +329,7 @@ df : dataframe
         assert(not outoftol.any())
     except AssertionError:
         with np.printoptions(threshold=3):
-            msg = f'The maximum distance allowed from an interpolation timepoint to the nearest measurement timepoint is {tol}, and that tolerance is exceeded at interpolation timepoints {interp_ts[outoftol].values}. Use the `tol` param to adjust the tolerance or exclude these interpolation timepoint(s).'
+            msg = f'The maximum distance allowed from an interpolation timepoint to the nearest measurement timepoint is {tol}, and that tolerance is exceeded at interpolation timepoint(s) {interp_ts[outoftol].values}. Use the `tol` param to adjust the tolerance or exclude these interpolation timepoint(s).'
         raise ValueError(msg) from None
     try:
         assert(np.all(np.diff(meas_ts) > 0))
