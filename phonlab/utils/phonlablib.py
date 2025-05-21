@@ -122,9 +122,10 @@ df : dataframe
         df.insert(colidx + nprev + nnext + 1, ctxcol, newcol, allow_duplicates=False)
     return df
 
-def merge_tiers(inner_df, outer_df, suffixes, inner_ts=['t1','t2'], outer_ts=['t1','t2']):
+def merge_tiers(inner_df, outer_df, suffixes, inner_ts=['t1','t2'], outer_ts=['t1','t2'],
+    drop_repeated_cols=None):
     '''
-Merge hierarchical interval dataframe tiers based on their times.
+Merge hierarchical dataframe tiers based on their times.
 
 Parameters
 ----------
@@ -133,40 +134,65 @@ inner_df : dataframe
      The dataframe whose intervals are properly contained inside `outer_df`.
 
 outer_df : dataframe
-      The dataframe whose intervals contain one or more intervals from `inner_df`.
+      The dataframe whose intervals contain one or more intervals from
+      `inner_df`.
 
 suffixes : list of str
-      List of suffixes to add to time columns in the output dataframe. The first suffix is added to the names in `inner_ts`, and the second suffix is added to the names in `outer_ts`. If the names in `inner_ts` and `outer_ts` do not overlap, then empty string suffixes may be appropriate.
+    List of suffixes to add to time columns in the output dataframe. The first
+    suffix is added to the names in `inner_ts`, and the second suffix is added
+    to the names in `outer_ts`. If the names in `inner_ts` and `outer_ts` do
+    not overlap, then empty string suffixes may be appropriate.
 
 inner_ts : list of str
-    Names of the columns that define time intervals in `inner_df`. The first value is the start time of the interval, and the second value is the end time.
+    Names of the columns that define time intervals in `inner_df`. The first
+    value is the start time of the interval, and the second value is the end
+    time. For point tiers, only one column should be named.
 
- outer_ts : list of str
-    Names of the columns that define time intervals in `outer_df`. The first value is the start time of the interval, and the second value is the end time.
+outer_ts : list of str
+    Names of the columns that define time intervals in `outer_df`. The first
+    value is the start time of the interval, and the second value is the end
+    time. For point tiers, only one column should be named.
+
+drop_repeated_cols : str ('inner', 'inner_df', 'outer', 'outer_df', None)
+    Drop each column from the specified dataframe if there is a column with an
+    identical label in the other input dataframe. The `inner_ts` and `outer_ts`
+    columns are excluded from being dropped. If None, no columns are dropped.
 
 Returns
 -------
 
- ergedf : dataframe
+mergedf : dataframe
     Merged dataframe of time-matched rows from `inner_df` and `outer_df`.
     '''
+    common_cols = np.intersect1d(inner_df.columns, outer_df.columns)
+    if drop_repeated_cols in ['inner', 'inner_df']:
+        innerdropcols = np.setdiff1d(common_cols, inner_ts)
+        outerdropcols = []
+    elif drop_repeated_cols in ['outer', 'outer_df']:
+        innerdropcols = []
+        outerdropcols = np.setdiff1d(common_cols, outer_ts)
+    else:
+        innerdropcols = []
+        outerdropcols = []
     innert1col = f'{inner_ts[0]}{suffixes[0]}'
+    innerrenamecols = {inner_ts[0]: innert1col}
+    if len(inner_ts) > 1:
+        innerrenamecols[inner_ts[1]] =  f'{inner_ts[1]}{suffixes[0]}'
     outert1col = f'{outer_ts[0]}{suffixes[1]}'
+    outerrenamecols = {outer_ts[0]: outert1col}
+    if len(outer_ts) > 1:
+        outerrenamecols[outer_ts[1]] =  f'{outer_ts[1]}{suffixes[1]}'
     try:
         mergedf = pd.merge_asof(
-            inner_df.rename({
-                inner_ts[0]: innert1col,
-                inner_ts[1]: f'{inner_ts[1]}{suffixes[0]}',
-            }, axis='columns'),
-            outer_df.rename({
-                outer_ts[0]: outert1col,
-                outer_ts[1]: f'{outer_ts[1]}{suffixes[1]}',
-            }, axis='columns'),
+            inner_df.drop(columns=innerdropcols) \
+                .rename(innerrenamecols, axis='columns'),
+            outer_df.drop(columns=outerdropcols) \
+                .rename(outerrenamecols, axis='columns'),
             left_on=innert1col,
             right_on=outert1col
         )
     except KeyError:
-        msg = f'Time columns {inner_ts} not found in `inner_df` or {outer_ts} not found in `outer_df`. Select valid column names in the `inner_ts` and `outer_ts` parameters.'
+        msg = f'Time column(s) {inner_ts} not found in `inner_df` or {outer_ts} not found in `outer_df`. Select valid column names in the `inner_ts` and `outer_ts` parameters.'
         raise KeyError(msg) from None
     return mergedf
 
