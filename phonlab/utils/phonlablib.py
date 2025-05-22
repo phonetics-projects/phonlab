@@ -293,7 +293,7 @@ Note
         divdf = df.merge(divdf, left_index=True, right_index=True)
     return divdf
 
-def interpolate_measures(meas_df, meas_ts, interp_df=None, interp_ts=None, tol=None):
+def interpolate_measures(meas_df, meas_ts, interp_df=None, interp_ts=None, tol=None, overwrite=False):
     '''
     Interpolate measurements from an analysis dataframe consisting of a time-based
     column and one or more columns containing measurement values. Linear interpolation
@@ -327,6 +327,11 @@ tol : float (default None)
     measurement timepoint. If None, the tolerance will be automatically
     calculated as half the mean step between measurement timepoints.
 
+overwrite : bool (default False)
+    If True, overwrite existing measurements in `interp_df` from columns of the
+    same names in `meas_df`. If False, an error is raised when column names
+    overlap. Measurement columns from `meas_df` that do not overlap `interp_df`
+    are always added as new columns.
 
 Returns
 -------
@@ -364,6 +369,13 @@ df : dataframe
         raise ValueError(msg) from None
     meas_cols = [c for c in meas_df.columns if c != meas_ts.name]
     try:
+        if not overwrite:
+            overlaps = set(interp_df.columns) & set(meas_cols)
+            assert(len(overlaps) == 0)
+    except AssertionError:
+        msg = f'Found overlap of columns in `interp_df` and `meas_df`. To overwrite the measurements in the {overlaps} column(s) in `interp_df` set the parameter `overwrite=True`. If you wish to keep the existing measurements and add new columns from `meas_df` you can `rename` the column(s) in the input dataframes so that they do not match.'
+        raise ValueError(msg) from None
+    try:
         results = {}
         for col in meas_cols:
             results[col] = np.interp(interp_ts, meas_ts, meas_df[col])
@@ -371,8 +383,7 @@ df : dataframe
         msg = f"Could not interpolate column `{col}` from `meas_df`. Specify a subset of the dataframe that does not include it, e.g. `meas_df=df[['tcol', 'measurecol']]`."
         raise TypeError(msg) from None
     if interp_df is not None:
-        newdf = pd.DataFrame(results, index=interp_ts.index)
-        df = pd.concat([interp_df, newdf], axis='columns')
+        df = interp_df.assign(**results)
     else:
         try:
             tcolname = interp_ts.name
