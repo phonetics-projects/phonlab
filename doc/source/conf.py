@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Phonlab'
-copyright = '2024, Ronald Sprouse and Keith Johnson'
+copyright = '2025, Ronald Sprouse and Keith Johnson'
 author = 'Ronald Sprouse and Keith Johnson'
 release = '0.0.1'
 

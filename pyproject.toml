@@ -1,0 +1,53 @@
+[build-system]
+requires = ['setuptools >= 77.0.3']
+build-backend = "setuptools.build_meta"
+
+[project]
+name = 'phonlab'
+authors = [{name = "Keith Johnson", email = "kjohnson@berkeley.edu"},
+            {name = "Ronald Sprouse", email = "rsprouse@berkeley.edu"} 
+]
+description = "Python tools for phonetics"
+readme = "README.md"
+requires-python = ">=3.10"
+dynamic = ["version"]
+
+dependencies = [
+    'importlib_resources; python_version < "3.9"',
+    'numpy',
+    'pandas',
+    'librosa',
+    'nitime',
+    'matplotlib',
+    'praat-parselmouth',
+    'scipy',
+    'soundfile',
+    'srt',
+    'colorednoise'
+]
+classifiers = [
+    'Programming Language :: Python :: 3',
+    'Operating System :: OS Independent',
+    'Intended Audience :: Science/Research',
+    'Topic :: Scientific/Engineering',
+    'Topic :: Multimedia :: Sound/Audio :: Speech'
+]
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+
+[project.urls]
+Homepage = "https://github.com/rsprouse/phonlab"
+Issues = "https://github.com/rsprouse/phonlab/issues"
+
+[tool.setuptools]
+packages = [
+    'phonlab',
+    'phonlab.third_party',
+    'phonlab.acoustic',
+    'phonlab.artic',
+    'phonlab.auditory',
+    'phonlab.utils'
+]
+
+[tool.setuptools.package-data]
+phonlab = ['*.txt', 'data/noise/*.wav']
