@@ -13,7 +13,7 @@ requires-python = ">=3.10"
 dynamic = ["version"]
 
 dependencies = [
-    'importlib_resources; python_version < "3.9"',
+    'importlib_resources; python_version < "3.09"',
     'numpy',
     'pandas',
     'librosa',
@@ -46,8 +46,13 @@ packages = [
     'phonlab.acoustic',
     'phonlab.artic',
     'phonlab.auditory',
-    'phonlab.utils'
+    'phonlab.utils',
+    'phonlab.data.noise',
+    'phonlab.data.example_audio'
 ]
 
+[tool.setuptools.dynamic]
+version = {attr="phonlab.__version__"}
+
 [tool.setuptools.package-data]
-phonlab = ['*.txt', 'data/noise/*.wav']
+phonlab = ['*.txt', 'data/noise/*.wav', 'data/example_audio/*']
