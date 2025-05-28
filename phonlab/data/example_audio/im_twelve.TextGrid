@@ -1,0 +1,180 @@
+File type = "ooTextFile"
+Object class = "TextGrid"
+
+xmin = 0 
+xmax = 1.998125 
+tiers? <exists> 
+size = 3 
+item []: 
+    item [1]:
+        class = "IntervalTier" 
+        name = "word" 
+        xmin = 0 
+        xmax = 1.998125 
+        intervals: size = 7 
+        intervals [1]:
+            xmin = 0 
+            xmax = 0.2130449290782511 
+            text = "I'm" 
+        intervals [2]:
+            xmin = 0.2130449290782511 
+            xmax = 0.8259102493024975 
+            text = "twelve" 
+        intervals [3]:
+            xmin = 0.8259102493024975 
+            xmax = 0.9915766183721738 
+            text = "" 
+        intervals [4]:
+            xmin = 0.9915766183721738 
+            xmax = 1.1596977205265993 
+            text = "what're " 
+        intervals [5]:
+            xmin = 1.1596977205265993 
+            xmax = 1.2643954154751724 
+            text = "you" 
+        intervals [6]:
+            xmin = 1.2643954154751724 
+            xmax = 1.6909761122249611 
+            text = "talking" 
+        intervals [7]:
+            xmin = 1.6909761122249611 
+            xmax = 1.998125 
+            text = "about" 
+    item [2]:
+        class = "IntervalTier" 
+        name = "phone" 
+        xmin = 0 
+        xmax = 1.998125 
+        intervals: size = 21 
+        intervals [1]:
+            xmin = 0 
+            xmax = 0.03504729926105083 
+            text = "" 
+        intervals [2]:
+            xmin = 0.03504729926105083 
+            xmax = 0.12654140804559302 
+            text = "ay" 
+        intervals [3]:
+            xmin = 0.12654140804559302 
+            xmax = 0.2130449290782511 
+            text = "m" 
+        intervals [4]:
+            xmin = 0.2130449290782511 
+            xmax = 0.36109903238414665 
+            text = "t" 
+        intervals [5]:
+            xmin = 0.36109903238414665 
+            xmax = 0.3989404423616672 
+            text = "w" 
+        intervals [6]:
+            xmin = 0.3989404423616672 
+            xmax = 0.5741788647543207 
+            text = "eh" 
+        intervals [7]:
+            xmin = 0.5741788647543207 
+            xmax = 0.713256977764363 
+            text = "l" 
+        intervals [8]:
+            xmin = 0.713256977764363 
+            xmax = 0.8259102493024975 
+            text = "v" 
+        intervals [9]:
+            xmin = 0.8259102493024975 
+            xmax = 0.9900224226543475 
+            text = "" 
+        intervals [10]:
+            xmin = 0.9900224226543475 
+            xmax = 1.06373382254967 
+            text = "w" 
+        intervals [11]:
+            xmin = 1.06373382254967 
+            xmax = 1.1318820979245907 
+            text = "dh" 
+        intervals [12]:
+            xmin = 1.1318820979245907 
+            xmax = 1.1596977205265993 
+            text = "r" 
+        intervals [13]:
+            xmin = 1.1596977205265993 
+            xmax = 1.2643954154751724 
+            text = "iy" 
+        intervals [14]:
+            xmin = 1.2643954154751724 
+            xmax = 1.4057954017785557 
+            text = "t" 
+        intervals [15]:
+            xmin = 1.4057954017785557 
+            xmax = 1.5921106778488963 
+            text = "aa" 
+        intervals [16]:
+            xmin = 1.5921106778488963 
+            xmax = 1.6470071431196216 
+            text = "k" 
+        intervals [17]:
+            xmin = 1.6470071431196216 
+            xmax = 1.6909761122249611 
+            text = "en" 
+        intervals [18]:
+            xmin = 1.6909761122249611 
+            xmax = 1.7396534517784759 
+            text = "ah" 
+        intervals [19]:
+            xmin = 1.7396534517784759 
+            xmax = 1.799457040372794 
+            text = "b" 
+        intervals [20]:
+            xmin = 1.799457040372794 
+            xmax = 1.964741229989577 
+            text = "aw" 
+        intervals [21]:
+            xmin = 1.964741229989577 
+            xmax = 1.998125 
+            text = "" 
+    item [3]:
+        class = "TextTier" 
+        name = "pointph" 
+        xmin = 0 
+        xmax = 1.998125 
+        points: size = 14 
+        points [1]:
+            number = 0.08184234469877057 
+            mark = "ay" 
+        points [2]:
+            number = 0.17312022706317814 
+            mark = "m" 
+        points [3]:
+            number = 0.29455786235902504 
+            mark = "t" 
+        points [4]:
+            number = 0.3808602876703617 
+            mark = "w" 
+        points [5]:
+            number = 0.49073199694829517 
+            mark = "eh" 
+        points [6]:
+            number = 0.6437179212593418 
+            mark = "l" 
+        points [7]:
+            number = 0.7855775965295851 
+            mark = "v" 
+        points [8]:
+            number = 1.3335453617891522 
+            mark = "t" 
+        points [9]:
+            number = 1.4623553962999092 
+            mark = "aa" 
+        points [10]:
+            number = 1.6020918533526645 
+            mark = "k" 
+        points [11]:
+            number = 1.6586518478740178 
+            mark = "en" 
+        points [12]:
+            number = 1.7034931423958648 
+            mark = "ah" 
+        points [13]:
+            number = 1.7716414177707855 
+            mark = "b" 
+        points [14]:
+            number = 1.8998635892150835 
+            mark = "aw" 
