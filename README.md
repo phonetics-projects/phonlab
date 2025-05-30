@@ -1,18 +1,12 @@
 # phonlab
-UC Berkeley PhonLab utilities
+A collection of python functions for doing phonetics.
 
 ## Installation
 
-To install, do:
-
 ```bash
-pip install git+https://github.com/rsprouse/phonlab@keith
+pip install phonlab
 ```
 
-Or:
+## Documentation 
 
-```bash
-git clone https://github.com/rsprouse/phonlab@keith # Or download and unzip package from github
-cd phonlab
-pip install .
-```
+https://readthedocs.com/phonlab

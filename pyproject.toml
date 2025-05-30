@@ -1,5 +1,5 @@
 [build-system]
-requires = ['setuptools >= 77.0.3']
+requires = ['setuptools >= 77.0.3', 'wheel']
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,21 +9,21 @@ authors = [{name = "Keith Johnson", email = "kjohnson@berkeley.edu"},
 ]
 description = "Python tools for phonetics"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">= 3.09, < 3.13"
 dynamic = ["version"]
 
 dependencies = [
-    'importlib_resources; python_version < "3.09"',
+    'importlib_resources',
+    'python-dateutil', 
     'numpy',
-    'pandas',
-    'librosa',
     'nitime',
     'matplotlib',
-    'praat-parselmouth',
     'scipy',
-    'soundfile',
     'srt',
-    'colorednoise'
+    'colorednoise',
+    'pandas',
+    'librosa',
+    'praat-parselmouth'
 ]
 classifiers = [
     'Programming Language :: Python :: 3',

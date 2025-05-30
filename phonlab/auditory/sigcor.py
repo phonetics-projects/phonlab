@@ -1,6 +1,5 @@
 __all__=["sigcor_noise"]
 
-import librosa
 import numpy as np
 from ..utils.prep_audio_ import prep_audio
 

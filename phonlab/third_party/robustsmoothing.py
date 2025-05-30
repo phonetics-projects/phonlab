@@ -1,7 +1,5 @@
 __all__=['smoothn']
 
-#from numpy import *
-from pylab import *
 import scipy.optimize.lbfgsb as lbfgsb
 import numpy.linalg
 from scipy.fftpack import dct,idct
@@ -93,74 +91,6 @@ Examples
 
     ''' 
 
-    # keeping here some examples given in the original matlab code
-
-    '''
-
-   # 2-D example
-   xp = 0:.02:1;
-   [x,y] = meshgrid(xp);
-   f = exp(x+y) + sin((x-2*y)*3);
-   fn = f + randn(size(f))*0.5;
-   fs = smoothn(fn);
-   subplot(121), surf(xp,xp,fn), zlim([0 8]), axis square
-   subplot(122), surf(xp,xp,fs), zlim([0 8]), axis square
-
-   # 2-D example with missing data
-   n = 256;
-   y0 = peaks(n);
-   y = y0 + rand(size(y0))*2;
-   I = randperm(n^2);
-   y(I(1:n^2*0.5)) = NaN; # lose 1/2 of data
-   y(40:90,140:190) = NaN; # create a hole
-   z = smoothn(y); # smooth data
-   subplot(2,2,1:2), imagesc(y), axis equal off
-   title('Noisy corrupt data')
-   subplot(223), imagesc(z), axis equal off
-   title('Recovered data ...')
-   subplot(224), imagesc(y0), axis equal off
-   title('... compared with original data')
-
-   # 3-D example
-   [x,y,z] = meshgrid(-2:.2:2);
-   xslice = [-0.8,1]; yslice = 2; zslice = [-2,0];
-   vn = x.*exp(-x.^2-y.^2-z.^2) + randn(size(x))*0.06;
-   subplot(121), slice(x,y,z,vn,xslice,yslice,zslice,'cubic')
-   title('Noisy data')
-   v = smoothn(vn);
-   subplot(122), slice(x,y,z,v,xslice,yslice,zslice,'cubic')
-   title('Smoothed data')
-
-   # Cardioid
-   t = linspace(0,2*pi,1000);
-   x = 2*cos(t).*(1-cos(t)) + randn(size(t))*0.1;
-   y = 2*sin(t).*(1-cos(t)) + randn(size(t))*0.1;
-   z = smoothn(complex(x,y));
-   plot(x,y,'r.',real(z),imag(z),'k','linewidth',2)
-   axis equal tight
-
-   # Cellular vortical flow
-   [x,y] = meshgrid(linspace(0,1,24));
-   Vx = cos(2*pi*x+pi/2).*cos(2*pi*y);
-   Vy = sin(2*pi*x+pi/2).*sin(2*pi*y);
-   Vx = Vx + sqrt(0.05)*randn(24,24); # adding Gaussian noise
-   Vy = Vy + sqrt(0.05)*randn(24,24); # adding Gaussian noise
-   I = randperm(numel(Vx));
-   Vx(I(1:30)) = (rand(30,1)-0.5)*5; # adding outliers
-   Vy(I(1:30)) = (rand(30,1)-0.5)*5; # adding outliers
-   Vx(I(31:60)) = NaN; # missing values
-   Vy(I(31:60)) = NaN; # missing values
-   Vs = smoothn(complex(Vx,Vy),'robust'); # automatic smoothing
-   subplot(121), quiver(x,y,Vx,Vy,2.5), axis square
-   title('Noisy velocity field')
-   subplot(122), quiver(x,y,real(Vs),imag(Vs)), axis square
-   title('Smoothed velocity field')
-
-   -- Damien Garcia -- 2009/03, revised 2010/11
-   Visit my <a href="matlab:web('http://www.biomecardio.com/matlab/smoothn.html')">website</a> 
-   for more details about SMOOTHN
-
-'''
     smoothOrder=2.0  # used in calculating Lambda tensor
     s0=None  # starting value of smoothing parameter
     
@@ -447,7 +377,8 @@ def peaks(n):
     f *= random()
     z += f
   return z
-
+    
+'''
 def test1():
    plt.figure(1)
    plt.clf()
@@ -627,3 +558,4 @@ def sparseTest(n=1000):
   # Ut.T * Ut = I
   # ((Vt.T * (np.diag(np.array(eigenvalues).flatten())**2)) * Vt)
   # we see you get the same as m.T * m by squaring the eigenvalues
+'''

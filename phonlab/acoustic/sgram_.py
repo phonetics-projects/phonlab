@@ -67,8 +67,6 @@ def sgram(x,fs,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
         a one-dimensional array of audio samples.
     fs : numeric
         The sampling rate of the audio in **x**
-    chan : int, default = 0
-        choose a channel if the file is stereo -  0 (default) = left channel, 1 = right channel
     start : float, default = 0
         starting time (in seconds) of the waveform chunk to plot -- default plot whole file
     end : float, default = -1

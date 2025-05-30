@@ -3,14 +3,9 @@ __all__ = ["peak_rms", "add_noise"]
 import numpy as np
 import matplotlib.pyplot as plt
 import random
-from ..utils.prep_audio_ import prep_audio
-
-
-import colorednoise as cn  # installed from: https://github.com/felixpatzelt/colorednoise
-# pip install colorednoise
-
+import colorednoise as cn
 import librosa
-
+from ..utils.prep_audio_ import prep_audio
 
 def peak_rms(y):
     """Return the peak rms amplitude
