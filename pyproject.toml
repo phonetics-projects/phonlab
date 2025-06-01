@@ -13,7 +13,7 @@ requires-python = ">= 3.09, < 3.13"
 dynamic = ["version"]
 
 dependencies = [
-    'importlib_resources',
+    'importlib',
     'python-dateutil', 
     'numpy',
     'nitime',
@@ -36,8 +36,8 @@ license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 
 [project.urls]
-Homepage = "https://github.com/rsprouse/phonlab"
-Issues = "https://github.com/rsprouse/phonlab/issues"
+Homepage = "https://github.com/phonetics-projects/phonlab"
+Issues = "https://github.com/phonetics-projects/phonlab/issues"
 
 [tool.setuptools]
 packages = [

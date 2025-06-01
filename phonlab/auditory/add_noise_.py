@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import random
 import colorednoise as cn
 import librosa
+from importlib.resources import files as res_files
 from ..utils.prep_audio_ import prep_audio
 
 def peak_rms(y):
@@ -48,7 +49,8 @@ fs : int
     the sampling frequency of the audio in **x**
    
 noise_type : string, default = "white"
-        The type of noise - one of "pink", "white", or "brown", or the name of a .wav file to be mixed with the signal_file.    
+        The type of noise - one of "pink", "white", "brown", 'babble', 'party', or 'restaurant'.
+        
 snr : float, default = 0
         the signal to noise ratio in dB.  0 means that the signal peak RMS amplitude will be the same as the noise amplitude. Less than zero (e.g. -5) means that the signal amplitude will be lower than the noise, and greater than zero means that the signal amplitude will be greater than the noise amplitude.
         
@@ -87,42 +89,49 @@ This example adds white noise at a signal-to-noise ratio (SNR) of 3 dB
 
 
     """
+    # Valid options that can be passed to the `sox` `synth` effect.
+    colored_noise = (
+        'brown', 'pink', 'white'
+    )
+    # Names of files in the package data/noise directory. 
+    pkg_noise = (
+        'babble', 'party', 'restaurant'
+    )
+
     signal_peak = peak_rms(x)
     
     pad = np.zeros(int(fs/2))  # number of points in 1/2 a second
     x = np.append(np.append(pad,x),pad) #add 500 ms of silence before/after signal, 
             # the stimulus will begin 500 ms after the onset of the noise after
 
-    if not ".wav" in noise_type:  # not a stored sample of noise
+    if noise_type in colored_noise:
         if (noise_type == 'pink'):
             beta = 1 # the exponent for pink noise
         elif (noise_type == 'white'):
             beta = 0 
         elif (noise_type == 'brown'):
             beta = 2
-        else: 
-            raise ValueError(f'\"{noise_type}\" is not a valid noise type')
-
         noise_rate = fs  #sampling rate of the signal 
         noise = cn.powerlaw_psd_gaussian(beta, len(x))  #generate the noise samples
  
-    else:  # noise is a stored sample of background noise
-        try:
-            noise, noise_rate = librosa.load(noise_type)  # read the noise again each time the function is called
-        except OSError:
-            print('cannot open', noise_type)
+    elif noise_type in pkg_noise:  # noise is an audiofile
+        noise_file = res_files('phonlab') / 'data' / 'noise' / f'{noise_type}.wav'
+        noise, noise_rate = librosa.load(noise_file, sr = fs)  # resample to the rate of the signal
         
-        #get length of signal and noise files, return error and terminate if noise file is shorter than signal
+        #get length of signal and noise files
         s = len( x )
         n = len( noise )
     
-        while ( s>n ):  # signal is longer than noise
-            noise = np.concatenate([noise,noise])  # rude way to grow the noise sample
+        while ( s > n ):  # noise must be longer than signal
+            noise = np.concatenate([noise,noise])  # rude way to grow the noise sample by doubling
             n= len(noise)
     
         # generate a random start location in the noise signal to extract a random section of it 
         r = random.randint(1,1+n-s)
         noise = noise[r:r+s]
+    else:
+        print(f"{noise_type} must be one of 'pink', 'white', 'brown', 'babble', 'party', or 'restaurant'")
+        exit()
         
     noise_peak = peak_rms(noise)
 

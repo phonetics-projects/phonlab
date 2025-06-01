@@ -70,20 +70,20 @@ Take the right channel, and resample to 16,000 Hz
 
     """
 
-
-    #  todo:  handle integer waveform input?  
-
     if target_fs == None:  # use the input fs as your target, instead of 22050
         target_fs = fs
+        x2 = x
     elif target_fs != fs:  # resample to 'target_fs' samples per second
         if not quiet: print(f'Resampling from {fs} to {target_fs}')
         resample_ratio = target_fs/fs
         new_size = int(len(x) * resample_ratio)  # size of the resampled version
-        x = resample(x,new_size)  # now sampled at desired sampling freq
-
-    if (np.max(x) + np.min(x)) < 0:  x = -x   #  set the polarity of the signal
-    if (pre > 0): y = np.append(x[0], x[1:] - pre * x[:-1])  # apply pre-emphasis
-    else: y = x
+        x2 = resample(x,new_size)  # now sampled at desired sampling freq
+    else: 
+        x2 = x
+        
+    if (np.max(x2) + np.min(x2)) < 0:  x2 = -x2   #  set the polarity of the signal
+    if (pre > 0): y = np.append(x2[0], x2[1:] - pre * x2[:-1])  # apply pre-emphasis
+    else: y = x2
     if scale: y = y/np.max(y) * 0.99  # scale to about full range
     if outtype == "int":  y = np.rint(np.iinfo(np.int16).max * y).astype(np.int16)
     if outtype == "int16":  y = np.rint(np.iinfo(np.int16).max * y).astype(np.int16)

@@ -49,7 +49,7 @@ def compute_sgram(x,fs,w):
     return (f,ts, Sxx)
     
 
-def sgram(x,fs,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
+def sgram(x,fs,chan=0,start=0,end=-1, tf=8000, band='wb',
           preemph = 0.94, save_name='',slice_time=-1,cmap='Greys'):
     """Make pretty good looking spectrograms
 
@@ -78,7 +78,7 @@ def sgram(x,fs,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
     preemph : float, default = 0.94
         add high frequency preemphasis before making the spectrogram, a value between 0 and 1
     save_name : Path, default = ''
-        name of a file to save the figure pyplot.savefig()
+        name of a file to save the figure pyplot.savefig(), by default no file is saved.
     slice_time : float, default = -1
         location (in seconds) of an optional spectral slice.
     cmap : string, default = "Grays"
@@ -134,7 +134,7 @@ def sgram(x,fs,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
        ..
 
     """
-    fs = tf*2    # top frequency is the Nyquist frequency for the analysis
+    target_fs = tf*2    # top frequency is the Nyquist frequency for the analysis
 
     if band=='nb':
         w = 0.04    # analysis window size for narrow band spectrogram (sec)
@@ -149,18 +149,18 @@ def sgram(x,fs,chan=0,start=0,end=-1,fs_in = 22050, tf=8000, band='wb',
     cmap = plt.get_cmap(cmap)
     
     # ----------- read and condition waveform -----------------------
-    x, fs = prep_audio(x,fs, target_fs = tf*2, pre = preemph)
+    x2, fs = prep_audio(x,fs, target_fs = target_fs, pre = preemph,quiet=True)
 
     i1 = int(start * fs)   # index of starting time: seconds to samples
     i2 = int(end * fs)     # index of ending time
-    if i2<0 or i2>len(x):  # stop at the end of the waveform
-        i2 = len(x)
+    if i2<0 or i2>len(x2):  # stop at the end of the waveform
+        i2 = len(x2)
     if i1>i2:              # don't let start follow end
         i1=0
     
     
     # ----------- compute the spectrogram ---------------------------------
-    f,ts,Sxx = compute_sgram(x[i1:i2],fs,w)
+    f,ts,Sxx = compute_sgram(x2[i1:i2],fs,w)
     
     # ------------ display in a matplotlib figure --------------------
     ts = np.add(ts,start)  # increment the spectrogram time by the start value

@@ -57,12 +57,12 @@ def amplitude_envelope(x, fs, bounds = [], target_fs=22050, cutoff=30, order=2 )
 
     """
     
-    x, fs = prep_audio(x,fs, target_fs = target_fs, pre=0, quiet = True)
+    x2, fs = prep_audio(x,fs, target_fs = target_fs, pre=0, quiet = True)
 
     if bounds:
         coefs = scipy.signal.butter(8, bounds, fs=fs, btype='bandpass', output='sos')
-        x = scipy.signal.sosfiltfilt(coefs, x) 
+        x2 = scipy.signal.sosfiltfilt(coefs, x2) 
     
     coefs = scipy.signal.butter(order, cutoff, fs=fs, btype='lowpass', output='sos')
-    y = scipy.signal.sosfiltfilt(coefs, np.abs(x))
+    y = scipy.signal.sosfiltfilt(coefs, np.abs(x2))
     return y, fs

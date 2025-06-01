@@ -7,14 +7,14 @@ from librosa import feature, util, lpc
 from pandas import DataFrame
 from ..utils.prep_audio_ import prep_audio
   
-def get_f0(x, fs, f0_range = [63,400], pre = 1.0):
+def get_f0(y, fs, f0_range = [63,400], pre = 1.0):
     """Track the fundamental frequency of voicing (f0)
 
     The method in this function mirrors that used in track_formants().  LPC coefficients are calculated for each frame and the audio signal is inverse filtered with these, resulting in a quasi glottal waveform. Then autocorrelation is used to estimate the fundamental frequency.  Probability of voicing is given from a logistic regression formula using `rms` and `c` trained to predict the voicing state as determined by EGG data using the function `phonlab.egg2oq()` over the 10 speakers in the ASC corpus of Mandarin speech. The log odds of voicing in that training data was given by `odds = -4.31 + 0.17*rms + 13.29*c`, and probability of voicing is thus:  `probv = odds / (1 + odds)`.
 
     Parameters
     ==========
-        x : string or ndarray
+        y : ndarray
             A one-dimensional array of audio samples
         fs : int
             Sampling rate of **x**, if it is an array.
@@ -60,7 +60,7 @@ def get_f0(x, fs, f0_range = [63,400], pre = 1.0):
     frame_length_sec = 0.075
     step_sec = 0.01
     
-    x, fs = prep_audio(x, fs, target_fs=12000, pre = 0)  # read waveform, no preemphasis, for RMS calc
+    x, fs = prep_audio(y, fs, target_fs=12000, pre = 0, quiet=True)  # read waveform, no preemphasis, for RMS calc
 
     frame_length = int(fs * frame_length_sec) 
     half_frame = frame_length//2
@@ -87,8 +87,8 @@ def get_f0(x, fs, f0_range = [63,400], pre = 1.0):
     tl = fs//f0_range[0]
     
     for i in range(nb): 
-        y = np.convolve(frames[i],A[i,:])  #inverse filter with lpc coeffs
-        cormat = np.correlate(y, y, mode='full') # autocorrelation 
+        xi = np.convolve(frames[i],A[i,:])  #inverse filter with lpc coeffs
+        cormat = np.correlate(xi, xi, mode='full') # autocorrelation 
         ac = cormat[cormat.size//2:] # the autocorrelation is in the last half of the result
         idx = np.argmax(ac[th:tl]) + th # index of peak correlation (in range lowest to highest)
         f0[i] = 1/(idx/fs)      # converted to Hz
@@ -103,14 +103,14 @@ def get_f0(x, fs, f0_range = [63,400], pre = 1.0):
 
 
 
-def get_f0_srh(x, fs, f0_range = [60,400], pre = 0.94):
+def get_f0_srh(y, fs, f0_range = [60,400], pre = 0.94):
     """Track the fundamental frequency of voicing (f0)
 
     This function is an implementation of Drugman and Alwan's (2011) "Summation of Residual Harmonics" (SRH) method of pitch tracking.  The signal is inverse filtered with LPC analysis, and then harmonics are found in the spectrum of the residual signal.
 
     Parameters
     ==========
-        x : string or ndarray
+        y : string or ndarray
             A one-dimensional array of audio samples
         fs : int
             Sampling rate of **x**, if it is an array.
@@ -140,7 +140,7 @@ def get_f0_srh(x, fs, f0_range = [60,400], pre = 0.94):
     frame_length_sec = 0.1
     step_sec = 0.01
     
-    x, fs = prep_audio(x, fs, target_fs=12000, pre = 0)  # downsample the waveform, no preemphasis
+    x, fs = prep_audio(y, fs, target_fs=12000, pre = 0, quiet=True)  # downsample the waveform, no preemphasis
 
     frame_length = int(fs * frame_length_sec) 
     half_frame = frame_length//2
@@ -164,8 +164,8 @@ def get_f0_srh(x, fs, f0_range = [60,400], pre = 0.94):
     c = np.empty((nb))
 
     for i in range(nb): 
-        y = np.convolve(frames[i],A[i,:])  #inverse filter with lpc coeffs
-        S = np.abs(np.fft.rfft(y,2**16)) # compute the power spectrum
+        xi = np.convolve(frames[i],A[i,:])  #inverse filter with lpc coeffs
+        S = np.abs(np.fft.rfft(xi,2**16)) # compute the power spectrum
         T = len(S)/fs
         srh_max = 0
         max_harmonic = 7
@@ -188,14 +188,14 @@ def get_f0_srh(x, fs, f0_range = [60,400], pre = 0.94):
                     'probv': probv[:nb], 'voiced':voiced[:nb]})
 
 
-def get_f0_cor(x, fs, f0_range = [60,400]):
+def get_f0_cor(y, fs, f0_range = [60,400]):
 
     # constants and global variables
     frame_length_sec = 1/f0_range[0]
     step_sec = 0.005
 
     # read waveform, no preemphasis, up-sample
-    x, fs = prep_audio(x, fs, target_fs = 48000, pre = 0)  
+    x, fs = prep_audio(y, fs, target_fs = 48000, pre = 0, quiet=True)  
 
     frame_length = int(fs * frame_length_sec) 
     half_frame = frame_length//2
@@ -264,14 +264,14 @@ def f0_from_harmonics(f_p,i,h):
     
     return C,np.mean(f0)  #,np.int32(m)
     
-def get_f0_acd(x, fs, f0_range = [60,300], prom=20, peak_height = 0.45, crit_c=3.5):
+def get_f0_acd(y, fs, f0_range = [60,300], prom=20, peak_height = 0.45, crit_c=3.5):
     """Track the fundamental frequency of voicing (f0)
 
     The method in this function implements the 'approximate common denominator" algorithm proposed by Aliik, Mihkla and Ross (1984), which was an improvement on the method proposed by Duifuis, Willems and Sluyter (1982).  The method finds candidate harmonic peaks in the spectrum, and chooses a value of f0 that will give the best fitting harmonic pattern.
 
     Parameters
     ==========
-        x : ndarray
+        y : ndarray
             A one-dimensional array of audio samples
         fs : int
             the sampling rateof the audio in **x**.
@@ -301,10 +301,10 @@ def get_f0_acd(x, fs, f0_range = [60,300], prom=20, peak_height = 0.45, crit_c=3
     Example
     =======
     
-    >>> x,fs = phon.loadsig("sf3_cln.wav",chansel=[0])
-    >>> f0df = get_f0_acd(x,fs)
+    >>> y,fs = phon.loadsig("sf3_cln.wav",chansel=[0])
+    >>> f0df = get_f0_acd(y,fs)
     >>>
-    >>> ret = phon.sgram(x, fs, cmap='Blues') # draw the spectrogram from the array of samples
+    >>> ret = phon.sgram(y, fs, cmap='Blues') # draw the spectrogram from the array of samples
     >>> ax1 = ret[0]  # the first item returned is the matplotlib axes of the spectrogram
     >>> ax2 = ax1.twinx()
     >>> ax2.plot(f0df.sec,f0df.f0, 'go')  
@@ -320,7 +320,7 @@ def get_f0_acd(x, fs, f0_range = [60,300], prom=20, peak_height = 0.45, crit_c=3
 
     """
     down_fs = f0_range[1] * 20  # allow for 9 harmonics of the highest f0
-    x, fs = prep_audio(x, fs, target_fs = down_fs, pre=0.94)  
+    x, fs = prep_audio(y, fs, target_fs = down_fs, pre=0.94,quiet=True)  
 
     step_sec = 0.005
     N = 512    # FFT size
