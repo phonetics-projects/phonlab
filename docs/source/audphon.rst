@@ -15,7 +15,8 @@ Signal Manipulation
 Auditory Representations
 ------------------------
 .. autofunction:: phonlab.mfcc2df
-.. autofunction:: phonlab.Audspec
+.. autoclass:: phonlab.Audspec
+    :members:
 
 Helper Functions
 ----------------

@@ -73,7 +73,10 @@ class Audspec(object):
         
         self.sharpgram = np.zeros(self.ncoef,dtype=float_t) 
         '''ndarray - frequency sharpened auditory spectrogram
-        
+
+        '''
+
+        '''
         .. figure:: images/sharpgram.png
            :scale: 50 %
            :alt: The figure shows a frequency 'sharpened' auditory spectrogram.
@@ -89,7 +92,10 @@ class Audspec(object):
         
         self.tgram = np.zeros(self.ncoef,dtype=float_t) 
         '''ndarray - temporal contrast auditory spectrogram
-        
+
+        '''
+
+        '''
         .. figure:: images/tgram.png
            :scale: 50 %
            :alt: The figure shows temporal contrast in an auditory spectrogram.
