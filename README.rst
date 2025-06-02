@@ -8,7 +8,7 @@ A collection of python functions for doing phonetics.
 Installation
 ============
 
-:command: pip install phonlab
+>>> pip install phonlab
 
 =============
 Documentation
