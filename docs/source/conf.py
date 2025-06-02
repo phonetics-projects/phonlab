@@ -19,7 +19,10 @@ import sys
 sys.path.insert(0, os.path.abspath('../..'))
 
 
-extensions = ['sphinx.ext.autodoc','sphinx.ext.viewcode', 'sphinx.ext.napoleon']
+extensions = ['sphinx.ext.autodoc',
+              'sphinx.ext.viewcode', 
+              'sphinx.ext.napoleon',
+              'sphinx_rtd_theme']
 #autoapi_options = ['members']
 
 autodoc_typehints = 'description'
@@ -30,6 +33,7 @@ exclude_patterns = ['.ipynb_checkpoints']
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
+
 
 html_theme = 'sphinx_rtd_theme'
 html_logo = 'logo3.png'

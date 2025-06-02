@@ -37,6 +37,10 @@ class Audspec(object):
     >>>          extent=aud.extent, cmap = plt.cm.Purples)
     >>> ax[1].set(xlabel="Time (sec)", ylabel="Frequency (Bark)")
 
+    """
+
+    """
+
     .. figure:: images/aud_spec.png
        :scale: 50 %
        :alt: An acoustic narrow band spectrogram and the auditory spectrogram of the same utterance.
