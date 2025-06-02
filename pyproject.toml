@@ -9,7 +9,7 @@ authors = [{name = "Keith Johnson", email = "kjohnson@berkeley.edu"},
 ]
 description = "Python tools for phonetics"
 readme = "README.rst"
-requires-python = ">= 3.09, < 3.13"
+requires-python = ">=3.10, <3.13"
 dynamic = ["version"]
 
 dependencies = [

@@ -1,5 +1,5 @@
 __name__="phonlab"
-__version__="0.0.13"
+__version__="0.0.15"
 
 # -------- functions in the "acoustic" portion of the package -------
 from .acoustic.sgram_ import *
@@ -42,12 +42,10 @@ __all__ += artic.egg2oq_.__all__
 
 
 #--------- functions in the 'utilities' portion of the package ---------
-from .utils.srt2tg_ import *
 from .utils.phonlablib import *
 from .utils.prep_audio_ import *
 from .utils.utils import *
 
-__all__ += utils.srt2tg_.__all__
 __all__ += utils.phonlablib.__all__
 __all__ += utils.prep_audio_.__all__
 __all__ += utils.utils.__all__
