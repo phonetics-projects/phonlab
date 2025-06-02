@@ -67,7 +67,7 @@ dst : str
 
     # Get extension integers from backups that already exist and find max N.
     rgx = re.compile(
-        fnmatch.translate(cpname).replace('\\Z', '\\.[0-9]+\Z')
+        fnmatch.translate(cpname).replace('\\Z', '\\.[0-9]+\\Z')
     )
     Ns = np.array([
         int(os.path.splitext(f)[1].lstrip('.')) \
