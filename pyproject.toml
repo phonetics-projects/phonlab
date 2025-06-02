@@ -13,8 +13,6 @@ requires-python = ">= 3.09, < 3.13"
 dynamic = ["version"]
 
 dependencies = [
-    'importlib',
-    'python-dateutil', 
     'numpy',
     'nitime',
     'matplotlib',

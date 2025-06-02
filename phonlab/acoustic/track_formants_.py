@@ -810,7 +810,7 @@ def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0):
         bw = -(fs/(np.pi)) * np.log(abs(roots)) # calculate bandwidths from them
 
         # A wide bandwidth criterion (about 800 Hz) is needed to capture fast moving formants.
-        fr[bw>800] = np.NaN  # reject formants with too wide bandwidth, NaN sorts to the end of the array
+        fr[bw>800] = np.nan  # reject formants with too wide bandwidth, NaN sorts to the end of the array
         s = np.argsort(fr)  # get the sort order so you can apply it more than one array
         fr = fr[s]  # sort the formants from lowest to highest
         bw = bw[s]  # use the same sort order with the bandwidth array
