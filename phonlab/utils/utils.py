@@ -67,7 +67,7 @@ dst : str
 
     # Get extension integers from backups that already exist and find max N.
     rgx = re.compile(
-        fnmatch.translate(cpname).replace('\Z', '\.[0-9]+\Z')
+        fnmatch.translate(cpname).replace('\\Z', '\\.[0-9]+\Z')
     )
     Ns = np.array([
         int(os.path.splitext(f)[1].lstrip('.')) \
@@ -96,7 +96,7 @@ Parameters
         Top-level directory name for filename search.
 
     fnpat : str, re, default = None
-        Regular expression pattern that defines the filenames to return. The only filenames in the result set will be those that return a match  for `re.search(fnpat, filename)`. If you use named captures in `fnpat`, new columns of dtype 'Categorical' will appear in the output that correspond to the capture group contents. If you need to use a flag with your pattern, you can use a precompiled regex for the value of `fnpat`. For example, you can do case-insensitive matching of '.wav' and '.WAV' files with `re.compile(r'\.wav$', re.IGNORECASE)`.
+        Regular expression pattern that defines the filenames to return. The only filenames in the result set will be those that return a match  for `re.search(fnpat, filename)`. If you use named captures in `fnpat`, new columns of dtype 'Categorical' will appear in the output that correspond to the capture group contents. If you need to use a flag with your pattern, you can use a precompiled regex for the value of `fnpat`. For example, you can do case-insensitive matching of '.wav' and '.WAV' files with `re.compile('\\.wav$', re.IGNORECASE)`.
 
     dirpat : str, re, default = None
         Like `fnpat`, only applied against the relative path in dirname. Relative paths that do not match `dirpat` will be skipped.

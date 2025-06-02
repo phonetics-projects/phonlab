@@ -19,7 +19,6 @@ Working with TextGrids
 Working with Corpora
 --------------------
 .. autofunction:: phonlab.dir2df
-.. autofunction:: phonlab.srt2tg
 
 Other Utility Functions
 -----------------------
