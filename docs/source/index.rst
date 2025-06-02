@@ -11,14 +11,16 @@ fricatives, tone and intonation.
 :doc:`audphon`: Functions related to auditory phonetics, including several that modify speech for speech perception
 experiments, including speech in noise, noise vocoding, and sinewave synthesis.
 
-:doc:`util`:   Functions for reading and writing Praat TextGrid files, manipulating the dataframes that are read from TextGrids,  reading
+:doc:`util`:   Functions for opening and preparing audio files, reading and writing Praat TextGrid files, manipulating the dataframes that are read from TextGrids,  reading
 directories into dataframes, converting subtitles files into textgrids, and more.
 
 
 Installation
 ------------
 
->>> pip install phonlab
+The package is currently in testing, and distributed from test.pypi.org
+
+>>> pip install -i https://test.pypi.org/simple/ phonlab
 
 
 Examples

@@ -8,7 +8,7 @@ authors = [{name = "Keith Johnson", email = "kjohnson@berkeley.edu"},
             {name = "Ronald Sprouse", email = "rsprouse@berkeley.edu"} 
 ]
 description = "Python tools for phonetics"
-readme = "README.md"
+readme = "README.rst"
 requires-python = ">= 3.09, < 3.13"
 dynamic = ["version"]
 
