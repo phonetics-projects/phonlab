@@ -14,4 +14,4 @@ Installation
 Documentation
 =============
 
-https://readthedocs.com/phonlab
+https://phonlab.readthedocs.io
