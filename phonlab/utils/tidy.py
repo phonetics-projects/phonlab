@@ -1,0 +1,768 @@
+__all__=['df_to_tg', 'tg_to_df', 'add_context', 'merge_tiers', 'explode_intervals', 'interpolate_measures']
+
+import pandas as pd
+import numpy as np
+from parselmouth.praat import call as pcall
+
+def _df_to_praat_short_label_str(df, lblcol, t1col, t2col=None, fmt=None):
+    """
+    Return a string representing the labels of a tier in praat_short format
+    from a dataframe.
+    """
+
+    if fmt is None:
+        ts = df[t1col].astype(str)
+    else:
+        ts = df[t1col].map(fmt.format)
+    if t2col is not None and fmt is None:
+        ts = ts.str.cat(df[t2col].astype(str), sep='\n')
+    elif t2col is not None:
+        ts = ts.str.cat(df[t2col].map(fmt.format), sep='\n')
+    return '\n'.join(
+        ts.str.cat(
+            df[lblcol].fillna('').astype(str) \
+                .str.replace('"', '""', regex=False) \
+                # ^|$ alone does not match twice on empty strings
+                # Also, .str.replace doesn't seem to work with
+                # beginning/end of string unless you capture, e.g. (^)
+                # and we just use .replace instead.
+                .replace('^', '"', regex=True) \
+                .replace('$', '"', regex=True),
+            sep='\n'
+        )
+    )
+
+def _df_to_praat_long_label_str(df, lblcol, t1col, t2col=None, fmt=None):
+    """
+    Return a string representing the labels of a tier in praat_long format
+    from a dataframe.
+    """
+
+    intvl = 'intervals [{}]:\n            '
+    ts = pd.Series(np.arange(1, len(df)+1)).map(intvl.format)
+
+    t1lbl = '{} = '.format('number' if t2col is None else 'xmin')
+    if fmt is None:
+        t1s = df[t1col].astype(str)
+    else:
+        t1s = df[t1col].map(fmt.format)
+    ts = ts.str.cat(t1s.replace('^', t1lbl, regex=True))
+    if t2col is not None:
+        if fmt is None:
+            t2s = df[t2col].astype(str)
+        else:
+            t2s = df[t2col].map(fmt.format)
+        ts = ts.str.cat(
+            t2s.replace('^', 'xmax = ', regex=True),
+            sep='\n            '
+        )
+    lbl = '            {} = "'.format('mark' if t2col is None else 'text')
+    return '\n        '.join(
+        ts.str.cat(
+            df[lblcol].fillna('').astype(str) \
+                .str.replace('"', '""', regex=False) \
+                # ^|$ alone does not match twice on empty strings
+                # Also, .str.replace doesn't seem to work with
+                # beginning/end of string unless you capture, e.g. (^)
+                # and we just use .replace instead.
+                .replace('^', lbl, regex=True) \
+                .replace('$', '"', regex=True),
+            sep='\n'
+        )
+    )
+
+def _df_to_praat_short_tier(df, xmin, xmax, tname, lblcol, t1col, 
+    t2col=None, fmt=None):
+    """
+    Return a string representing the a tier defined in a dataframe in
+    praat_short format.
+    """
+
+    return '\n'.join(
+        [
+            '"IntervalTier"' if t2col is not None else '"TextTier"',
+            '"' + tname + '"',
+            xmin,
+            xmax,
+            str(len(df)),
+            _df_to_praat_short_label_str(df, lblcol, t1col, t2col, fmt)
+        ]
+)
+
+def _df_to_praat_long_tier(idx, df, xmin, xmax, tname, lblcol, t1col,
+    t2col=None, fmt=None):
+    """
+    Return a string representing a tier defined in a dataframe in
+    praat_long format.
+    """
+
+    tclass = '"IntervalTier"' if t2col is not None else '"TextTier"'
+    tier = '''    item [{}]:
+        class = {}
+        name = "{}"
+        xmin = {}
+        xmax = {}
+        intervals: size = {}
+        {}'''.format(
+        idx, tclass, tname, xmin, xmax, str(len(df)),
+        _df_to_praat_long_label_str(df, lblcol, t1col, t2col, fmt)
+    )
+    return tier
+
+def _praat_short_preamble(xmin, xmax, tiercnt):
+    """
+    Preamble of a short Praat textgrid.
+    """
+    # xmin and xmax should already be strings
+    return '''File type = "ooTextFile"
+Object class = "TextGrid"
+
+{}
+{}
+<exists>
+{}'''.format(xmin, xmax, str(tiercnt))
+
+def _praat_long_preamble(xmin, xmax, tiercnt):
+    """
+    Preamble of a long Praat textgrid.
+    """
+    # xmin and xmax should already be strings
+    return '''File type = "ooTextFile"
+Object class = "TextGrid"
+
+xmin = {}
+xmax = {}
+tiers? <exists>
+size = {}
+item []:'''.format(xmin, xmax, str(tiercnt))
+
+def _df_degap(df, t1fld, t2fld, lblfld, start, end, fill):
+    start = float(start)
+    end = float(end)
+    if end > df[t2fld].astype(float).iloc[-1] and end != np.inf:
+        endfill = end
+    else:
+        endfill = df[t2fld].astype(float).iloc[-1]
+    t1ser = df[t2fld].astype(float)
+    t2ser = df[t1fld].astype(float).shift(-1, fill_value=endfill)
+    if df[t1fld].iloc[0] > start:
+        t1ser = pd.concat([pd.Series(start), t1ser])
+        t2ser = pd.concat([pd.Series(df[t1fld].iloc[0]), t2ser])
+    gapdf = pd.concat({
+        t1fld : t1ser,
+        t2fld : t2ser
+    }, axis='columns')
+    gapdf[lblfld] = fill
+    gapdf = gapdf[gapdf[t1fld] != gapdf[t2fld]]
+    return pd.concat(
+        [df, gapdf],
+        axis='rows'
+    ).sort_values(t1fld).reset_index(drop=True)
+
+def df_to_tg(dfs, tiercols, ts=['t1', 't2'], start=0.0, end=None, tgtype='short',
+    codec='utf-8', fmt=None, fill_gaps='', outfile=None):
+    """
+Convert one or more dataframes to a Praat textgrid.
+
+Each input dataframe represents a textgrid tier. Each dataframe row
+represents a label. There must be a column in each dataframe to provide
+1) the label text content; 2) the label start time for an IntervalTier or
+point time for a PointTier (`t1`); and 3) the label end time for an
+IntervalTier (`t2`).
+
+If the `t1` and `t2` columns are numeric types, they are converted to `str`
+type without any special formatting, unless the `fmt` parameter is used.
+
+*The dataframes are converted to labels as-is. No sorting is performed
+before creating the textgrid.*
+
+Parameters
+----------
+
+dfs : dataframe or list of dataframes
+    The input dataframes of labels. Each df represents a separate textgrid tier.
+
+tiercols: str or dict or list of str/dict
+    The column name in each dataframe in `dfs` that contains the label content. If the
+    name is provided as a `str`, that name will also be the tier's name in the output
+    textgrid. If a different name for the tier is desired, use a single-element `dict`
+    to map the column name to the textgrid tier name, e.g. `{'text': 'word'}` maps the
+    'text' column of a dataframe to a textgrid tier named 'word'. For multiple dataframes
+    use a list of single-element dicts, e.g. `[{'text': 'word'}, {'text': 'phone'}, 'context']`
+    to map the 'text' column of the first dataframe to a tier named 'word' and the 'text'
+    column of the second dataframe to a tier named 'phone'. The third dataframe in
+    this example has a column named 'context' that will also be the name of the
+    textgrid tier.
+
+ts : list of str or list of list of str (default=['t1', 't2'])
+    The column names in each dataframe in `dfs` that holds the start and end
+    times of the labels. For Point tiers Use `None` as the second value.
+    If this value is a simple list, then all dataframes must be of the same
+    Interval/Point type with the same names for the time columns.
+    For a mix of Interval and Point tier types or if time column names vary 
+    among the dataframes, use a list of two-element lists to specify the
+    column names for each dataframe.
+
+start : num or None (default=0.0)
+    The start time of the textgrid. If `None`, the start time will be the
+    minimum label time value among all the dataframes.
+
+end : num or None (default=None)
+    The end time of the textgrid. If `None`, the end time will be the
+    maximum label time value among all the dataframes.
+
+tgtype : str, default='short'
+    The Praat textgrid output type. Must be one of 'short' or 'long'.
+
+codec : str (default 'utf-8')
+    The codec used to write the textgrid (e.g. 'utf-8', 'ascii').
+
+fmt : str or None (default None)
+    The format string to apply to all time columns, as used by the
+    `format <https://docs.python.org/3/library/stdtypes.html#str.format>`_
+    built-in method, for example, '0.4f' for four-digit floating point.
+
+fill_gaps = str or None (default '' empty string)
+    When `fill_gaps` is not None, new labels will be inserted into IntervalTier
+    outputs where consecutive dataframe rows are not contiguous in time (rows
+    in which the end time of one row is less than the start time of the next row).
+    The string value of `fill_gaps` is used as the text content of the inserted
+    labels.
+
+outfile : file path, optional
+    If provided, write textgrid to `outfile` and return `None` instead of
+    the textgrid content.
+
+Returns
+-------
+
+tg : str or None
+    The textgrid output as a `str`. If `outfile` is specified, then `None` is
+    returned instead.
+
+Examples
+--------
+
+import pandas as pd
+from audiolabel import df_to_tg
+
+wddf = pd.DataFrame({
+    'word': ['', 'a', 'word'],
+    't1': [0.0, 0.1, 0.23647890019],
+    't2': [0.1, 0.2, 0.3],
+})
+ptdf = pd.DataFrame({
+    'pt': ['pt1', 'pt2'],
+    't1': [0.05, 0.15],
+})
+ctxdf = pd.DataFrame({
+    'ctx': ['nonspeech', 'speech'],
+    't1': [0.0, 0.1],
+    't2': [0.1, 0.3]
+})
+
+# Single tier textgrid.
+df_to_tg(wddf, tiercols='word', outfile='word.tg')
+
+# Single tier textgrid where the column name doesn't match the tier name.
+df_to_tg(
+    ctxdf,
+    tiercols={'ctx': 'context'},
+    outfile='ctx.tg'
+)
+
+# Two-tier textgrid. One tier name matches the column name and one does not.
+df_to_tg(
+    [wddf, ctxdf],
+    tiercols=['word', {'ctx': 'context'}],
+    outfile='wordctx.tg'
+)
+
+# Specify numeric output to four decimal places.
+df_to_tg(wddf, 'word', fmt='.4f', outfile='wordt1str.tg')
+    """
+
+    # Process params.
+    # Coerce to list of dataframes
+    if isinstance(dfs, pd.DataFrame):
+        dfs = [dfs]
+
+    # Coerce to list of dicts
+    if not isinstance(tiercols, list):
+        tiercols = [tiercols]
+    if len(tiercols) == 1:
+        tiercols = tiercols * len(dfs)
+    tiercols = [t if isinstance(t, dict) else {t: t} for t in tiercols]
+
+    # Coerce to list of lists
+    if not isinstance(ts[0], list):
+        ts = [ts] * len(dfs)
+
+    # Find max/min times.
+    if start is not None:
+        xmin = start
+    else:
+        xmin = min([df[tcols[0]].min() for df, tcols in zip(dfs, ts)])
+    maxcols = [
+        t1col if t2col is None else t2col for t1col, t2col in ts
+    ]
+    if end is not None:
+        xmax = end
+    else:
+        xmax = max([df[col].max() for df, col in zip(dfs, maxcols)])
+
+    # Create TextGrid preamble.
+    if tgtype != 'long':
+        tg = _praat_short_preamble(xmin, xmax, len(dfs))
+    else:
+        tg = _praat_long_preamble(xmin, xmax, len(dfs))
+
+    # Prep the `fmt` string, if needed.
+    if fmt is not None and not fmt.startswith('{:'):
+        fmt = '{:' + fmt + '}'
+
+    # Convert xmin and xmax to (formatted) strings.
+    if fmt is None:
+        xmin = str(xmin)
+        xmax = str(xmax)
+    else:
+        xmin = fmt.format(xmin)
+        xmax = fmt.format(xmax)
+
+    for df, colmap, (t1col, t2col) in zip(dfs, tiercols, ts):
+        tiercol, tiername = list(colmap.items())[0]
+        try:
+            if len(df) > 1:
+                assert((df[t1col].diff().iloc[1:] > 0).all())
+                if t2col is not None:
+                    assert((df[t2col].diff().iloc[1:] > 0).all())
+        except AssertionError:
+            raise RuntimeError(
+                'Dataframe labels not sorted by time or duplicate times found.'
+            ) from None
+        try:
+            if t2col is not None:
+                assert(((df[t2col] > df[t1col])).all())
+        except AssertionError:
+            raise RuntimeError(
+                'Interval label end values must be greater than start values in all rows.'
+            ) from None
+        try:
+            # Every t1 must be >= the preceding t2.
+            if t2col is not None:
+                assert(
+                    (df[t1col].shift(-1) >= df[t2col]).iloc[:-1].all()
+                )
+        except AssertionError:
+            raise RuntimeError(
+                'Dataframe interval labels cannot overlap in time. The start time of a row cannot be less than the end time of the preceding row.'
+            ) from None
+
+        if fill_gaps is not None and t2col is not None:
+            df = _df_degap(
+                df,
+                t1fld=t1col,
+                t2fld=t2col,
+                lblfld=tiercol,
+                start=xmin,
+                end=xmax,
+                fill=fill_gaps
+            )
+        if tgtype != 'long':
+            tiertext = _df_to_praat_short_tier(df, xmin, xmax, tiername, tiercol, t1col, t2col, fmt)
+        else:
+            tiertext = _df_to_praat_long_tier(df, xmin, xmax, tiername, tiercol, t1col, t2col, fmt)
+        tg += f'\n{tiertext}'
+    if outfile is not None:
+        with open(outfile, 'w', encoding=codec) as out:
+            out.write(tg)
+        return None
+    else:
+        return tg
+
+def tg_to_df(tg, tiersel=[], names=None):
+    '''
+Read a Praat textgrid and return its tiers as a list of dataframes.
+
+Parameters
+----------
+
+tg : path-like
+    Filepath of input textgrid.
+
+tiersel : list of str or int
+    Selection of tiers to parse and include in the output list, identified by tier name for `str` or `0`-based integer index for `int`. If `[]` then all textgrid tiers are returned. The order of the tiers does not have to match the input textgrid.
+
+names : None, str, or list of str (default None)
+    Names of the label content columns in the output dataframes. If `None`, then the column name for each tier is the tier name. If `str` then the same column name will be used for all dataframes. If list, then the names match the corresponding tiers in `tiersel`.
+
+Returns
+-------
+
+tiers : list of dataframes
+    Textgrid tiers are parsed in the order selected by `tiersel` and returned as separate dataframes for each tier. The columns of each dataframe are named `t1` and `t2` for label start and end times of interval tiers, and `t1` for the timepoints of point tiers. The textgrid tier's name is used as the name of the column containing the label content unless column names are provided by `names`. If `tiers` is an empty list `[]` then all tiers are returned.
+    '''
+    tg = pcall('Read from file...', str(tg))[0]
+    ntiers = pcall(tg, 'Get number of tiers')
+    tiers = []
+    tiermap = {pcall(tg, 'Get tier name...', n+1): n for n in range(ntiers)}
+    if tiersel == []:
+        tiersel = range(ntiers)
+    else:
+        for n in range(len(tiersel)):
+            if not isinstance(tiersel[n], int):
+                tiersel[n] = tiermap[tiersel[n]]
+    if isinstance(names, str):
+        names = [names] * ntiers
+    for i, n in enumerate(tiersel):
+        try:
+            tiername = names[i] if names is not None else pcall(tg, 'Get tier name...', n+1)
+        except IndexError:
+            msg = f'Not enough names listed in `names`. There are {len(names)} names for {ntiers} selected tiers.'
+            raise ValueError(msg) from None
+        recs = []
+        if pcall(tg, 'Is interval tier...', n+1) is True:
+            nlabels = pcall(tg, 'Get number of intervals...', n+1)
+            for i in range(nlabels):
+                recs.append({
+                    't1': pcall(tg, 'Get start time of interval...', n+1, i+1),
+                    't2': pcall(tg, 'Get end time of interval...', n+1, i+1),
+                    tiername: pcall(tg, 'Get label of interval...', n+1, i+1)
+                })
+        else:
+            nlabels = pcall(tg, 'Get number of points...', n+1)
+            for i in range(nlabels):
+                recs.append({
+                    't1': pcall(tg, 'Get time of point...', n+1, i+1),
+                    tiername: pcall(tg, 'Get label of point...', n+1, i+1)
+                })
+        tiers.append(pd.DataFrame(recs))
+    return tiers
+
+def add_context(df, col, nprev, nnext, prefixes=['prev_', 'next_'], fillna='', ctxcol=None, sep=' '):
+    '''
+Add shifted versions of a dataframe column to provide context within rows.  For example, usee this function if you want to add a column in a dataframe full of vowel measurements for the preceeding or following segmental context.
+
+Parameters
+----------
+
+df : dataframe
+    The input dataframe.
+
+col : str
+    The name of the column for which context is desired.
+
+nprev : int
+    The number of preceding values of `col` to add as context.
+
+nnext : int
+    The number of following values of `col` to add as context.
+
+prefixes : list of str (default [`'prev_'`, `'next_'`])
+    Prefixes to use as column names. The first value of the list is the prefix to use for preceding context, and the second value is the prefix for following context, e.g. 'prev_word2', 'prev_word1', 'next_word1', 'next_word2'.
+
+fillna : str (default '')
+    Value to use to fill empty values created by `shift` at beginning and end of `col`.
+
+ctxcol : str or None (default None)
+    If not None, add a string column that `join`s `col` and its preceding/following context in order, separated by `sep`.
+
+sep : str (default ' ')
+        String separator used to `join` context in `ctxcol`.
+
+Returns
+-------
+
+df : dataframe
+    The original input dataframe with new context columns added. Note that the new columns are inserted in order around `col`.
+    '''
+    colidx = df.columns.get_loc(col)
+    nextrng = range(nnext, 0, -1)
+    nextcols = [f'{prefixes[1]}{col}{n}' for n in nextrng]
+    for nshift, newcol in zip(nextrng, nextcols):
+        df.insert(
+            colidx+1, newcol, df[col].shift(nshift * -1).fillna(fillna), allow_duplicates=False
+        )
+    prevrng = range(1, nprev+1)
+    prevcols = [f'{prefixes[0]}{col}{n}' for n in prevrng]
+    for nshift, newcol in zip(prevrng, prevcols):
+        df.insert(
+            colidx, newcol, df[col].shift(nshift).fillna(fillna), allow_duplicates=False
+        )
+    if ctxcol is not None:
+        newcol = df[prevcols + [col] + nextcols].apply(
+            lambda x: sep.join(x),
+            axis='columns'
+        )
+        df.insert(colidx + nprev + nnext + 1, ctxcol, newcol, allow_duplicates=False)
+    return df
+
+def merge_tiers(inner_df, outer_df, suffixes, inner_ts=['t1','t2'], outer_ts=['t1','t2'],
+    drop_repeated_cols=None):
+    '''
+Merge hierarchical dataframe tiers based on their times.
+
+Parameters
+----------
+
+inner_df : dataframe
+     The dataframe whose intervals are properly contained inside `outer_df`.
+
+outer_df : dataframe
+      The dataframe whose intervals contain one or more intervals from
+      `inner_df`.
+
+suffixes : list of str
+    List of suffixes to add to time columns in the output dataframe. The first
+    suffix is added to the names in `inner_ts`, and the second suffix is added
+    to the names in `outer_ts`. If the names in `inner_ts` and `outer_ts` do
+    not overlap, then empty string suffixes may be appropriate.
+
+inner_ts : list of str
+    Names of the columns that define time intervals in `inner_df`. The first
+    value is the start time of the interval, and the second value is the end
+    time. For point tiers, only one column should be named.
+
+outer_ts : list of str
+    Names of the columns that define time intervals in `outer_df`. The first
+    value is the start time of the interval, and the second value is the end
+    time. For point tiers, only one column should be named.
+
+drop_repeated_cols : str ('inner', 'inner_df', 'outer', 'outer_df', None)
+    Drop each column from the specified dataframe if there is a column with an
+    identical label in the other input dataframe. The `inner_ts` and `outer_ts`
+    columns are excluded from being dropped. If None, no columns are dropped.
+
+Returns
+-------
+
+mergedf : dataframe
+    Merged dataframe of time-matched rows from `inner_df` and `outer_df`.
+    '''
+    common_cols = np.intersect1d(inner_df.columns, outer_df.columns)
+    if drop_repeated_cols in ['inner', 'inner_df']:
+        innerdropcols = np.setdiff1d(common_cols, inner_ts)
+        outerdropcols = []
+    elif drop_repeated_cols in ['outer', 'outer_df']:
+        innerdropcols = []
+        outerdropcols = np.setdiff1d(common_cols, outer_ts)
+    else:
+        innerdropcols = []
+        outerdropcols = []
+    innert1col = f'{inner_ts[0]}{suffixes[0]}'
+    innerrenamecols = {inner_ts[0]: innert1col}
+    if len(inner_ts) > 1:
+        innerrenamecols[inner_ts[1]] =  f'{inner_ts[1]}{suffixes[0]}'
+    outert1col = f'{outer_ts[0]}{suffixes[1]}'
+    outerrenamecols = {outer_ts[0]: outert1col}
+    if len(outer_ts) > 1:
+        outerrenamecols[outer_ts[1]] =  f'{outer_ts[1]}{suffixes[1]}'
+    try:
+        mergedf = pd.merge_asof(
+            inner_df.drop(columns=innerdropcols) \
+                .rename(innerrenamecols, axis='columns'),
+            outer_df.drop(columns=outerdropcols) \
+                .rename(outerrenamecols, axis='columns'),
+            left_on=innert1col,
+            right_on=outert1col
+        )
+    except KeyError:
+        msg = f'Time column(s) {inner_ts} not found in `inner_df` or {outer_ts} not found in `outer_df`. Select valid column names in the `inner_ts` and `outer_ts` parameters.'
+        raise KeyError(msg) from None
+    return mergedf
+
+def explode_intervals(divs, ts=['t1', 't2'], df=None, prefix='obs_'):
+    '''
+    Divide a series of time intervals into subintervals and explode into long format,
+    with one row per subinterval timepoint. An interval [2.0, 3.0] divided into two
+    subintervals, for example, produces three output rows for the times corresponding
+    to 0%, 50%, and 100% of the interval: 2.0, 2.5, 3.0.
+    
+    The subinterval divisions can be specified as an integer number of subdivisions,
+    or as a list of interval proportions. For `int` the number of timepoints produced
+    is the number of subintervals + 1, and for a list of proportions one timepoint
+    is produced for each element of the list.
+
+Parameters
+----------
+
+divs : int, list of float in range [0.0, 1.0]
+    The subintervals to include. If `int`, the number of equal-duration subintervals
+    each interval will be divided into. If a list, the values should be in the range
+    [0.0, 1.0] and express proportions of the duration of each interval for which
+    subinterval timepoints will be created. For example, `[0.25, 0.50, 0.75]` yield
+    timepoints at 25%, 50%, and 75% of each input interval.
+
+ts : list of str or list of Series/arrays
+    If list of `str`, these are the names of time columns in the `df` dataframe. The
+    first name defines the start time of the interval to be subdivided, and the second
+    name defines the end time. If list of `pd.Series` or `np.array`, then the first
+    Series/array provides the start times, and the second Series/array provides the
+    end times.
+
+df : dataframe
+    A dataframe containing start and end times of the intervals to be subdivided, or
+    None if `ts` provides the times directly as Series/arrays rather than names.
+    An arbitrary number of additional columns may be included in the dataframe.
+
+prefix : str (default 'obs_t')
+    The prefix to use when naming the output columns of timepoints (f'{prefix}n') and
+    timepoint identifiers (f'{prefix}id').
+
+Returns
+-------
+
+divdf : dataframe
+    A dataframe of subinterval timepoints with an index that matches the index of
+    `ts`. The timepoints are in a column labelled `obs_t` by default. A second
+    column that identifies the timepoint's location within the series of timepoints
+    is named `obs_id` by default. If `divs` is an `int` these identifiers are
+    integers in the range [0, divs]. If `divs` is a list of proportions, the
+    proportions are used as the identifiers.
+
+
+Note
+----
+    
+    `divdf` is merged with the input dataframe `df` if it is provided. If this
+    behavior is not desired, then `df` should be None. For example, use
+    `ts=[df['t1'], df['t2']], df=None` instead of `ts=['t1', 't2'], df=df`.
+    '''
+    # TODO: test different kinds of indexes in input dataframe, e.g. MultiIndex
+    t1col = ts[0] if df is None else df[ts[0]]
+    t2col = ts[1] if df is None else df[ts[1]]
+    id_vars = None if df is None else df.index.name
+    tindex = t1col.index if isinstance(t1col, pd.Series) else np.arange(len(t1col))
+    if isinstance(tindex, pd.Index):
+        try:
+            assert(~tindex.duplicated().any())
+        except AssertionError:
+            msg = 'The index of the input dataframe must not contain duplicate values.'
+            raise ValueError(msg) from None
+        try:
+            assert((t1col.index == t2col.index).all())
+        except AssertionError:
+            msg = 'The indexes of the input `ts` must match each other.'
+            raise ValueError(msg) from None
+
+    if isinstance(divs, int):
+        obs_t = np.linspace(t1col, t2col, num=divs+1, endpoint=True).transpose()
+        obs_id = np.tile(np.arange(divs+1), len(t1col))
+    else:
+        obs_t = (
+            np.expand_dims((t2col - t1col), axis=1) * np.expand_dims(divs, axis=0)
+        ) + np.expand_dims(t1col, axis=1)
+        obs_id = np.tile(np.array(divs), len(t1col))
+
+    obsidcol, obstimecol = f'{prefix}id', f'{prefix}t'
+    # .tolist() converts the 2d arrays into list of 1d arrays
+    divdf = pd.DataFrame(
+        {
+            'obs_t': obs_t.tolist()
+        }, index=tindex
+    ) \
+    .explode('obs_t')
+    divdf['obs_id'] = obs_id.tolist()
+
+    if df is not None:
+        divdf = df.merge(divdf, left_index=True, right_index=True)
+    return divdf
+
+def interpolate_measures(meas_df, meas_ts, interp_df=None, interp_ts=None, tol=None, overwrite=False):
+    '''
+    Interpolate measurements from an analysis dataframe consisting of a time-based
+    column and one or more columns containing measurement values. Linear interpolation
+    of measurement values is performed for times specified by the time column of
+    another dataframe or from an array or list of times.
+
+Parameters
+----------
+
+meas_df : dataframe
+    Measurement dataframe containing a time column and one or more columns of
+    measurements. All the measurement columns must be a numeric type and able to
+    be interpolated. Non-numeric columns from an input dataframe must be removed
+    before calling this function.
+
+meas_ts : str
+    Name of the time column in `meas_df`. Values in this column must be in increasing
+    order.
+
+interp_df : dataframe
+    Dataframe containing a time column with times for which interpolated values are
+    desired. If `None`, then `interp_ts` must provide the time values as an array or
+    list.
+
+interp_ts : str, array-like or list
+    If a string, `interp_ts` is the name of a time column in `interp_df`. If an array
+    or list of time values, then `interp_df` must be `None`.
+
+tol : float (default None)
+    Maximum allowed distance from each interpolation timepoint to its nearest
+    measurement timepoint. If None, the tolerance will be automatically
+    calculated as half the mean step between measurement timepoints.
+
+overwrite : bool (default False)
+    If True, overwrite existing measurements in `interp_df` from columns of the
+    same names in `meas_df`. If False, an error is raised when column names
+    overlap. Measurement columns from `meas_df` that do not overlap `interp_df`
+    are always added as new columns.
+
+Returns
+-------
+
+df : dataframe
+    The output dataframe of measurements. If `interp_df` is a dataframe, then interpolated
+    values from the measurement columns of `meas_df` are concatenated as new columns to
+    `interp_df` and returned. Otherwise, a dataframe of interpolation times and corresponding
+    measurement values is returned. If `interp_ts` has an index, that index is used as the
+    returned dataframe's index, and a default index is assigned otherwise.
+    '''
+    
+    interp_ts = interp_ts if interp_df is None else interp_df[interp_ts]
+    meas_ts = meas_df[meas_ts]
+    # Default tolerance is half the apparent measurement timestep.
+    tol = np.mean(np.diff(meas_ts)) / 2 if tol is None else tol
+    # An interpolation timepoint is out of tolerance if its minimum absolute
+    # distance to a measurement timepoint is greater than `tol`
+    outoftol = np.min(
+        np.abs(
+            np.expand_dims(meas_ts, axis=0) - np.expand_dims(interp_ts, axis=1)
+        ),
+        axis=1
+    ) > tol
+    try:
+        assert(not outoftol.any())
+    except AssertionError:
+        with np.printoptions(threshold=3):
+            msg = f'The maximum distance allowed from an interpolation timepoint to the nearest measurement timepoint is {tol}, and that tolerance is exceeded at interpolation timepoint(s) {interp_ts[outoftol].values}. Use the `tol` param to adjust the tolerance or exclude these interpolation timepoint(s).'
+        raise ValueError(msg) from None
+    try:
+        assert(np.all(np.diff(meas_ts) > 0))
+    except AssertionError:
+        msg = 'The time column of `meas_df` must be increasing.'
+        raise ValueError(msg) from None
+    meas_cols = [c for c in meas_df.columns if c != meas_ts.name]
+    try:
+        if not overwrite:
+            overlaps = set(interp_df.columns) & set(meas_cols)
+            assert(len(overlaps) == 0)
+    except AssertionError:
+        msg = f'Found overlap of columns in `interp_df` and `meas_df`. To overwrite the measurements in the {overlaps} column(s) in `interp_df` set the parameter `overwrite=True`. If you wish to keep the existing measurements and add new columns from `meas_df` you can `rename` the column(s) in the input dataframes so that they do not match.'
+        raise ValueError(msg) from None
+    try:
+        results = {}
+        for col in meas_cols:
+            results[col] = np.interp(interp_ts, meas_ts, meas_df[col])
+    except TypeError:
+        msg = f"Could not interpolate column `{col}` from `meas_df`. Specify a subset of the dataframe that does not include it, e.g. `meas_df=df[['tcol', 'measurecol']]`."
+        raise TypeError(msg) from None
+    if interp_df is not None:
+        df = interp_df.assign(**results)
+    else:
+        try:
+            tcolname = interp_ts.name
+        except AttributeError:
+            tcolname = 'tcol'
+        df = pd.DataFrame({tcolname: interp_ts} | results)
+    return df
