@@ -2,8 +2,6 @@ __all__=['prep_audio']
 
 import numpy as np
 from scipy.signal import resample
-from ..utils.phonlablib import loadsig
-
 
 def prep_audio(x, fs, target_fs=22050, chan = 0, pre = 0, scale = True, outtype = "float", quiet = False):
     """ Prepare an array of audio waveform samples for acoustic analysis. 

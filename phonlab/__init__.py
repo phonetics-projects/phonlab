@@ -42,11 +42,13 @@ __all__ += artic.egg2oq_.__all__
 
 
 #--------- functions in the 'utilities' portion of the package ---------
-from .utils.phonlablib import *
+from .utils.signal import *
+from .utils.tidy import *
 from .utils.prep_audio_ import *
 from .utils.utils import *
 
-__all__ += utils.phonlablib.__all__
+__all__ += utils.tidy.__all__
+__all__ += utils.signal.__all__
 __all__ += utils.prep_audio_.__all__
 __all__ += utils.utils.__all__
 

@@ -3,9 +3,8 @@ __all__=['srt2tg']
 import os
 import pandas as pd
 import numpy as np
-
-from audiolabel import df2tg  # write dataframes to textgrids
 import srt
+from ..utils.tidy import df_to_tg
 
 def srt2tg(filename, quiet=True, exclude_talkers = ["Keith Johnson"]):
     """Convert a subtitles text file into a Praat TextGrid. 
@@ -67,7 +66,7 @@ Returns
             if not quiet: print("error at index {} in talker {}: {}".format(sub.index,talker,text))
     
     keys = list(dfs.keys())
-    tg = df2tg(list(dfs.values()), keys, ftype='praat_short', outfile=TextGrid_name)
+    tg = df_to_tg(list(dfs.values()), keys, ftype='praat_short', outfile=TextGrid_name)
  
     if not quiet: print(keys)  # print the names of the talkers
     
