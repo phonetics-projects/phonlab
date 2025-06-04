@@ -1,7 +1,8 @@
-__all__=['df_to_tg', 'tg_to_df', 'add_context', 'merge_tiers', 'adjust_boundaries', 'explode_intervals', 'interpolate_measures']
+__all__=['df_to_tg', 'tg_to_df', 'add_context', 'merge_tiers', 'adjust_boundaries', 'explode_intervals', 'interpolate_measures', 'srt_to_df', 'split_speaker_df']
 
 import pandas as pd
 import numpy as np
+import srt
 from parselmouth.praat import call as pcall
 
 def _df_to_praat_short_label_str(df, lblcol, t1col, t2col=None, fmt=None):
@@ -282,7 +283,7 @@ Examples
 
     # Specify numeric output to four decimal places.
     df_to_tg(wddf, 'word', fmt='.4f', outfile='wordt1str.TextGrid')
-    
+
     """
 
     # Process params.
@@ -840,3 +841,155 @@ df : dataframe
             tcolname = 'tcol'
         df = pd.DataFrame({tcolname: interp_ts} | results)
     return df
+
+def srt_to_df(srtfile, verbose=True):
+    '''
+    Read subtitles in an .srt file and return as a dataframe.
+
+    The dataframe is checked for overlapping subtitle texts, and a warning is
+    issued if any overlaps are found.
+
+    Parameters
+    ----------
+
+    srtfile : pathlike
+    Input `.srt` file path as a Path object or string.
+
+    verbose : bool (default True)
+    If True, print informational messages.
+
+    Returns
+    -------
+
+    df : dataframe
+    The output dataframe with time columns `t1` and `t2` that indicate start and end times
+    of subtitle content, which is in the `text` column.
+    '''
+    # Read subtitles in .srt file to make a list of dicts containing subtitle content.
+    subtitles = []
+    with open(srtfile, 'r') as fh:
+        for s in srt.parse(fh):
+            text = s.content
+            sdict = {
+                't1': s.start.total_seconds(),
+                't2': s.end.total_seconds(),
+                'text': text,
+            }
+            subtitles.append(sdict)
+
+    # Return a dataframe from the list of subtitle dicts.
+    return pd.DataFrame(subtitles)
+
+def split_speaker_df(df, textcol='text', ts=['t1', 't2'], sep=None, ffill=True, include=[], exclude=[], as_dict=True, verbose=True):
+    '''
+    Split speaker identifier from the text contained in a dataframe column, and
+    add speaker as new column.
+
+    To help guard against the misparsing of speaker identifiers, an error is raised
+    if any speaker identifiers are found in the dataframe that are not explicitly
+    listed in the `include` and `exclude` parameters.
+
+    Parameters
+    ----------
+
+    df : dataframe
+    Input dataframe of speaker utterances.
+
+    textcol : str
+    Name of the column in `df` that contains utterance content. Speaker identifiers
+    are split off from the values in this column, e.g. 'Speaker1: Some utterance' yields
+    'Speaker1' and 'Some utterance' as the new `speaker` and `textcol` columns.
+
+    ffill : bool (default True)
+    If True, `df` rows which have no `speaker` value (i.e. do not contain `sep` and
+    cannot be split) inherit `speaker` from the immediately preceding row.
+
+    ts : list of str (default ['t1', 't2'])
+    The names of the start and end time columns in the `df` dataframe. The
+    first name defines the start time of the interval, and the second
+    name defines the end time.
+
+    include : list of str (default [])
+    List of speaker identifiers and associated rows to include in the return value.
+
+    exclude : list of str (default [])
+    List of speaker identifiers and associated rows to exclude from the return value.
+
+    sep : str
+    String on which to split `textcol` into `speaker` and `utterance`.
+
+    as_dict : bool (True)
+    If True, return value is a dict with speaker identifiers as keys. The values are
+    dataframes of utterance rows for that speaker. If False, return original
+    dataframe with new `speaker` column.
+
+    verbose : bool (default True)
+    If True, print informational messages.
+
+    Returns
+    -------
+
+    df : dataframe or dict of dataframes
+    If `as_dict` is True, a dict of dataframes is returned in which the keys are speaker
+    identifiers and the values are the dataframes of utterances by the speaker. If
+    `as_dict` is False, then a single dataframe is returned with the speaker identifiers
+    in a new column named `speaker` added to the input dataframe, and with the speaker
+    identifiers removed from `textcol`.
+    '''
+    newcols = pd.DataFrame(
+        [
+            (s[0], s[1]) if len(s) == 2 else (None, s[0]) for s in df[textcol].str.split(sep)
+        ],
+        columns=['speaker', textcol]
+    )
+    if ffill is True:
+        newcols['speaker'] = newcols['speaker'].fillna(method='ffill')
+    else:
+        newcols['speaker'] = newcols['speaker'].fillna('*')
+    newcols['speaker'] = newcols['speaker'].astype('category')
+    unrecognized = set(newcols['speaker'].cat.categories) - set(include + exclude)
+
+    try:
+        assert(len(unrecognized) == 0)
+    except AssertionError:
+        msg = f'Found {len(unrecognized)} speaker(s) not in include/exclude lists. (Possible misplaced separator character "{sep}".) : "' + \
+               ', '.join(unrecognized) + '"\n'
+        raise ValueError(msg) from None
+
+    # Replace textcol and add speaker col
+    df = pd.concat([df.drop(textcol, axis='columns'), newcols], axis='columns')
+
+    # Propagate last speaker value to rows that have a missing value
+    # (i.e. from intervals with no speaker delimiter).
+    if ffill and 'speaker' in df.columns:
+        df['speaker'] = df['speaker'].fillna(method='ffill')
+
+    t1, t2 = ts[0], ts[1]
+
+    # Probably not necessary to sort, but we do it in case the .srt is weird.
+    sortcols = ['speaker', t1] if 'speaker' in df.columns else [t1]
+    df = df.sort_values(sortcols)
+
+    # Limit speakers to specific individuals found in `include`.
+    df = df.query(f'speaker in {include}')
+
+    # Groupby speaker
+    grouper = 'speaker' if 'speaker' in df.columns else lambda x: '*'
+    spgroups = df.groupby(grouper)
+
+    # Test for overlaps
+    for spkr, gdf in spgroups:
+        overlaps = gdf[t2].shift(1) > gdf[t1]
+        if overlaps.any():
+            sys.stderr.write(f'WARNING: Found time overlaps that need to be corrected in "{srtfile}" for speaker "{spkr}" at time(s):\n')
+            for row in gdf[overlaps].itertuples():
+                sys.stderr.write(f'{pd.to_timedelta(getattr(row, t1), unit="s")}: {row.text}\n')
+            sys.stderr.write('\n')
+        else:
+            if verbose:
+                sys.stdout.write(f'No overlaps found for "{spkr}".\n')
+
+    if as_dict is True:
+        return {k: group for k, group in spgroups}
+    else:
+        return df.sort_values(t1)
