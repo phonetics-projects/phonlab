@@ -46,8 +46,8 @@ from .utils.signal import *
 from .utils.tidy import *
 from .utils.prep_audio_ import *
 
-__all__ += utils.tidy.__all__
 __all__ += utils.signal.__all__
+__all__ += utils.tidy.__all__
 __all__ += utils.prep_audio_.__all__
 
 
