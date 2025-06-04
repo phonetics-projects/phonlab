@@ -10,7 +10,9 @@ Installation
 
 The package is currently in testing, and is being distributed from test.pypi.org
 
->>> pip install -i https://test.pypi.org/simple/ phonlab
+.. code-block:: Python
+
+  pip install -i https://test.pypi.org/simple/ phonlab
 
 =============
 Documentation
