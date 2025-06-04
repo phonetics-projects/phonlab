@@ -943,7 +943,7 @@ def split_speaker_df(df, textcol='text', ts=['t1', 't2'], sep=None, ffill=True, 
         columns=['speaker', textcol]
     )
     if ffill is True:
-        newcols['speaker'] = newcols['speaker'].fillna(method='ffill')
+        newcols['speaker'] = newcols['speaker'].ffill()
     else:
         newcols['speaker'] = newcols['speaker'].fillna('*')
     newcols['speaker'] = newcols['speaker'].astype('category')
@@ -959,11 +959,6 @@ def split_speaker_df(df, textcol='text', ts=['t1', 't2'], sep=None, ffill=True, 
     # Replace textcol and add speaker col
     df = pd.concat([df.drop(textcol, axis='columns'), newcols], axis='columns')
 
-    # Propagate last speaker value to rows that have a missing value
-    # (i.e. from intervals with no speaker delimiter).
-    if ffill and 'speaker' in df.columns:
-        df['speaker'] = df['speaker'].fillna(method='ffill')
-
     t1, t2 = ts[0], ts[1]
 
     # Probably not necessary to sort, but we do it in case the .srt is weird.
@@ -975,7 +970,7 @@ def split_speaker_df(df, textcol='text', ts=['t1', 't2'], sep=None, ffill=True, 
 
     # Groupby speaker
     grouper = 'speaker' if 'speaker' in df.columns else lambda x: '*'
-    spgroups = df.groupby(grouper)
+    spgroups = df.groupby(grouper, observed=True)
 
     # Test for overlaps
     for spkr, gdf in spgroups:
