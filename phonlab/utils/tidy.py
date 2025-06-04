@@ -243,43 +243,46 @@ tg : str or None
 Examples
 --------
 
-import pandas as pd
-from audiolabel import df_to_tg
+.. code-block:: python
 
-wddf = pd.DataFrame({
-    'word': ['', 'a', 'word'],
-    't1': [0.0, 0.1, 0.23647890019],
-    't2': [0.1, 0.2, 0.3],
-})
-ptdf = pd.DataFrame({
-    'pt': ['pt1', 'pt2'],
-    't1': [0.05, 0.15],
-})
-ctxdf = pd.DataFrame({
-    'ctx': ['nonspeech', 'speech'],
-    't1': [0.0, 0.1],
-    't2': [0.1, 0.3]
-})
+    import pandas as pd
+    from phonlab import df_to_tg
 
-# Single tier textgrid.
-df_to_tg(wddf, tiercols='word', outfile='word.tg')
+    wddf = pd.DataFrame({
+        'word': ['', 'a', 'word'],
+        't1': [0.0, 0.1, 0.23647890019],
+        't2': [0.1, 0.2, 0.3],
+    })
+    ptdf = pd.DataFrame({
+        'pt': ['pt1', 'pt2'],
+        't1': [0.05, 0.15],
+    })
+    ctxdf = pd.DataFrame({
+        'ctx': ['nonspeech', 'speech'],
+        't1': [0.0, 0.1],
+        't2': [0.1, 0.3]
+    })
 
-# Single tier textgrid where the column name doesn't match the tier name.
-df_to_tg(
-    ctxdf,
-    tiercols={'ctx': 'context'},
-    outfile='ctx.tg'
-)
+    # Single tier textgrid.
+    df_to_tg(wddf, tiercols='word', outfile='word.TextGrid')
 
-# Two-tier textgrid. One tier name matches the column name and one does not.
-df_to_tg(
-    [wddf, ctxdf],
-    tiercols=['word', {'ctx': 'context'}],
-    outfile='wordctx.tg'
-)
+    # Single tier textgrid where the column name doesn't match the tier name.
+    df_to_tg(
+        ctxdf,
+        tiercols={'ctx': 'context'},
+        outfile='ctx.TextGrid'
+    )
 
-# Specify numeric output to four decimal places.
-df_to_tg(wddf, 'word', fmt='.4f', outfile='wordt1str.tg')
+    # Two-tier textgrid. One tier name matches the column name and one does not.
+    df_to_tg(
+        [wddf, ctxdf],
+        tiercols=['word', {'ctx': 'context'}],
+        outfile='wordctx.TextGrid'
+    )
+
+    # Specify numeric output to four decimal places.
+    df_to_tg(wddf, 'word', fmt='.4f', outfile='wordt1str.TextGrid')
+    
     """
 
     # Process params.
