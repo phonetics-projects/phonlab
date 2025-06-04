@@ -1,9 +1,384 @@
-__all__=['tg_to_df', 'add_context', 'merge_tiers', 'explode_intervals', 'interpolate_measures', 'loadsig']
+__all__=['df_to_tg', 'tg_to_df', 'add_context', 'merge_tiers', 'explode_intervals', 'interpolate_measures']
 
-import librosa
-import numpy as np
 import pandas as pd
+import numpy as np
 from parselmouth.praat import call as pcall
+
+def _df_to_praat_short_label_str(df, lblcol, t1col, t2col=None, fmt=None):
+    """
+    Return a string representing the labels of a tier in praat_short format
+    from a dataframe.
+    """
+
+    if fmt is None:
+        ts = df[t1col].astype(str)
+    else:
+        ts = df[t1col].map(fmt.format)
+    if t2col is not None and fmt is None:
+        ts = ts.str.cat(df[t2col].astype(str), sep='\n')
+    elif t2col is not None:
+        ts = ts.str.cat(df[t2col].map(fmt.format), sep='\n')
+    return '\n'.join(
+        ts.str.cat(
+            df[lblcol].fillna('').astype(str) \
+                .str.replace('"', '""', regex=False) \
+                # ^|$ alone does not match twice on empty strings
+                # Also, .str.replace doesn't seem to work with
+                # beginning/end of string unless you capture, e.g. (^)
+                # and we just use .replace instead.
+                .replace('^', '"', regex=True) \
+                .replace('$', '"', regex=True),
+            sep='\n'
+        )
+    )
+
+def _df_to_praat_long_label_str(df, lblcol, t1col, t2col=None, fmt=None):
+    """
+    Return a string representing the labels of a tier in praat_long format
+    from a dataframe.
+    """
+
+    intvl = 'intervals [{}]:\n            '
+    ts = pd.Series(np.arange(1, len(df)+1)).map(intvl.format)
+
+    t1lbl = '{} = '.format('number' if t2col is None else 'xmin')
+    if fmt is None:
+        t1s = df[t1col].astype(str)
+    else:
+        t1s = df[t1col].map(fmt.format)
+    ts = ts.str.cat(t1s.replace('^', t1lbl, regex=True))
+    if t2col is not None:
+        if fmt is None:
+            t2s = df[t2col].astype(str)
+        else:
+            t2s = df[t2col].map(fmt.format)
+        ts = ts.str.cat(
+            t2s.replace('^', 'xmax = ', regex=True),
+            sep='\n            '
+        )
+    lbl = '            {} = "'.format('mark' if t2col is None else 'text')
+    return '\n        '.join(
+        ts.str.cat(
+            df[lblcol].fillna('').astype(str) \
+                .str.replace('"', '""', regex=False) \
+                # ^|$ alone does not match twice on empty strings
+                # Also, .str.replace doesn't seem to work with
+                # beginning/end of string unless you capture, e.g. (^)
+                # and we just use .replace instead.
+                .replace('^', lbl, regex=True) \
+                .replace('$', '"', regex=True),
+            sep='\n'
+        )
+    )
+
+def _df_to_praat_short_tier(df, xmin, xmax, tname, lblcol, t1col, 
+    t2col=None, fmt=None):
+    """
+    Return a string representing the a tier defined in a dataframe in
+    praat_short format.
+    """
+
+    return '\n'.join(
+        [
+            '"IntervalTier"' if t2col is not None else '"TextTier"',
+            '"' + tname + '"',
+            xmin,
+            xmax,
+            str(len(df)),
+            _df_to_praat_short_label_str(df, lblcol, t1col, t2col, fmt)
+        ]
+)
+
+def _df_to_praat_long_tier(idx, df, xmin, xmax, tname, lblcol, t1col,
+    t2col=None, fmt=None):
+    """
+    Return a string representing a tier defined in a dataframe in
+    praat_long format.
+    """
+
+    tclass = '"IntervalTier"' if t2col is not None else '"TextTier"'
+    tier = '''    item [{}]:
+        class = {}
+        name = "{}"
+        xmin = {}
+        xmax = {}
+        intervals: size = {}
+        {}'''.format(
+        idx, tclass, tname, xmin, xmax, str(len(df)),
+        _df_to_praat_long_label_str(df, lblcol, t1col, t2col, fmt)
+    )
+    return tier
+
+def _praat_short_preamble(xmin, xmax, tiercnt):
+    """
+    Preamble of a short Praat textgrid.
+    """
+    # xmin and xmax should already be strings
+    return '''File type = "ooTextFile"
+Object class = "TextGrid"
+
+{}
+{}
+<exists>
+{}'''.format(xmin, xmax, str(tiercnt))
+
+def _praat_long_preamble(xmin, xmax, tiercnt):
+    """
+    Preamble of a long Praat textgrid.
+    """
+    # xmin and xmax should already be strings
+    return '''File type = "ooTextFile"
+Object class = "TextGrid"
+
+xmin = {}
+xmax = {}
+tiers? <exists>
+size = {}
+item []:'''.format(xmin, xmax, str(tiercnt))
+
+def _df_degap(df, t1fld, t2fld, lblfld, start, end, fill):
+    start = float(start)
+    end = float(end)
+    if end > df[t2fld].astype(float).iloc[-1] and end != np.inf:
+        endfill = end
+    else:
+        endfill = df[t2fld].astype(float).iloc[-1]
+    t1ser = df[t2fld].astype(float)
+    t2ser = df[t1fld].astype(float).shift(-1, fill_value=endfill)
+    if df[t1fld].iloc[0] > start:
+        t1ser = pd.concat([pd.Series(start), t1ser])
+        t2ser = pd.concat([pd.Series(df[t1fld].iloc[0]), t2ser])
+    gapdf = pd.concat({
+        t1fld : t1ser,
+        t2fld : t2ser
+    }, axis='columns')
+    gapdf[lblfld] = fill
+    gapdf = gapdf[gapdf[t1fld] != gapdf[t2fld]]
+    return pd.concat(
+        [df, gapdf],
+        axis='rows'
+    ).sort_values(t1fld).reset_index(drop=True)
+
+def df_to_tg(dfs, tiercols, ts=['t1', 't2'], start=0.0, end=None, tgtype='short',
+    codec='utf-8', fmt=None, fill_gaps='', outfile=None):
+    """
+Convert one or more dataframes to a Praat textgrid.
+
+Each input dataframe represents a textgrid tier. Each dataframe row
+represents a label. There must be a column in each dataframe to provide
+1) the label text content; 2) the label start time for an IntervalTier or
+point time for a PointTier (`t1`); and 3) the label end time for an
+IntervalTier (`t2`).
+
+If the `t1` and `t2` columns are numeric types, they are converted to `str`
+type without any special formatting, unless the `fmt` parameter is used.
+
+*The dataframes are converted to labels as-is. No sorting is performed
+before creating the textgrid.*
+
+Parameters
+----------
+
+dfs : dataframe or list of dataframes
+    The input dataframes of labels. Each df represents a separate textgrid tier.
+
+tiercols: str or dict or list of str/dict
+    The column name in each dataframe in `dfs` that contains the label content. If the
+    name is provided as a `str`, that name will also be the tier's name in the output
+    textgrid. If a different name for the tier is desired, use a single-element `dict`
+    to map the column name to the textgrid tier name, e.g. `{'text': 'word'}` maps the
+    'text' column of a dataframe to a textgrid tier named 'word'. For multiple dataframes
+    use a list of single-element dicts, e.g. `[{'text': 'word'}, {'text': 'phone'}, 'context']`
+    to map the 'text' column of the first dataframe to a tier named 'word' and the 'text'
+    column of the second dataframe to a tier named 'phone'. The third dataframe in
+    this example has a column named 'context' that will also be the name of the
+    textgrid tier.
+
+ts : list of str or list of list of str (default=['t1', 't2'])
+    The column names in each dataframe in `dfs` that holds the start and end
+    times of the labels. For Point tiers Use `None` as the second value.
+    If this value is a simple list, then all dataframes must be of the same
+    Interval/Point type with the same names for the time columns.
+    For a mix of Interval and Point tier types or if time column names vary 
+    among the dataframes, use a list of two-element lists to specify the
+    column names for each dataframe.
+
+start : num or None (default=0.0)
+    The start time of the textgrid. If `None`, the start time will be the
+    minimum label time value among all the dataframes.
+
+end : num or None (default=None)
+    The end time of the textgrid. If `None`, the end time will be the
+    maximum label time value among all the dataframes.
+
+tgtype : str, default='short'
+    The Praat textgrid output type. Must be one of 'short' or 'long'.
+
+codec : str (default 'utf-8')
+    The codec used to write the textgrid (e.g. 'utf-8', 'ascii').
+
+fmt : str or None (default None)
+    The format string to apply to all time columns, as used by the
+    `format <https://docs.python.org/3/library/stdtypes.html#str.format>`_
+    built-in method, for example, '0.4f' for four-digit floating point.
+
+fill_gaps = str or None (default '' empty string)
+    When `fill_gaps` is not None, new labels will be inserted into IntervalTier
+    outputs where consecutive dataframe rows are not contiguous in time (rows
+    in which the end time of one row is less than the start time of the next row).
+    The string value of `fill_gaps` is used as the text content of the inserted
+    labels.
+
+outfile : file path, optional
+    If provided, write textgrid to `outfile` and return `None` instead of
+    the textgrid content.
+
+Returns
+-------
+
+tg : str or None
+    The textgrid output as a `str`. If `outfile` is specified, then `None` is
+    returned instead.
+
+Examples
+--------
+
+import pandas as pd
+from audiolabel import df_to_tg
+
+wddf = pd.DataFrame({
+    'word': ['', 'a', 'word'],
+    't1': [0.0, 0.1, 0.23647890019],
+    't2': [0.1, 0.2, 0.3],
+})
+ptdf = pd.DataFrame({
+    'pt': ['pt1', 'pt2'],
+    't1': [0.05, 0.15],
+})
+ctxdf = pd.DataFrame({
+    'ctx': ['nonspeech', 'speech'],
+    't1': [0.0, 0.1],
+    't2': [0.1, 0.3]
+})
+
+# Single tier textgrid.
+df_to_tg(wddf, tiercols='word', outfile='word.tg')
+
+# Single tier textgrid where the column name doesn't match the tier name.
+df_to_tg(
+    ctxdf,
+    tiercols={'ctx': 'context'},
+    outfile='ctx.tg'
+)
+
+# Two-tier textgrid. One tier name matches the column name and one does not.
+df_to_tg(
+    [wddf, ctxdf],
+    tiercols=['word', {'ctx': 'context'}],
+    outfile='wordctx.tg'
+)
+
+# Specify numeric output to four decimal places.
+df_to_tg(wddf, 'word', fmt='.4f', outfile='wordt1str.tg')
+    """
+
+    # Process params.
+    # Coerce to list of dataframes
+    if isinstance(dfs, pd.DataFrame):
+        dfs = [dfs]
+
+    # Coerce to list of dicts
+    if not isinstance(tiercols, list):
+        tiercols = [tiercols]
+    if len(tiercols) == 1:
+        tiercols = tiercols * len(dfs)
+    tiercols = [t if isinstance(t, dict) else {t: t} for t in tiercols]
+
+    # Coerce to list of lists
+    if not isinstance(ts[0], list):
+        ts = [ts] * len(dfs)
+
+    # Find max/min times.
+    if start is not None:
+        xmin = start
+    else:
+        xmin = min([df[tcols[0]].min() for df, tcols in zip(dfs, ts)])
+    maxcols = [
+        t1col if t2col is None else t2col for t1col, t2col in ts
+    ]
+    if end is not None:
+        xmax = end
+    else:
+        xmax = max([df[col].max() for df, col in zip(dfs, maxcols)])
+
+    # Create TextGrid preamble.
+    if tgtype != 'long':
+        tg = _praat_short_preamble(xmin, xmax, len(dfs))
+    else:
+        tg = _praat_long_preamble(xmin, xmax, len(dfs))
+
+    # Prep the `fmt` string, if needed.
+    if fmt is not None and not fmt.startswith('{:'):
+        fmt = '{:' + fmt + '}'
+
+    # Convert xmin and xmax to (formatted) strings.
+    if fmt is None:
+        xmin = str(xmin)
+        xmax = str(xmax)
+    else:
+        xmin = fmt.format(xmin)
+        xmax = fmt.format(xmax)
+
+    for df, colmap, (t1col, t2col) in zip(dfs, tiercols, ts):
+        tiercol, tiername = list(colmap.items())[0]
+        try:
+            if len(df) > 1:
+                assert((df[t1col].diff().iloc[1:] > 0).all())
+                if t2col is not None:
+                    assert((df[t2col].diff().iloc[1:] > 0).all())
+        except AssertionError:
+            raise RuntimeError(
+                'Dataframe labels not sorted by time or duplicate times found.'
+            ) from None
+        try:
+            if t2col is not None:
+                assert(((df[t2col] > df[t1col])).all())
+        except AssertionError:
+            raise RuntimeError(
+                'Interval label end values must be greater than start values in all rows.'
+            ) from None
+        try:
+            # Every t1 must be >= the preceding t2.
+            if t2col is not None:
+                assert(
+                    (df[t1col].shift(-1) >= df[t2col]).iloc[:-1].all()
+                )
+        except AssertionError:
+            raise RuntimeError(
+                'Dataframe interval labels cannot overlap in time. The start time of a row cannot be less than the end time of the preceding row.'
+            ) from None
+
+        if fill_gaps is not None and t2col is not None:
+            df = _df_degap(
+                df,
+                t1fld=t1col,
+                t2fld=t2col,
+                lblfld=tiercol,
+                start=xmin,
+                end=xmax,
+                fill=fill_gaps
+            )
+        if tgtype != 'long':
+            tiertext = _df_to_praat_short_tier(df, xmin, xmax, tiername, tiercol, t1col, t2col, fmt)
+        else:
+            tiertext = _df_to_praat_long_tier(df, xmin, xmax, tiername, tiercol, t1col, t2col, fmt)
+        tg += f'\n{tiertext}'
+    if outfile is not None:
+        with open(outfile, 'w', encoding=codec) as out:
+            out.write(tg)
+        return None
+    else:
+        return tg
 
 def tg_to_df(tg, tiersel=[], names=None):
     '''
@@ -391,68 +766,3 @@ df : dataframe
             tcolname = 'tcol'
         df = pd.DataFrame({tcolname: interp_ts} | results)
     return df
-
-def loadsig(path, chansel=[], offset=0.0, duration=None, rate=None, dtype=np.float32):
-    """
-    Load signal(s) from an audio file.
-    
-    By default audio samples are returned at the same sample rate as the input file.
-    and channels
-    are returned along the first dimension of the output array `y`.
-
-    Parameters
-    ==========
-
-    path : string, int, pathlib.Path, soundfile.SoundFile, or file-like object
-        The input audio file.
-
-    chansel : int, list of int (default [])
-        Selection of channels to be returned from the input audio file, starting with 0 for the first channel. For empty list [], return all channels in order as they appear in the input audio file. This parameter can be used to select channels out of order, drop channels, and repeat channels.
-
-    offset : float (default 0.0)
-        start reading after this time (in seconds)
-
-    duration : float
-        only load up to this much audio (in seconds)
-
-    rate : number > 0 [scalar]
-        target sampling rate. 'None' returns `y` at the file's native sampling rate.
-
-    dtype : numeric type (default float32)
-        data type of **y**. No scaling is performed when the requested dtype differs from the native dtype of the file. Float types are usually in the range [-1.0, 1.0), and integer types usually make use of the full range of integers available to their size, e.g. int16 may be in the range [-32768, 32767].
-
-    Returns
-    =======
-
-    *y : varying number of 1d signal arrays `y`
-        Each channel is returned as a separate 1d array in the output list. The number of arrays is equal to the number of channels in the input file by default. If **chansel** is specified, then the number of 1d arrays is equal to the length of **chansel**.    
-
-    rate : number > 0 [scalar]
-        sampling rate of **y** arrays
-
-    
-    Example
-    =======
-    Load a stereo audio file, report the sampling rate of the file, and plot the left channel.  Note, this will produce an error with a one channel file. **left** and **right** are one-dimensional arrays of audio samples.
-
-    >>> left, right, fs = loadsig('stereo.wav')
-    >>> print(fs)
-    >>> plt.plot(left);
-
-    Load a wav file that has an unknown number of channels, downsampling to 12 kHz sampling rate.  Use **len(chans)** to determine how many channels there are in the file, and plot the last channel. **chans** is a two dimensional matrix with audio signals in the columns of the matrix.
-
-    >>> *chans, fs = loadsig('threechan.wav', rate = 12000)
-    >>> print(len(chans))      # the number of channels
-    >>> plt.plot(chans[-1])    # plot the last of the channels
-    
-    """
-    
-    y, rate = librosa.load(
-        path, sr=rate, mono=False, offset=offset, duration=duration, dtype=dtype
-    )
-    if y.ndim == 1:
-        y = np.expand_dims(y, axis=0)
-    if chansel == []:
-        chansel = np.arange(y.shape[0], dtype=np.int16)
-    return [ *list(y[chansel, :]), rate ]
-
