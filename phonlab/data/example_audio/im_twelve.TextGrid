@@ -11,35 +11,43 @@ item []:
         name = "word" 
         xmin = 0 
         xmax = 1.998125 
-        intervals: size = 7 
+        intervals: size = 9 
         intervals [1]:
             xmin = 0 
+            xmax = 0.03504729926105083 
+            text = "sp" 
+        intervals [2]:
+            xmin = 0.03504729926105083 
             xmax = 0.2130449290782511 
             text = "I'm" 
-        intervals [2]:
+        intervals [3]:
             xmin = 0.2130449290782511 
             xmax = 0.8259102493024975 
             text = "twelve" 
-        intervals [3]:
-            xmin = 0.8259102493024975 
-            xmax = 0.9915766183721738 
-            text = "" 
         intervals [4]:
-            xmin = 0.9915766183721738 
+            xmin = 0.8259102493024975 
+            xmax = 0.9905098207368532 
+            text = "sp" 
+        intervals [5]:
+            xmin = 0.9905098207368532 
             xmax = 1.1596977205265993 
             text = "what're " 
-        intervals [5]:
-            xmin = 1.1596977205265993 
-            xmax = 1.2643954154751724 
-            text = "you" 
         intervals [6]:
-            xmin = 1.2643954154751724 
+            xmin = 1.1596977205265993 
+            xmax = 1.2707745412061255 
+            text = "you" 
+        intervals [7]:
+            xmin = 1.2707745412061255 
             xmax = 1.6909761122249611 
             text = "talking" 
-        intervals [7]:
+        intervals [8]:
             xmin = 1.6909761122249611 
-            xmax = 1.998125 
+            xmax = 1.9760416312133084 
             text = "about" 
+        intervals [9]:
+            xmin = 1.9760416312133084 
+            xmax = 1.998125 
+            text = "sp" 
     item [2]:
         class = "IntervalTier" 
         name = "phone" 
@@ -49,7 +57,7 @@ item []:
         intervals [1]:
             xmin = 0 
             xmax = 0.03504729926105083 
-            text = "" 
+            text = "sp" 
         intervals [2]:
             xmin = 0.03504729926105083 
             xmax = 0.12654140804559302 
@@ -81,7 +89,7 @@ item []:
         intervals [9]:
             xmin = 0.8259102493024975 
             xmax = 0.9900224226543475 
-            text = "" 
+            text = "sp" 
         intervals [10]:
             xmin = 0.9900224226543475 
             xmax = 1.06373382254967 
@@ -96,10 +104,10 @@ item []:
             text = "r" 
         intervals [13]:
             xmin = 1.1596977205265993 
-            xmax = 1.2643954154751724 
+            xmax = 1.2707745412061255 
             text = "iy" 
         intervals [14]:
-            xmin = 1.2643954154751724 
+            xmin = 1.2707745412061255 
             xmax = 1.4057954017785557 
             text = "t" 
         intervals [15]:
@@ -124,10 +132,10 @@ item []:
             text = "b" 
         intervals [20]:
             xmin = 1.799457040372794 
-            xmax = 1.964741229989577 
+            xmax = 1.9760416312133084 
             text = "aw" 
         intervals [21]:
-            xmin = 1.964741229989577 
+            xmin = 1.9760416312133084 
             xmax = 1.998125 
             text = "" 
     item [3]:

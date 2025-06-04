@@ -18,7 +18,7 @@ directories into dataframes, converting subtitles files into textgrids, and more
 Installation
 ------------
 
-The package is currently in testing, and distributed from test.pypi.org
+The package is currently in testing, and is being distributed from test.pypi.org
 
 >>> pip install -i https://test.pypi.org/simple/ phonlab
 
