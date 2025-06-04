@@ -1,4 +1,4 @@
-__all__=['df_to_tg', 'tg_to_df', 'add_context', 'merge_tiers', 'explode_intervals', 'interpolate_measures']
+__all__=['df_to_tg', 'tg_to_df', 'add_context', 'merge_tiers', 'adjust_boundaries', 'explode_intervals', 'interpolate_measures']
 
 import pandas as pd
 import numpy as np
