@@ -71,7 +71,7 @@ def _df_to_praat_long_label_str(df, lblcol, t1col, t2col=None, fmt=None):
         )
     )
 
-def _df_to_praat_short_tier(df, xmin, xmax, tname, lblcol, t1col, 
+def _df_to_praat_short_tier(df, xmin, xmax, tname, lblcol, t1col,
     t2col=None, fmt=None):
     """
     Return a string representing the a tier defined in a dataframe in
@@ -199,7 +199,7 @@ ts : list of str or list of list of str (default=['t1', 't2'])
     times of the labels. For Point tiers Use `None` as the second value.
     If this value is a simple list, then all dataframes must be of the same
     Interval/Point type with the same names for the time columns.
-    For a mix of Interval and Point tier types or if time column names vary 
+    For a mix of Interval and Point tier types or if time column names vary
     among the dataframes, use a list of two-element lists to specify the
     column names for each dataframe.
 
@@ -574,13 +574,84 @@ mergedf : dataframe
         raise KeyError(msg) from None
     return mergedf
 
+def adjust_boundaries(inner_ts, outer_ts, tolerance):
+    """
+Compare two Series and return the closest match of the second found in the first.
+
+Two annotation tiers may be expected to have a strictly hierarchical relationship
+where the boundaries should exactly align, e.g. the left boundary of a word tier aligns
+with the left boundary of a phone (and right boundaries should also align). If the
+annotations were not created carefully and do not match exactly, this function can
+be used to adjust values of one (the `outer_ts`) to match a value found in the
+other (the `inner_ts`). For example, the `outer_ts` value could be the left boundaries
+of a series of words, and the `inner_ts` value could be the left boundaries of a series
+of phones.
+
+Normally the `outer_ts` series has a one-to-many relationship with the `inner_ts` series,
+and the `inner_ts` series has a many-to-one relationship with the `outer_ts`. In the
+preceding discussion, words contain multiple phones.
+
+Parameters
+==========
+
+outer_ts : Series of num
+    A series of time values that correspond to outer_ts boundaries.
+
+inner_ts : Series of num
+    A series of time values that correspond to inner_ts boundaries.
+
+tolerance : num
+    Maximum distance from outer_ts to inner_ts value for inexact matches.
+
+Returns
+=======
+mod_outer_ts: array
+    A modified numpy array of time values of `outer_ts` in which each value is an exact
+match of a value in `inner_ts`.
+
+Raises
+======
+
+A ValueError is raised if one or more boundaries are not within tolerance. A
+list of the values from `outer_ts` that are out of tolerance is included as the
+second value of the Exception object's `args` attribute. An error message is
+the first value of `args`.
+
+Examples
+========
+
+    Read phone and word tiers from a textgrid.
+    >>> from phonlab import tg_to_df, adjust_boundaries
+
+    >>> [phdf, wddf] = tg_to_df(tgpath, tiersel=['phone', 'word'])
+
+    Adjust word 't1' values up to 5 ms.
+
+    >>> try:
+    >>>    wddf['t1'] = adjust_boundaries(wddf['t1'], phdf['t1'], tolerance=0.005)
+    >>> except ValueError as e:
+    >>>    badt = ', '.join([f'{t:0.4f}' for t in e.args[1]])
+    >>>    msg = f"Word-phone boundary mismatch greater than {tolerance} in {tgpath}. " \
+    >>>          f"Bad word boundary found at time(s) {badt}."
+    >>>    raise ValueError(msg) from None
+      """
+
+    idx = pd.Index(inner_ts).get_indexer(outer_ts, method='nearest', tolerance=tolerance)
+    try:
+        return inner_ts[idx].values
+    except KeyError:
+        raise ValueError(
+            'Boundaries out of tolerance in `outer_ts`.',
+            [outer_ts[i] for i in np.where(idx == -1)[0]]
+        )
+
 def explode_intervals(divs, ts=['t1', 't2'], df=None, prefix='obs_'):
     '''
     Divide a series of time intervals into subintervals and explode into long format,
     with one row per subinterval timepoint. An interval [2.0, 3.0] divided into two
     subintervals, for example, produces three output rows for the times corresponding
     to 0%, 50%, and 100% of the interval: 2.0, 2.5, 3.0.
-    
+
     The subinterval divisions can be specified as an integer number of subdivisions,
     or as a list of interval proportions. For `int` the number of timepoints produced
     is the number of subintervals + 1, and for a list of proportions one timepoint
@@ -626,7 +697,7 @@ divdf : dataframe
 
 Note
 ----
-    
+
     `divdf` is merged with the input dataframe `df` if it is provided. If this
     behavior is not desired, then `df` should be None. For example, use
     `ts=[df['t1'], df['t2']], df=None` instead of `ts=['t1', 't2'], df=df`.
@@ -721,7 +792,7 @@ df : dataframe
     measurement values is returned. If `interp_ts` has an index, that index is used as the
     returned dataframe's index, and a default index is assigned otherwise.
     '''
-    
+
     interp_ts = interp_ts if interp_df is None else interp_df[interp_ts]
     meas_ts = meas_df[meas_ts]
     # Default tolerance is half the apparent measurement timestep.
