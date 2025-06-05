@@ -849,19 +849,19 @@ def srt_to_df(srtfile, verbose=True):
     The dataframe is checked for overlapping subtitle texts, and a warning is
     issued if any overlaps are found.
 
-    Parameters
-    ----------
+Parameters
+----------
 
-    srtfile : pathlike
+srtfile : pathlike
     Input `.srt` file path as a Path object or string.
 
-    verbose : bool (default True)
+verbose : bool (default True)
     If True, print informational messages.
 
-    Returns
-    -------
+Returns
+-------
 
-    df : dataframe
+df : dataframe
     The output dataframe with time columns `t1` and `t2` that indicate start and end times
     of subtitle content, which is in the `text` column.
     '''
@@ -889,47 +889,47 @@ def split_speaker_df(df, textcol='text', ts=['t1', 't2'], sep=None, ffill=True, 
     if any speaker identifiers are found in the dataframe that are not explicitly
     listed in the `include` and `exclude` parameters.
 
-    Parameters
-    ----------
+Parameters
+----------
 
-    df : dataframe
+df : dataframe
     Input dataframe of speaker utterances.
 
-    textcol : str
+textcol : str
     Name of the column in `df` that contains utterance content. Speaker identifiers
     are split off from the values in this column, e.g. 'Speaker1: Some utterance' yields
     'Speaker1' and 'Some utterance' as the new `speaker` and `textcol` columns.
 
-    ffill : bool (default True)
+ffill : bool (default True)
     If True, `df` rows which have no `speaker` value (i.e. do not contain `sep` and
     cannot be split) inherit `speaker` from the immediately preceding row.
 
-    ts : list of str (default ['t1', 't2'])
+ts : list of str (default ['t1', 't2'])
     The names of the start and end time columns in the `df` dataframe. The
     first name defines the start time of the interval, and the second
     name defines the end time.
 
-    include : list of str (default [])
+include : list of str (default [])
     List of speaker identifiers and associated rows to include in the return value.
 
-    exclude : list of str (default [])
+exclude : list of str (default [])
     List of speaker identifiers and associated rows to exclude from the return value.
 
-    sep : str
+sep : str
     String on which to split `textcol` into `speaker` and `utterance`.
 
-    as_dict : bool (True)
+as_dict : bool (True)
     If True, return value is a dict with speaker identifiers as keys. The values are
     dataframes of utterance rows for that speaker. If False, return original
     dataframe with new `speaker` column.
 
-    verbose : bool (default True)
+verbose : bool (default True)
     If True, print informational messages.
 
-    Returns
-    -------
+Returns
+-------
 
-    df : dataframe or dict of dataframes
+df : dataframe or dict of dataframes
     If `as_dict` is True, a dict of dataframes is returned in which the keys are speaker
     identifiers and the values are the dataframes of utterances by the speaker. If
     `as_dict` is False, then a single dataframe is returned with the speaker identifiers
