@@ -18,7 +18,8 @@ Working with TextGrids
 
 Working with Corpora
 --------------------
-
+.. autofunction:: phonlab.srt_to_df
+.. autofunction:: phonlab.split_speaker_df
 
 Other Utility Functions
 -----------------------
