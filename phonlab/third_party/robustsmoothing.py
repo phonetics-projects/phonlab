@@ -3,8 +3,12 @@ __all__=['smoothn']
 import scipy.optimize.lbfgsb as lbfgsb
 import numpy.linalg
 from scipy.fftpack import dct,idct
+from scipy.ndimage.morphology import distance_transform_edt
+from random import random 
 import numpy as np
 import numpy.ma as ma
+from numpy.linalg import norm
+import pandas as pd
 
 def smoothn(y, isrobust=False, s=None, W=None, MaxIter=100, TolZ=1e-3, z0=None, nS0=10, weightstr='bisquare',
             axis=None, sd=None, verbose=False):
@@ -48,7 +52,7 @@ axis : tuple, default = None
     in multidimensional cases, the order in which the axes will be smoothed
 
 sd: array, default=None
-    an array used to compute whe **W** array of weights with the formula W = 1./sd**2.
+    an array used to compute the **W** array of weights with the formula W = 1./sd**2.
 
 verbose: logical, default = False
     print some information or warnings
@@ -93,32 +97,38 @@ Examples
 
     smoothOrder=2.0  # used in calculating Lambda tensor
     s0=None  # starting value of smoothing parameter
+
+    if type(y) == pd.core.series.Series:  # gracefully handle pandas series
+        y = y.values
+    if type(W) == pd.core.series.Series:  # gracefully handle pandas series
+        W = W.values
     
     if type(y) == ma.core.MaskedArray:  # masked array
         is_masked = True
         mask = y.mask
         y = np.array(y)
         y[mask] = 0.
-        if W != None:
-            W  = np.array(W)
+        if type(W) is np.ndarray:
             W[mask] = 0.
-        if sd != None:
+        if type(sd) is np.ndarray:
             W = np.array(1./sd**2)
             W[mask] = 0.
             sd = None
         y[mask] = np.nan
 
-    if sd != None:
+    if type(sd) is np.ndarray:
         sd_ = np.array(sd)
         mask = (sd > 0.)
         W = np.zeros_like(sd_)
         W[mask] = 1./sd_[mask]**2
         sd = None
 
-    if W != None:
-        W = W/W.max()
-
     sizy = y.shape;
+    
+    if type(W) is numpy.ndarray:
+        W = W/W.max()
+    elif W == None:
+        W = np.ones(sizy)
 
     # sort axis
     if axis == None:
@@ -130,15 +140,11 @@ Examples
         exitflag = 0; Wtot=0
         return z,s,exitflag,Wtot
         
-    # Smoothness parameter and weights
-
-    if W == None:
-        W = ones(sizy);
     weightstr = weightstr.lower()
 
     # Weights. Zero weights are assigned to not finite values (Inf or NaN),
     # (Inf/NaN values = missing data).
-    IsFinite = np.array(isfinite(y)).astype(bool);
+    IsFinite = np.array(np.isfinite(y)).astype(bool);
     nof = IsFinite.sum() # number of finite elements
     W = W*IsFinite;
     if any(W<0):
@@ -154,23 +160,23 @@ Examples
     # penalized least squares process.
     axis = tuple(np.array(axis).flatten())
     d =  y.ndim;
-    Lambda = zeros(sizy);
+    Lambda = np.zeros(sizy);
     for i in axis:
         # create a 1 x d array (so e.g. [1,1] for a 2D case
-        siz0 = ones((1,y.ndim), dtype=int)[0]
+        siz0 = np.ones((1,y.ndim), dtype=int)[0]
         siz0[i] = sizy[i];
-        Lambda = Lambda + (cos(pi*(arange(1,sizy[i]+1) - 1.)/sizy[i]).reshape(siz0))
+        Lambda = Lambda + (np.cos(np.pi*(np.arange(1,sizy[i]+1) - 1.)/sizy[i]).reshape(siz0))
     Lambda = -2.*(len(axis)-Lambda);
     if not isauto:
         Gamma = 1./(1+(s*abs(Lambda))**smoothOrder);
 
     ## Upper and lower bound for the smoothness parameter
-    N = sum(array(sizy) != 1) # tensor rank of the y-array
+    N = sum(np.array(sizy) != 1) # tensor rank of the y-array
     hMin = 1e-6 
     hMax = 0.99
     try:
-        sMinBnd = np.sqrt((((1+sqrt(1+8*hMax**(2./N)))/4./hMax**(2./N))**2-1)/16.);
-        sMaxBnd = np.sqrt((((1+sqrt(1+8*hMin**(2./N)))/4./hMin**(2./N))**2-1)/16.);
+        sMinBnd = np.sqrt((((1+np.sqrt(1+8*hMax**(2./N)))/4./hMax**(2./N))**2-1)/16.);
+        sMaxBnd = np.sqrt((((1+np.sqrt(1+8*hMin**(2./N)))/4./hMin**(2./N))**2-1)/16.);
     except:
         sMinBnd = None
         sMaxBnd = None
@@ -187,7 +193,7 @@ Examples
             z = y #InitialGuess(y,IsFinite);
             z[~IsFinite] = 0.
     else:
-        z = zeros(sizy);
+        z = np.zeros(sizy);
 
     z0 = z;
     y[~IsFinite] = 0; # arbitrary values for missing y-data
@@ -204,11 +210,11 @@ Examples
     ## Main iterative process
     if isauto:
         try:
-            xpost = array([(0.9*log10(sMinBnd) + log10(sMaxBnd)*0.1)])
+            xpost = np.array([(0.9*np.log10(sMinBnd) + np.log10(sMaxBnd)*0.1)])
         except:
-            xpost = array([100.])
+            xpost = np.array([100.])
     else:
-        xpost = array([log10(s)])
+        xpost = np.array([np.log10(s)])
 
     
     while RobustIterativeProcess:
@@ -216,12 +222,12 @@ Examples
         aow = sum(Wtot)/noe; # 0 < aow <= 1
         while tol>TolZ and nit<MaxIter:
             if verbose:
-              print('tol',tol,'nit',nit)
+              print(f'tol ={tol}, nit = {nit}')
             nit = nit+1;
             DCTy = dctND(Wtot*(y-z)+z,f=dct);
-            if isauto and not remainder(log2(nit),1):  # update the smoothing parameter occasionally
+            if isauto and (np.log2(nit)%1 ==0):  # update the smoothing parameter occasionally
                 if not s0:  # search the whole range of possibilities the first time through
-                  ss = np.arange(nS0)*(1./(nS0-1.))*(log10(sMaxBnd)-log10(sMinBnd))+ log10(sMinBnd)
+                  ss = np.arange(nS0)*(1./(nS0-1.))*(np.log10(sMaxBnd)-np.log10(sMinBnd))+ np.log10(sMinBnd)
                   g = np.zeros_like(ss)
                   for i,p in enumerate(ss):
                     g[i] = gcv(p,Lambda,aow,DCTy,IsFinite,Wtot,y,nof,noe,smoothOrder)
@@ -229,7 +235,7 @@ Examples
                 else:
                   xpost = [s0]
                 xpost,f,d = lbfgsb.fmin_l_bfgs_b(gcv,xpost,fprime=None,factr=10.,\
-                   approx_grad=True,bounds=[(log10(sMinBnd),log10(sMaxBnd))],\
+                   approx_grad=True,bounds=[(np.log10(sMinBnd),np.log10(sMaxBnd))],\
                    args=(Lambda,aow,DCTy,IsFinite,Wtot,y,nof,noe,smoothOrder))
             s = 10**xpost[0];
             # update the value we use for the initial s estimate
@@ -246,8 +252,8 @@ Examples
 
         if isrobust: #-- Robust Smoothing: iteratively re-weighted process
             #--- average leverage
-            h = sqrt(1+16.*s);
-            h = sqrt(1+h)/sqrt(2)/h;
+            h = np.sqrt(1+16.*s);
+            h = np.sqrt(1+h)/np.sqrt(2)/h;
             h = h**N;
             #--- take robust weights into account
             Wtot = W*RobustWeights(y-z,IsFinite,h,weightstr);
@@ -262,15 +268,15 @@ Examples
       ## Warning messages
       #---
     if isauto:
-        if abs(log10(s)-log10(sMinBnd))<errp:
+        if abs(np.log10(s)-np.log10(sMinBnd))<errp:
             warning('smoothn:SLowerBound',\
                 ['s = %.3f '%(s) + ': the lower bound for s '\
                 + 'has been reached. Put s as an input variable if required.'])
-        elif abs(log10(s)-log10(sMaxBnd))<errp:
+        elif abs(np.log10(s)-np.log10(sMaxBnd))<errp:
             warning('smoothn:SUpperBound',\
                 ['s = %.3f '%(s) + ': the upper bound for s '\
                 + 'has been reached. Put s as an input variable if required.'])
-    return z,s,exitflag,Wtot
+    return z,s,exitflag
 
 def warning(s1,s2):
   print(s1)
@@ -292,7 +298,7 @@ def gcv(p,Lambda,aow,DCTy,IsFinite,Wtot,y,nof,noe,smoothOrder):
     else:
         # take account of the weights to calculate RSS:
         yhat = dctND(Gamma*DCTy,f=idct);
-        RSS = norm(sqrt(Wtot[IsFinite])*(y[IsFinite]-yhat[IsFinite]))**2;
+        RSS = norm(np.sqrt(Wtot[IsFinite])*(y[IsFinite]-yhat[IsFinite]))**2;
 
     #---
     TrH = sum(Gamma);
@@ -303,8 +309,8 @@ def gcv(p,Lambda,aow,DCTy,IsFinite,Wtot,y,nof,noe,smoothOrder):
 #function W = RobustWeights(r,I,h,wstr)
 def RobustWeights(r,I,h,wstr):
     # weights for robust smoothing.
-    MAD = median(abs(r[I]-median(r[I]))); # median absolute deviation
-    u = abs(r/(1.4826*MAD)/sqrt(1-h)); # studentized residuals
+    MAD = np.median(abs(r[I]-np.median(r[I]))); # median absolute deviation
+    u = abs(r/(1.4826*MAD)/np.sqrt(1-h)); # studentized residuals
     if wstr == 'cauchy':
         c = 2.385; W = 1./(1+(u/c)**2); # Cauchy weights
     elif wstr == 'talworth':
@@ -312,7 +318,7 @@ def RobustWeights(r,I,h,wstr):
     else:
         c = 4.685; W = (1-(u/c)**2)**2.*((u/c)<1); # bisquare weights
 
-    W[isnan(W)] = 0;
+    W[np.isnan(W)] = 0;
     return W
 
 ## Initial Guess with weighted/missing data
@@ -321,7 +327,6 @@ def InitialGuess(y,I):
     #-- nearest neighbor interpolation (in case of missing values)
     if any(~I):
         try:
-          from scipy.ndimage.morphology import distance_transform_edt
           #if license('test','image_toolbox')
           #[z,L] = bwdist(I);
           L = distance_transform_edt(1-I)
@@ -337,11 +342,11 @@ def InitialGuess(y,I):
         z = y;
     # coarse fast smoothing
     z = dctND(z,f=dct)
-    k = array(z.shape)
+    k = np.array(z.shape)
     m = ceil(k/10)+1
     d = []
     for i in xrange(len(k)):
-      d.append(arange(m[i],k[i]))
+      d.append(np.arange(m[i],k[i]))
     d = np.array(d).astype(int)
     z[d] = 0.
     z = dctND(z,f=idct)
@@ -384,7 +389,7 @@ def test1():
    plt.clf()
    # 1-D example
    x = linspace(0,100,2**8);
-   y = cos(x/10)+(x/50)**2 + randn(size(x))/10;
+   y = np.cos(x/10)+(x/50)**2 + np.random.randn(size(x))/10;
    y[[70, 75, 80]] = [5.5, 5, 6];
    z = smoothn(y)[0]; # Regular smoothing
    zr = smoothn(y,isrobust=True)[0]; # Robust smoothing

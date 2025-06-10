@@ -52,7 +52,7 @@ def loadsig(path, chansel=[], offset=0.0, duration=None, rate=None, dtype=np.flo
 
     Load a wav file that has an unknown number of channels, downsampling to 12 kHz sampling rate.  Use **len(chans)** to determine how many channels there are in the file, and plot the last channel. **chans** is a two dimensional matrix with audio signals in the columns of the matrix.
 
-    >>> *chans, fs = loadsig('threechan.wav', rate = 12000)
+    >>> chans, fs = loadsig('threechan.wav', rate = 12000)
     >>> print(len(chans))      # the number of channels
     >>> plt.plot(chans[-1])    # plot the last of the channels
     

@@ -142,7 +142,7 @@ def zc_frequency2(y, fs, loop, f_no, in_freq, spkr):
     ''' zc_frequency2() is an implementation of Ueda et al.'s 2008 C code using array processing 
     techniques that are available with numpy arrays. One difference from Ueda is that the weight
     function used to calculate the weighted sum of frequency estimates from zero crossing periods
-    is symmetrical.  They had an unsymmetrical window for F1 (favoring higher frequency estimates).
+    is symmetrical.  Ueda et al. had an unsymmetrical window for F1 (favoring higher frequency estimates).
     * note that the input frequency (in_freq) is not used if loop==0.  This means that at no point
     does the estimate from a prior frame come into play for the estimate of this frame.  This 
     implementation of the algorithm is almost twice as fast as the direct python transaltion of
@@ -709,7 +709,7 @@ def get_LPC_lr(x,fs, frame_length,p):
     frames = librosa.util.frame(x, frame_length=frame_length, hop_length=step,axis=0) 
     w = signal.windows.hamming(frame_length)
     frames = np.multiply(frames,w)   # apply a Hamming window to each frame
-    t = np.array([(i * step + half_frame) for i in range(frames.shape[0])])/fs  # time at the midpoint of each frame
+    t = librosa.frames_to_time(range(frames.shape[0]),sr=fs, hop_length=step,n_fft=frame_length)
     A = librosa.lpc(frames, order=p,axis= -1)
     return A,t
     
@@ -732,12 +732,11 @@ def choose_order(x,frame_length,fs):
     '''
     
     min = 1e10 
-    lim = len(x)
-    if lim > fs*2: lim = fs*2  # limit this sample to the first two seconds of audio
     os = (fs//1000) - 4  # 12-4 = 8
-    oe = (fs//1000) + 5  # 12+5 = 17
+    oe = (fs//1000) + 3  # 12+3 = 15
 
-    frames = librosa.util.frame(x, frame_length=frame_length, hop_length=step,axis=0)  # use librosa to make frames  
+    frames = librosa.util.frame(x, frame_length=frame_length, 
+                                hop_length=step,axis=0)  # use librosa to make frames  
     w = signal.windows.hamming(frame_length)
     frames = np.multiply(frames,w)   # apply a Hamming window to each frame
 
@@ -775,16 +774,27 @@ def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0):
 
     if not quiet: print(f"LPC_tracking(), with order set to {order}, and pitch range {f0_range}")
 
-    x, fs = prep_audio(x, fs, target_fs = SR, pre = 0,quiet = quiet)  # read waveform, no preemphasis
-
-    rms = librosa.feature.rms(y=x,frame_length=frame_length, hop_length=step)[0,1:-1] # get rms amplitude
-    rms = 20*np.log10(rms/np.max(rms))
-
+    x, fs = prep_audio(x, fs, target_fs = SR, pre = 0,quiet = quiet)  # downsample, no preemphasis
+    rms = librosa.feature.rms(y=x,frame_length=frame_length, 
+                              hop_length=step,center=False) # get rms amplitude
+    rms = 20*np.log10(rms[0])
+   
     if (preemphasis > 0): y = np.append(x[0], x[1:] - preemphasis * x[:-1])  # now apply pre-emphasis
-
-    if order<0:
-        # Choose the LPC order parameter based on LPC error in the first bit of the file
-        order = choose_order(y,frame_length,fs)
+        
+    if order<0:  # guess the correct LPC order
+        if len(x) < fs*2:
+            test_x = y   # choose order using the whole file
+        else:
+            m = np.argmax(rms)*step  # limit the sample to 2 seconds (centered on the peak RMS amplitude)
+            s = m - fs  # back a second
+            e = m + fs  # forward a second
+            if s<0:  # don't foll off the front or back of the buffer
+                s=0; e=fs*2
+            if e > len(x)-1:
+                e = len(x)-1
+                s = e-fs*2
+            test_x = y[s:e]
+        order = choose_order(test_x,frame_length,fs)
         if not quiet: print(f"Selected LPC order is: {order}")
 
     (A,t) = get_LPC_lr(y,fs, frame_length,order)  # LPC coefs for whole file using this order
@@ -831,8 +841,9 @@ def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0):
 
     x, fs = prep_audio(x, fs, target_fs = SR, pre = 0,quiet=quiet)  # downsample waveform, no preemphasis
 
-    rms = librosa.feature.rms(y=x,frame_length=frame_length, hop_length=step)[0,1:-1] # get rms amplitude
-    rms = 20*np.log10(rms/np.max(rms))
+    rms = librosa.feature.rms(y=x,frame_length=frame_length, 
+                              hop_length=step,center=False) # get rms amplitude
+    rms = 20*np.log10(rms[0])
 
     # apply preemphasis and convert to integer samples
     y, fs = prep_audio(x,fs,pre=preemphasis,target_fs=fs,quiet=quiet) 
