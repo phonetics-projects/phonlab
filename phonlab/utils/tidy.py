@@ -196,11 +196,11 @@ tiercols: str or dict or list of str/dict
     textgrid tier.
 
 ts : list of str or list of list of str (default=['t1', 't2'])
-    The column names in each dataframe in `dfs` that holds the start and end
+    The column names in each dataframe in `dfs` that hold the start and end
     times of the labels. For Point tiers Use `None` as the second value.
     If this value is a simple list, then all dataframes must be of the same
     Interval/Point type with the same names for the time columns.
-    For a mix of Interval and Point tier types or if time column names vary
+    For a mix of Interval and Point tier types, or if time column names vary
     among the dataframes, use a list of two-element lists to specify the
     column names for each dataframe.
 
@@ -220,10 +220,10 @@ codec : str (default 'utf-8')
 
 fmt : str or None (default None)
     The format string to apply to all time columns, as used by the
-    `format <https://docs.python.org/3/library/stdtypes.html#str.format>`_
+    `format <https://docs.python.org/3/library/stdtypes.html#str.format>`
     built-in method, for example, '0.4f' for four-digit floating point.
 
-fill_gaps = str or None (default '' empty string)
+fill_gaps : str or None (default '' empty string)
     When `fill_gaps` is not None, new labels will be inserted into IntervalTier
     outputs where consecutive dataframe rows are not contiguous in time (rows
     in which the end time of one row is less than the start time of the next row).
@@ -231,7 +231,7 @@ fill_gaps = str or None (default '' empty string)
     labels.
 
 outfile : file path, optional
-    If provided, write textgrid to `outfile` and return `None` instead of
+    If provided, write the textgrid to `outfile` and return `None` instead of
     the textgrid content.
 
 Returns
@@ -244,7 +244,7 @@ tg : str or None
 Examples
 --------
 
-.. code-block:: python
+.. code-block:: Python
 
     import pandas as pd
     from phonlab import df_to_tg
@@ -279,6 +279,16 @@ Examples
         [wddf, ctxdf],
         tiercols=['word', {'ctx': 'context'}],
         outfile='wordctx.TextGrid'
+    )
+
+    # Three-tier textgrid of two interval tiers and one point tier. The
+    # label content is in the 'word', 'pt', and 'ctx' columns, and the
+    # textgrid tiernames will be 'word', 'pointevent', and 'context'.
+    df_to_tg(
+        [wddf, ptdf, ctxdf],
+        tiercols=['word', {'pt': 'pointevent'}, {'ctx': 'context'}],
+        ts=[['t1', 't2'], ['t1', None], ['t1', 't2']],
+        outfile='wordptctx.TextGrid'
     )
 
     # Specify numeric output to four decimal places.
@@ -395,16 +405,16 @@ tg : path-like
     Filepath of input textgrid.
 
 tiersel : list of str or int
-    Selection of tiers to parse and include in the output list, identified by tier name for `str` or `0`-based integer index for `int`. If `[]` then all textgrid tiers are returned. The order of the tiers does not have to match the input textgrid.
+    Selection of tiers to include in the output list, identified by tier name (`str`) or `0`-based integer index (`int`). If `[]` then all textgrid tiers are returned. Tiers can be selected in a different order than they appear in the textgrid.
 
 names : None, str, or list of str (default None)
-    Names of the label content columns in the output dataframes. If `None`, then the column name for each tier is the tier name. If `str` then the same column name will be used for all dataframes. If list, then the names match the corresponding tiers in `tiersel`.
+    Names of the label content columns in the output dataframes. If `None`, then the textgrid tier name is used as the column. If `str` then the same column name will be used for all dataframes. If list, then one name must be supplied for each tier selected by `tiersel`.
 
 Returns
 -------
 
 tiers : list of dataframes
-    Textgrid tiers are parsed in the order selected by `tiersel` and returned as separate dataframes for each tier. The columns of each dataframe are named `t1` and `t2` for label start and end times of interval tiers, and `t1` for the timepoints of point tiers. The textgrid tier's name is used as the name of the column containing the label content unless column names are provided by `names`. If `tiers` is an empty list `[]` then all tiers are returned.
+    Textgrid tiers are returned as a list of dataframes for each tier, in the order selected by `tiersel`. The time columns of each dataframe are named `t1` and `t2` for label start and end times of interval tiers, or `t1` for the timepoints of point tiers. The textgrid tier's name is used as the name of the column containing the label content unless column names are provided by `names`. If `tiers` is an empty list `[]` then all textgrid tiers are returned in the list of dataframes.
     '''
     tg = pcall('Read from file...', str(tg))[0]
     ntiers = pcall(tg, 'Get number of tiers')
@@ -445,7 +455,7 @@ tiers : list of dataframes
 
 def add_context(df, col, nprev, nnext, prefixes=['prev_', 'next_'], fillna='', ctxcol=None, sep=' '):
     '''
-Add shifted versions of a dataframe column to provide context within rows.  For example, usee this function if you want to add a column in a dataframe full of vowel measurements for the preceeding or following segmental context.
+Add shifted versions of a dataframe column to provide context within rows. For example, if you have a dataframe of phone labels you can use this function to add the preceding/following phone context to each row.
 
 Parameters
 ----------
@@ -503,6 +513,7 @@ df : dataframe
 
 def merge_tiers(inner_df, outer_df, suffixes, inner_ts=['t1','t2'], outer_ts=['t1','t2'],
     drop_repeated_cols=None):
+# TODO: add tolerance and overwrite params
     '''
 Merge hierarchical dataframe tiers based on their times.
 
@@ -621,21 +632,26 @@ the first value of `args`.
 Examples
 ========
 
-    Read phone and word tiers from a textgrid.
-    >>> from phonlab import tg_to_df, adjust_boundaries
+Read phone and word tiers from a textgrid.
 
-    >>> [phdf, wddf] = tg_to_df(tgpath, tiersel=['phone', 'word'])
+.. code-block:: Python
 
-    Adjust word 't1' values up to 5 ms.
+    from phonlab import tg_to_df, adjust_boundaries
 
-    >>> try:
-    >>>    wddf['t1'] = adjust_boundaries(wddf['t1'], phdf['t1'], tolerance=0.005)
-    >>> except ValueError as e:
-    >>>    badt = ', '.join([f'{t:0.4f}' for t in e.args[1]])
-    >>>    msg = f"Word-phone boundary mismatch greater than {tolerance} in {tgpath}. " \
-    >>>          f"Bad word boundary found at time(s) {badt}."
-    >>>    raise ValueError(msg) from None
-      """
+    [phdf, wddf] = tg_to_df(tgpath, tiersel=['phone', 'word'])
+
+Adjust word 't1' values up to 5 ms.
+
+.. code-block:: Python
+
+    try:
+       wddf['t1'] = adjust_boundaries(wddf['t1'], phdf['t1'], tolerance=0.005)
+    except ValueError as e:
+       badt = ', '.join([f'{t:0.4f}' for t in e.args[1]])
+       msg = f"Word-phone boundary mismatch greater than {tolerance} in {tgpath}. " \
+             f"Bad word boundary found at time(s) {badt}."
+       raise ValueError(msg) from None
+"""
 
     idx = pd.Index(inner_ts).get_indexer(outer_ts, method='nearest', tolerance=tolerance)
     try:
@@ -911,6 +927,10 @@ ts : list of str (default ['t1', 't2'])
 
 include : list of str (default [])
     List of speaker identifiers and associated rows to include in the return value.
+    **Hint:** If you want to construct a list of possible speaker identifiers by
+    integer you can use a list comprehension. For example, the list comprehension
+    `includelist = [f'Speaker-{n}' for n in range(3)]` creates a list of three
+    speakers: `['Speaker-0', 'Speaker-1', 'Speaker-2']`.
 
 exclude : list of str (default [])
     List of speaker identifiers and associated rows to exclude from the return value.
