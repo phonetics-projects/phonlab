@@ -11,8 +11,8 @@ def loadsig(path, chansel=[], offset=0.0, duration=None, fs=None, dtype=np.float
     and channels
     are returned along the first dimension of the output array `y`.
 
-    Parameters
-    ==========
+Parameters
+==========
 
     path : string, int, pathlib.Path, soundfile.SoundFile, or file-like object
         The input audio file.
@@ -32,8 +32,8 @@ def loadsig(path, chansel=[], offset=0.0, duration=None, fs=None, dtype=np.float
     dtype : numeric type (default float32)
         data type of **y**. No scaling is performed when the requested dtype differs from the native dtype of the file. Float types are usually in the range [-1.0, 1.0), and integer types usually make use of the full range of integers available to their size, e.g. int16 may be in the range [-32768, 32767].
 
-    Returns
-    =======
+Returns
+=======
 
     ys : list of 1d signal arrays `y` (plus `fs`)
         Each channel is returned as a separate 1d array in the output list. The number of arrays is equal to the number of channels in the input file by default. If **chansel** is specified, then the number of 1d arrays is equal to the length of **chansel**. Technically, the last value of the list is `fs`, see below.
@@ -41,31 +41,34 @@ def loadsig(path, chansel=[], offset=0.0, duration=None, fs=None, dtype=np.float
     fs : number > 0 [scalar]
         sampling rate of the **y** arrays
 
-    Example
-    =======
-    Load a stereo audio file, report the sampling rate of the file, and plot the left channel.  Note, this will produce an error with a one channel file. **left** and **right** are one-dimensional arrays of audio samples.
+Example
+=======
+Load a stereo audio file, report the sampling rate of the file, and plot the left channel.  Note, this will produce an error with a one channel file. **left** and **right** are one-dimensional arrays of audio samples.
 
-.. code-block Python
+.. code-block:: Python
 
     left, right, fs = loadsig('stereo.wav', chansel=[0,1])
     print(fs)
     plt.plot(left);
-
-<<<<<<< HEAD
-    >>> chans, fs = loadsig('threechan.wav', rate = 12000)
-    >>> print(len(chans))      # the number of channels
-    >>> plt.plot(chans[-1])    # plot the last of the channels
     
-=======
-    Load a wav file that has an unknown number of channels, downsampling to 12 kHz sampling rate. Use **len(chans)** to determine how many channels there are in the file, and plot the last channel. **chans** is a list of 1d audio signal arrays. You can `pop` the rate off the list.
+To load a one channel (mono) file, you can do this:
 
-.. code-block Python
+.. code-block:: Python
+
+    x,fs = loadsig('mono.wav',chansel=[0])
+    print(fs,len(x))
+    plt.plot(x)
+
+In this example we load channels from a wav file that has an unknown number of channels, downsampling to 12 kHz sampling rate. Use **len(chans)** to determine how many channels there are in the file, and plot the last channel. **chans** is a list of 1d audio signal arrays. You can `pop` the sample rate parameter off the list.
+
+.. code-block:: Python
 
     chans = loadsig('threechan.wav', fs=12000)
-    fs = chans.pop()     # Remove sample rate from list of channels
+    fs = chans.pop()     # Remove sample rate from end of the list of channels
     print(len(chans))      # the number of channels
     plt.plot(chans[-1])    # plot the last of the channels
->>>>>>> 63b43904651c3aaf30fda2f8e57cc5be1b041ecd
+
+    
     """
 
     y, fs = librosa.load(
