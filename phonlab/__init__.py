@@ -1,5 +1,5 @@
 __name__="phonlab"
-__version__="0.0.17"
+__version__="0.0.18"
 
 # -------- functions in the "acoustic" portion of the package -------
 from .acoustic.sgram_ import *
@@ -10,8 +10,6 @@ from .acoustic.get_f0_ import *
 from .acoustic.tidypraat import *
 from .acoustic.amp_env import *
 from .acoustic.rhythm import *
-
-# test
 
 __all__ = acoustic.sgram_.__all__.copy()
 __all__ += acoustic.burst_detect.__all__

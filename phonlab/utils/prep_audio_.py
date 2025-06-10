@@ -45,26 +45,25 @@ Note
 ====
 This function is opinionated and so by default will return audio with a sampling rate of 22050Hz and scaled to be in the range from [1,-1]
 
-Raises
-======
-    OSError 
-        if the sound file can't be opened
-
 Example
 =======
 Open a sound file and prepare it for acoustic analysis.  By default, prep_audio() will 
 resample the audio to a sampling rate of 22050, and scale the waveform to use the full range.
 In this example, we have also asked the function to apply a preemphasis factor of 1 (about 6dB/octave).
 
->>> y,fs = phon.loadsig("sound.wav")
->>> x,fs = phon.prep_audio(y, fs, pre=1)
+.. code-block:: Python
+
+    y,fs = phon.loadsig("sound.wav",chansel=[0])
+    x,fs = phon.prep_audio(y, fs, pre=1)
 
 Take the right channel, and resample to 16,000 Hz
 
->>> *chans,fs = phon.loadsig("sound.wav")
->>> print(f'the old sampling rate is: {fs}')
->>> y,fs = phon.prep_audio(chans[1],fs, target_fs=16000)
->>> print(f'the new sampling rate is: {fs}')
+.. code-block:: Python
+
+    *chans,fs = phon.loadsig("sound.wav")
+    print(f'the old sampling rate is: {fs}')
+    y,fs = phon.prep_audio(chans[1],fs, target_fs=16000)
+    print(f'the new sampling rate is: {fs}')
 
     """
 

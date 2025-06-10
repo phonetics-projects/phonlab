@@ -74,9 +74,11 @@ Example
 =======
 This example adds white noise at a signal-to-noise ratio (SNR) of 3 dB
 
->>> x,fs = phon.loadsig("sf3_cln.wav")   # illustrating here that we can pass an array to track_formants()
->>> y,fs = phon.add_noise(x,fs,"white",snr=3)
->>> phon.sgram(x,fs)
+.. code-block:: Python
+
+     x,fs = phon.loadsig("sf3_cln.wav",chansel=[0])
+     y,fs = phon.add_noise(x,fs,"white",snr=3)
+     phon.sgram(x,fs)
 
 .. figure:: images/add_noise.png
    :scale: 90 %
@@ -84,9 +86,6 @@ This example adds white noise at a signal-to-noise ratio (SNR) of 3 dB
    :align: center
 
    The result of adding white noise.
-
-   ..
-
 
     """
     # Valid options that can be passed to the `sox` `synth` effect.

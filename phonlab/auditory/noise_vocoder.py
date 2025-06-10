@@ -151,9 +151,12 @@ fs : int
 Example
 =======
 
->>> bands = phon.shannon_bands(nc=7,high=8000)
->>> y,fs = phon.vocode("sf3_cln.wav", bands)
->>> phon.sgram(y,fs_in=fs)
+.. code-block:: Python
+
+     x,fs = phon.loadsig(filename,chansel=[0])
+     bands = phon.shannon_bands(nc=7,high=8000)
+     y,fs = phon.vocode(x,fs, bands)
+     phon.sgram(y,fs_in=fs)
 
 .. figure:: images/vocode.png
     :scale: 90 %

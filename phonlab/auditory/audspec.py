@@ -20,22 +20,24 @@ class Audspec(object):
     Examples
     ========
 
-    >>> aud = phon.Audspec()
-    >>> aud.make_zgram("sf3_cln.wav")
-    >>> aud.savez('sf3_cln.aud.npz')  # save the Audspec object.
-    >>>
-    >>> # ---- the rest is to make a nice plot ----
-    >>> 
-    >>> fig,ax = plt.subplots(2,figsize=(6,5))
-    >>> 
-    >>> Hz_extent = (min(aud.time_axis), max(aud.time_axis),
-    >>>       min(aud.fft_freqs), max(aud.fft_freqs))  # time and frequency values for sgram.
-    >>> ax[0].imshow(20*np.log10(aud.sgram.T),origin='lower', aspect='auto', 
-    >>>          extent=Hz_extent, cmap = plt.cm.Greys)
-    >>> ax[0].set(xlabel="Time (sec)", ylabel="Frequency (Hz)")
-    >>> ax[1].imshow(aud.zgram.T,origin='lower', aspect='auto', 
-    >>>          extent=aud.extent, cmap = plt.cm.Purples)
-    >>> ax[1].set(xlabel="Time (sec)", ylabel="Frequency (Bark)")
+    .. code-block:: Python
+    
+         aud = phon.Audspec()
+         aud.make_zgram("sf3_cln.wav")
+         aud.savez('sf3_cln.aud.npz')  # save the Audspec object.
+        
+         # ---- the rest is to make a nice plot ----
+         
+         fig,ax = plt.subplots(2,figsize=(6,5))
+         
+         Hz_extent = (min(aud.time_axis), max(aud.time_axis),
+               min(aud.fft_freqs), max(aud.fft_freqs))  # time and frequency values for sgram.
+         ax[0].imshow(20*np.log10(aud.sgram.T),origin='lower', aspect='auto', 
+                  extent=Hz_extent, cmap = plt.cm.Greys)
+         ax[0].set(xlabel="Time (sec)", ylabel="Frequency (Hz)")
+         ax[1].imshow(aud.zgram.T,origin='lower', aspect='auto', 
+                  extent=aud.extent, cmap = plt.cm.Purples)
+         ax[1].set(xlabel="Time (sec)", ylabel="Frequency (Bark)")
 
     """
 

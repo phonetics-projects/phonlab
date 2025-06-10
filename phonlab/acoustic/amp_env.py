@@ -36,14 +36,16 @@ def amplitude_envelope(x, fs, bounds = [], target_fs=22050, cutoff=30, order=2 )
     Example
     =======
 
-    >>> hband, fs = phon.amplitude_envelope("sf3_cln.wav",bounds=[3000,8000])
-    >>> lband, fs = phon.amplitude_envelope("sf3_cln.wav",bounds=[120,3000])
-    >>> diff = lband-hband
-    >>> time_axis = np.arange(len(diff))/fs
-    >>> ax1,f,t,Sxx = phon.sgram("sf3_cln.wav")  # plot the spectrogram
-    >>> ax2 = ax1.twinx()
-    >>> ax2.plot(time_axis,diff, color = "red")  # add scaled diff function
-    >>> ax2.axhline(0) 
+    .. code-block:: Python
+    
+         hband, fs = phon.amplitude_envelope("sf3_cln.wav",bounds=[3000,8000])
+         lband, fs = phon.amplitude_envelope("sf3_cln.wav",bounds=[120,3000])
+         diff = lband-hband
+         time_axis = np.arange(len(diff))/fs
+         ax1,f,t,Sxx = phon.sgram("sf3_cln.wav")  # plot the spectrogram
+         ax2 = ax1.twinx()
+         ax2.plot(time_axis,diff, color = "red")  # add scaled diff function
+         ax2.axhline(0) 
 
     .. figure:: images/amp_env.png
        :scale: 90 %
@@ -51,8 +53,6 @@ def amplitude_envelope(x, fs, bounds = [], target_fs=22050, cutoff=30, order=2 )
        :align: center
 
        Plotting the difference between the amplitude envelope in the low frequencies [120,3000] versus the amplitude envelope in high frequencies [3000,8000].
-
-       ..
 
 
     """

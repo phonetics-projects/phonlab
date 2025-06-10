@@ -85,14 +85,16 @@ def fricative(x,fs,t):
     This example returns fricative measurements from time 2.25 seconds in the 
     audio samples returned by `get_signal()`. The major peak and COG frequencies 
     are indicated in a plot of the spectrum.
+
+    .. code-block:: Python
     
-    >>> x,fs = phon.prep_audio("sf3_cln.wav")
-    >>> Fm,FmB,Am,mode,COG,SD,Skew,Kurtosis,spec,freq = phon.fricative(x,fs,2.25)
-    >>>
-    >>> print(f"first major peak at {Fm:.1f}, Center of Gravity is {COG:.1f}")
-    >>> plt.plot(freq,spec)
-    >>> plt.axvline(Fm,color="red")
-    >>> plt.axvline(COG,color="green")
+         x,fs = phon.prep_audio("sf3_cln.wav")
+         Fm,FmB,Am,mode,COG,SD,Skew,Kurtosis,spec,freq = phon.fricative(x,fs,2.25)
+        
+         print(f"first major peak at {Fm:.1f}, Center of Gravity is {COG:.1f}")
+         plt.plot(freq,spec)
+         plt.axvline(Fm,color="red")
+         plt.axvline(COG,color="green")
 
     .. figure:: images/fricative.png
        :scale: 60 %
@@ -101,9 +103,6 @@ def fricative(x,fs,t):
 
        Marking the major peak and COG in a fricaitve spectrum.
 
-       ..
-
-    
     """
     winsize = 0.02   # 20 ms window centered at midpoint (mp)
     

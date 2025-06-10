@@ -9,20 +9,20 @@ Spectrograms
 Amplitude Contour
 -----------------
 .. autofunction:: phonlab.amplitude_envelope
-.. autofunction:: phonlab.intensity2df
+.. autofunction:: phonlab.intensity_to_df
 
 
 Formant Tracking
 ----------------
 .. autofunction:: phonlab.track_formants	
-.. autofunction:: phonlab.formant2df
+.. autofunction:: phonlab.formant_to_df
 
 Pitch Tracking
 --------------
 .. autofunction:: phonlab.get_f0
 .. autofunction:: phonlab.get_f0_acd
 .. autofunction:: phonlab.get_f0_srh
-.. autofunction:: phonlab.pitch2df
+.. autofunction:: phonlab.pitch_to_df
 
 Consonant Features
 ------------------

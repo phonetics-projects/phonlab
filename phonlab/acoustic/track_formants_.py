@@ -939,21 +939,25 @@ Examples
 
 Use Inverse Filter Control to track formants in a file
 
->>> df = phon.track_formants("sf3_cln.wav",method='ifc',speaker=1)
+.. code-block:: Python
+
+    df = phon.track_formants(x,fs,method='ifc',speaker=1)
 
 The next example uses LPC analysis, which by default will try to pick the correct `lpc_order` for the speaker.
 An array of samples is loaded by `prep_audio()` and then passed to `track_formants()`.  Then `sgram()` plots
 the spectrogram of `x`, and the seaborn graphics package is used to add the formants to the spectrogram.
 
->>> x,fs = phon.loadsig("sf3_cln.wav")
->>> df = phon.track_formants(x,fs)
->>>
->>> phon.sgram(x,fs, cmap="Blues")  # plot the spectrogram
->>>
->>> seaborn.pointplot(df,x='sec',y='F1',linestyle='none',native_scale=True,marker=".",color='red')
->>> seaborn.pointplot(df,x='sec',y='F2',linestyle='none',native_scale=True,marker=".",color='red')
->>> seaborn.pointplot(df,x='sec',y='F3',linestyle='none',native_scale=True,marker=".",color='red')
->>> seaborn.pointplot(df,x='sec',y='F4',linestyle='none',native_scale=True,marker=".",color='red')
+.. code-block:: Python
+
+     x,fs = phon.loadsig("sf3_cln.wav",chansel=[0])
+     df = phon.track_formants(x,fs)
+    
+     phon.sgram(x,fs, cmap="Blues")  # plot the spectrogram
+    
+     seaborn.pointplot(df,x='sec',y='F1',linestyle='none',native_scale=True,marker=".",color='red')
+     seaborn.pointplot(df,x='sec',y='F2',linestyle='none',native_scale=True,marker=".",color='red')
+     seaborn.pointplot(df,x='sec',y='F3',linestyle='none',native_scale=True,marker=".",color='red')
+     seaborn.pointplot(df,x='sec',y='F4',linestyle='none',native_scale=True,marker=".",color='red')
 
 .. figure:: images/track_formants.png
    :scale: 80 %
@@ -961,8 +965,6 @@ the spectrogram of `x`, and the seaborn graphics package is used to add the form
    :align: center
 
    Plotting the formants found by `track_formants()` on the spectrogram of the utterance.
-
-..
 
 """
 

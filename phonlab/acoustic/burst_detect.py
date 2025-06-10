@@ -42,16 +42,18 @@ Example
    
 In this example we open a sound file with `get_signal()` and then search for the best candidate for a stop release burst in the interval from time 1.5 seconds to time 2.0 seconds.  The return value `b_time` is the location of the burst in seconds, and `b_score` is a measure of the burst prominence.  The `sgram()` plot in this example illustrates the use of `start` and `end` to produce a spectrogram of a specified portion of signal.
 
->>> x,fs = phon.loadsig("sf3_cln.wav", chansel=[0])
->>> x,fs = phon.prep_audio(x,fs, pre=1, target_fs=None)  # add preemphasis, keep the fs of the file
->>>
->>> t1 = 1.5
->>> t2 = 2
->>>
->>> b_time, b_score = phon.burst(x,t1,t2,fs)  # find a stop burst in the span from t1 to t2
->>>
->>> ax1,f,t,Sxx = phon.sgram(x,fs_in=fs,start=t1, end=t2)
->>> ax1.axvline(b_time,color="red")
+.. code-block:: Python
+
+     x,fs = phon.loadsig("sf3_cln.wav", chansel=[0])
+     x,fs = phon.prep_audio(x,fs, pre=1, target_fs=None)  # add preemphasis, keep the fs of the file
+    
+     t1 = 1.5
+     t2 = 2
+    
+     b_time, b_score = phon.burst(x,t1,t2,fs)  # find a stop burst in the span from t1 to t2
+    
+     ax1,f,t,Sxx = phon.sgram(x,fs_in=fs,start=t1, end=t2)
+     ax1.axvline(b_time,color="red")
 
 .. figure:: images/burst.png
    :scale: 100 %

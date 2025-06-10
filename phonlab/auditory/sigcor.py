@@ -39,8 +39,10 @@ def sigcor_noise(x,fs, flip_rate = 0.5, start=0, end = -1):
     -------
     Open a file and add signal correlated noise to the section between 1.2 and 1.5 seconds.
 
-    >>> x,fs = phon.loadsig("sf3_cln.wav") 
-    >>> y,fs = phon.sigcor_noise(x,fs,flip_rate=0.4,start=1.2,end=1.5)
+    .. code-block:: Python
+    
+         x,fs = phon.loadsig("sf3_cln.wav",chansel=[0]) 
+         y,fs = phon.sigcor_noise(x,fs,flip_rate=0.4,start=1.2,end=1.5)
     """    
     start = int(start*fs)
     end = int(end*fs)

@@ -102,10 +102,12 @@ def sgram(x,fs,chan=0,start=0,end=-1, tf=8000, band='wb',
 
     Plot a spectrogram of a portion of the sound file from 1.5 to 2 seconds.  
     Then add a vertical red line at time 1.71
+
+    .. code-block:: Python
     
-    >>> x,fs = phon.loadsig("sf3_cln.wav") 
-    >>> phon.sgram(x,fs,start=1.5, end=2.0)
-    >>> plt.axvline(1.71,color="red")
+         x,fs = phon.loadsig("sf3_cln.wav",chansel=[0]) 
+         phon.sgram(x,fs,start=1.5, end=2.0)
+         plt.axvline(1.71,color="red")
 
     .. figure:: images/burst.png
        :scale: 100 %
@@ -114,15 +116,15 @@ def sgram(x,fs,chan=0,start=0,end=-1, tf=8000, band='wb',
 
        Marking the burst found by `phon.burst()`
 
-       ..
-
     Read a file into an array `x`, track the formant frequencies in the file, use them to produce
     sine wave speech, and then plot a spectrogram of the resulting signal.
+
+    .. code-block:: Python
     
-    >>> x,fs = phon.loadsig("sf3_cln.wav") 
-    >>> fmtsdf = phon.track_formants(x,fs)    # track the formants
-    >>> x2,fs2 = phon.sine_synth(fmtsdf)     # use the formants to produce sinewave synthesis
-    >>> ax1,f,t,Sxx = phon.sgram(x2,fs2, preemph=0)  # plot a spectrogram of it
+         x,fs = phon.loadsig("sf3_cln.wav", chansel=[0]) 
+         fmtsdf = phon.track_formants(x,fs)    # track the formants
+         x2,fs2 = phon.sine_synth(fmtsdf)     # use the formants to produce sinewave synthesis
+         ax1,f,t,Sxx = phon.sgram(x2,fs2, preemph=0)  # plot a spectrogram of it
 
     .. figure:: images/sine_synth.png
        :scale: 90 %
@@ -130,8 +132,6 @@ def sgram(x,fs,chan=0,start=0,end=-1, tf=8000, band='wb',
        :align: center
 
        Showing the spectrogram of sine-wave synthesis.
-
-       ..
 
     """
     target_fs = tf*2    # top frequency is the Nyquist frequency for the analysis

@@ -1,4 +1,4 @@
-__all__=["formant2df", "pitch2df", "intensity2df", "mfcc2df"]
+__all__=["formant_to_df", "pitch_to_df", "intensity_to_df", "mfcc_to_df"]
 
 import numpy as np
 import pandas as pd
@@ -37,7 +37,7 @@ def _check_and_get_tparams(obj, ts, tcol):
         tpts = ts        # Iterable of float
     return tpts
 
-def formant2df(obj, num, ts=None, unit='HERTZ', include_bw=False, tcol='sec'):
+def formant_to_df(obj, num, ts=None, unit='HERTZ', include_bw=False, tcol='sec'):
     """
     Return formant values from a Praat Formant object as a dataframe.
 
@@ -74,16 +74,19 @@ def formant2df(obj, num, ts=None, unit='HERTZ', include_bw=False, tcol='sec'):
     Examples
     ========
 
-    >>> snd = parselmouth.Sound(mywav)
-    >>> maxf = 5000       # use 6000 for women, 8000 for children
-    >>> fmnt = snd.to_formant_burg(maximum_formant=maxf)  
-    >>>
-    >>> f12df = phon.formant2df(fmnt, 4, include_bw=True)  # convert praat to dataframe
-    >>>
-    >>> f2df = phon.formant2df(fmnt, [2], unit='bark')  # or just the second formant
-    >>>      
-    >>> f1df.to_csv('formants.csv', sep='\t', header=True, index=False) # save to csv
-    >>> f1df.to_pickle('formants.zip')
+    .. code-block:: Python
+    
+         snd = parselmouth.Sound(mywav).extract_left_channel()
+         
+         maxf = 5000       # a vocal tract length parameter, maximum frequency of F4
+         fmnt = snd.to_formant_burg(maximum_formant=maxf)  
+        
+         f12df = phon.formant_to_df(fmnt, 4, include_bw=True)  # convert praat to dataframe
+        
+         f2df = phon.formant_to_df(fmnt, [2], unit='bark')  # or just the second formant
+              
+         f1df.to_csv('formants.csv', sep='\t', header=True, index=False) # save to csv
+         f1df.to_pickle('formants.zip')
     
     """
     
@@ -111,7 +114,7 @@ def formant2df(obj, num, ts=None, unit='HERTZ', include_bw=False, tcol='sec'):
         else:
             return pd.DataFrame({**{tcol: tpts}, **data})
 
-def pitch2df(obj, ts=None, unit='HERTZ', interpolation='LINEAR', tcol='sec'):
+def pitch_to_df(obj, ts=None, unit='HERTZ', interpolation='LINEAR', tcol='sec'):
     """
     Return pitch values from a Praat Pitch object as a dataframe.
 
@@ -142,17 +145,20 @@ def pitch2df(obj, ts=None, unit='HERTZ', interpolation='LINEAR', tcol='sec'):
     Examples
     ========
 
-    >>> snd = parselmouth.Sound(mywav)
-    >>> pitch = snd.to_pitch()
-    >>>
-    >>> hzdf = phon.pitch2df(pitch)  # Get dataframe of pitch in Hz.
-    >>>
-    >>> meldf = phon.pitch2df(pitch, unit='mel')  # or, get dataframe of pitch in mel.
+    .. code-block:: Python
+    
+         snd = parselmouth.Sound(mywav)
+         pitch = snd.to_pitch()
+        
+         hzdf = phon.pitch_to_df(pitch)  # Get dataframe of pitch in Hz.
+        
+         meldf = phon.pitch_to_df(pitch, unit='mel')  # or, get dataframe of pitch in mel.
 
-        Now you can use all of the Pandas functions with your Praat data
+         ##  Now you can use all of the Pandas functions with your Praat data
 
-    >>> hzdf.to_csv('hzpitch.csv', sep='\t', header=True, index=False)
-    >>> hzdf.to_pickle('melpitch.zip')
+         hzdf.to_csv('hzpitch.csv', sep='\t', header=True, index=False)
+         hzdf.to_pickle('melpitch.zip')
+         
     """
     
     tpts = _check_and_get_tparams(obj, ts, tcol)
@@ -169,7 +175,7 @@ def pitch2df(obj, ts=None, unit='HERTZ', interpolation='LINEAR', tcol='sec'):
         else:
             return pd.DataFrame({tcol: tpts, 'f0': data})
 
-def intensity2df(obj, ts=None, interpolation='CUBIC', tcol='sec'):
+def intensity_to_df(obj, ts=None, interpolation='CUBIC', tcol='sec'):
     """
     Return intensity values from a Praat Intensity object as a dataframe.
 
@@ -180,7 +186,7 @@ def intensity2df(obj, ts=None, interpolation='CUBIC', tcol='sec'):
         An Intensity object produced by parselmouth.Sound('wavefile.wav').to_intensity().
 
     ts : DataFrame, Iterable of floats, or None (default)
-        If None (default), then the Intensity object's `ts` times are used to query for formant measurements. These are the centers of the analysis frames. The Intensity object's values can also be queried at specific times by providing `ts` as an Iterable of floats, such as a numpy array or Python list. If `ts` is a dataframe, the column labelled by the `tcol` parameter is used for the time values and the intensity measures are concatenated to the dataframe.
+        If None (default), then the Intensity object's `ts` times are used to query for intensity measurements. These are the centers of the analysis frames. The Intensity object's values can also be queried at specific times by providing `ts` as an Iterable of floats, such as a numpy array or Python list. If `ts` is a dataframe, the column labelled by the `tcol` parameter is used for the time values and the intensity measures are concatenated to the dataframe.
 
     interpolation : str 'CUBIC' (default), 'NEAREST', 'LINEAR', 'SINC70', 'SINC700'
         The type of interpolation to use when returning values. Lower case versions of the units are allowed. See Praat's `Intensity.cpp` and `Vector_enums.h` files for defined values.
@@ -197,15 +203,17 @@ def intensity2df(obj, ts=None, interpolation='CUBIC', tcol='sec'):
     Examples
     ========
 
-    >>> snd = parselmouth.Sound(mywav)
-    >>> intens = snd.to_intensity()
-    >>>
-    >>> spldf = phon.intensity2df(intens)  # Get dataframe of SPL.
-
-    Now you can use all of the Pandas functions with your Praat data
+    .. code-block:: Python
     
-    >>> spldf.to_csv('intensity.csv', sep='\t', header=True, index=False)
-    >>> splddf.to_pickle('intensity.zip')
+         snd = parselmouth.Sound(mywav)
+         intens = snd.to_intensity()
+        
+         spldf = phon.intensity_to_df(intens)  # Get dataframe of SPL.
+
+         ## Now you can use all of the Pandas functions with your Praat data
+    
+         spldf.to_csv('intensity.csv', sep='\t', header=True, index=False)
+         splddf.to_pickle('intensity.zip')
     """
     
     tpts = _check_and_get_tparams(obj, ts, tcol)
@@ -219,7 +227,7 @@ def intensity2df(obj, ts=None, interpolation='CUBIC', tcol='sec'):
         else:
             return pd.DataFrame({tcol: tpts, 'spl': data})
 
-def mfcc2df(obj, num, ts=None, tcol='sec', include_energy=True):
+def mfcc_to_df(obj, num, ts=None, tcol='sec', include_energy=True):
     """
     Return mfcc values from a Praat MFCC object as a dataframe.
 
@@ -250,16 +258,18 @@ def mfcc2df(obj, num, ts=None, tcol='sec', include_energy=True):
     Examples
     ========
 
-    >>> ncoeff = 12
-    >>> snd = parselmouth.Sound(mywav)
-    >>> mfcc = snd.to_mfcc(number_of_coefficients=ncoeff)
-    >>> 
-    >>> mdf = phon.mfcc2df(mfcc, num=ncoeff, include_energy=True)
+    .. code-block:: Python
+    
+         ncoeff = 12
+         snd = parselmouth.Sound(mywav)
+         mfcc = snd.to_mfcc(number_of_coefficients=ncoeff)
+         
+         mdf = phon.mfcc_to_df(mfcc, num=ncoeff, include_energy=True)
 
-    Now you can use all of the Pandas functions with your Praat data
+         # Now you can use all of the Pandas functions with your Praat data
 
-    >>> mdf.to_csv('mfcc.csv', sep='\t', header=True, index=False)
-    >>> mdf.to_pickle('mfcc.zip')
+         mdf.to_csv('mfcc.csv', sep='\t', header=True, index=False)
+         mdf.to_pickle('mfcc.zip')
     """
     
     tpts = _check_and_get_tparams(obj, ts, tcol)

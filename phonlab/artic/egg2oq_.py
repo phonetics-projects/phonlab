@@ -53,9 +53,12 @@ def egg_to_oq(x, fs, hop_dur = 0.005, min_f0 = 60, max_f0 = 400,
 
     Example
     =======
-    >>> file = "F1_bha24_1.wav"  # a stereo file with audio in channel 0 and egg in 1
-    >>> egg,audio,fs = phon.loadsig(file, chansel=[1,0])  # fool with `chansel`
-    >>> oqdf = phon.egg2oq(egg,fs)  # return open quotient data
+
+    .. code-block:: Python
+    
+     file = "F1_bha24_1.wav"  # a stereo file with audio in channel 0 and egg in 1
+     egg,audio,fs = phon.loadsig(file, chansel=[1,0])  # fool with `chansel`
+     oqdf = phon.egg2oq(egg,fs)  # return open quotient data
 
     See the example ipython notebook for the code used to generate this figure
 

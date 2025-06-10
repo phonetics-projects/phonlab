@@ -61,8 +61,10 @@ def get_rhythm_spectrum(x,fs,chunk_size = 4):
     Examples
     ========
 
-    >>> f,Sx = rhythm.get_rhythm_spectrum(slice,fs,chunk_size)
-    >>> plt.plot(f,Sx)
+    .. code-block:: Python
+         f,Sx = rhythm.get_rhythm_spectrum(slice,fs,chunk_size)
+         plt.plot(f,Sx)
+         
     """
     
     ds_rate = 100
@@ -113,21 +115,23 @@ def rhythmogram(sig):
     Examples
     ========
 
-    >>> f,ts,Sxx = phon.rhythmogram("s1202a.wav")  # calculate rhythm spectra over time
-    >>> 
-    >>> m = np.mean(Sxx,axis=0)  # the mean spectrum of the file
-    >>> sd = np.std(Sxx,axis=0)  # the standard deviation of the spectrum
-    >>> Sxx_thresh = Sxx - (m + 0.5*sd)   # subtract a threshold to find "rhythmic" sections
-    >>>
-    >>> start = 136
-    >>> end = 166
-    >>> s = np.int32((start-2) *2)  # start frame, two frames per second
-    >>> e = np.int32((end-2) *2) # end frame
-    >>> extent = (start,end,min(f),max(f))  # get the time and frequency values for figure.
-    >>> 
-    >>> plt.imshow(Sxx_thresh.T[:,s:e], aspect='auto', extent = extent, 
-    >>>       origin='lower',cmap="coolwarm",interpolation="spline36")
-    >>> plt.set(xlabel="Time (sec)", ylabel="Frequency (Hz)")
+    .. code-block:: Python
+    
+         f,ts,Sxx = phon.rhythmogram("s1202a.wav")  # calculate rhythm spectra over time
+         
+         m = np.mean(Sxx,axis=0)  # the mean spectrum of the file
+         sd = np.std(Sxx,axis=0)  # the standard deviation of the spectrum
+         Sxx_thresh = Sxx - (m + 0.5*sd)   # subtract a threshold to find "rhythmic" sections
+        
+         start = 136
+         end = 166
+         s = np.int32((start-2) *2)  # start frame, two frames per second
+         e = np.int32((end-2) *2) # end frame
+         extent = (start,end,min(f),max(f))  # get the time and frequency values for figure.
+         
+         plt.imshow(Sxx_thresh.T[:,s:e], aspect='auto', extent = extent, 
+               origin='lower',cmap="coolwarm",interpolation="spline36")
+         plt.set(xlabel="Time (sec)", ylabel="Frequency (Hz)")
 
      .. figure:: images/rhythmogram.png
        :scale: 80 %
@@ -135,8 +139,6 @@ def rhythmogram(sig):
        :align: center
 
        A time/frequency plot of low frequency energy in a 30 second long chunk of speech
-
-       ..
 
     """
     

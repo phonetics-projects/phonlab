@@ -38,13 +38,15 @@ def get_f0(y, fs, f0_range = [63,400], pre = 1.0):
     Example
     =======
 
-    >>> x,fs = phon.loadsig("sf3_cln.wav",chansel=[0])
-    >>> f0df = get_f0(x, fs, f0_range= [63,400])
-    >>>
-    >>> ret = phon.sgram(x,fs,cmap='Blues') # draw the spectrogram from the array of samples
-    >>> ax1 = ret[0]  # the first item returned, is the matplotlib axes of the spectrogram
-    >>> ax2 = ax1.twinx()
-    >>> ax2.plot(f0df.sec,f0df.f0, 'go')  
+    .. code-block:: Python
+    
+         x,fs = phon.loadsig("sf3_cln.wav",chansel=[0])
+         f0df = get_f0(x, fs, f0_range= [63,400])
+        
+         ret = phon.sgram(x,fs,cmap='Blues') # draw the spectrogram from the array of samples
+         ax1 = ret[0]  # the first item returned, is the matplotlib axes of the spectrogram
+         ax2 = ax1.twinx()
+         ax2.plot(f0df.sec,f0df.f0, 'go')  
 
     .. figure:: images/get_f0.png
        :scale: 90 %
@@ -52,8 +54,6 @@ def get_f0(y, fs, f0_range = [63,400], pre = 1.0):
        :align: center
 
        Marking the f0 found by `phon.get_f0()`
-
-       ..
 
    """
     # constants and global variables
@@ -300,14 +300,16 @@ def get_f0_acd(y, fs, f0_range = [60,300], prom=20, peak_height = 0.45, crit_c=3
 
     Example
     =======
+
+    .. code-block:: Python
     
-    >>> y,fs = phon.loadsig("sf3_cln.wav",chansel=[0])
-    >>> f0df = get_f0_acd(y,fs)
-    >>>
-    >>> ret = phon.sgram(y, fs, cmap='Blues') # draw the spectrogram from the array of samples
-    >>> ax1 = ret[0]  # the first item returned is the matplotlib axes of the spectrogram
-    >>> ax2 = ax1.twinx()
-    >>> ax2.plot(f0df.sec,f0df.f0, 'go')  
+         y,fs = phon.loadsig("sf3_cln.wav",chansel=[0])
+         f0df = get_f0_acd(y,fs)
+        
+         ret = phon.sgram(y, fs, cmap='Blues') # draw the spectrogram from the array of samples
+         ax1 = ret[0]  # the first item returned is the matplotlib axes of the spectrogram
+         ax2 = ax1.twinx()
+         ax2.plot(f0df.sec,f0df.f0, 'go')  
 
     .. figure:: images/get_f0_acd.png
        :scale: 50 %
