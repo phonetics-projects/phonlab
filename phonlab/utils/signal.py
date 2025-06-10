@@ -3,10 +3,10 @@ __all__=['loadsig']
 import librosa
 import numpy as np
 
-def loadsig(path, chansel=[], offset=0.0, duration=None, rate=None, dtype=np.float32):
+def loadsig(path, chansel=[], offset=0.0, duration=None, fs=None, dtype=np.float32):
     """
     Load signal(s) from an audio file.
-    
+
     By default audio samples are returned at the same sample rate as the input file.
     and channels
     are returned along the first dimension of the output array `y`.
@@ -26,7 +26,7 @@ def loadsig(path, chansel=[], offset=0.0, duration=None, rate=None, dtype=np.flo
     duration : float
         only load up to this much audio (in seconds)
 
-    rate : number > 0 [scalar]
+    fs : number > 0 [scalar]
         target sampling rate. 'None' returns `y` at the file's native sampling rate.
 
     dtype : numeric type (default float32)
@@ -35,35 +35,45 @@ def loadsig(path, chansel=[], offset=0.0, duration=None, rate=None, dtype=np.flo
     Returns
     =======
 
-    *y : varying number of 1d signal arrays `y`
-        Each channel is returned as a separate 1d array in the output list. The number of arrays is equal to the number of channels in the input file by default. If **chansel** is specified, then the number of 1d arrays is equal to the length of **chansel**.    
+    ys : list of 1d signal arrays `y` (plus `fs`)
+        Each channel is returned as a separate 1d array in the output list. The number of arrays is equal to the number of channels in the input file by default. If **chansel** is specified, then the number of 1d arrays is equal to the length of **chansel**. Technically, the last value of the list is `fs`, see below.
 
-    rate : number > 0 [scalar]
-        sampling rate of **y** arrays
+    fs : number > 0 [scalar]
+        sampling rate of the **y** arrays
 
-    
     Example
     =======
     Load a stereo audio file, report the sampling rate of the file, and plot the left channel.  Note, this will produce an error with a one channel file. **left** and **right** are one-dimensional arrays of audio samples.
 
-    >>> left, right, fs = loadsig('stereo.wav')
-    >>> print(fs)
-    >>> plt.plot(left);
+.. code-block Python
 
-    Load a wav file that has an unknown number of channels, downsampling to 12 kHz sampling rate.  Use **len(chans)** to determine how many channels there are in the file, and plot the last channel. **chans** is a two dimensional matrix with audio signals in the columns of the matrix.
+    left, right, fs = loadsig('stereo.wav', chansel=[0,1])
+    print(fs)
+    plt.plot(left);
 
+<<<<<<< HEAD
     >>> chans, fs = loadsig('threechan.wav', rate = 12000)
     >>> print(len(chans))      # the number of channels
     >>> plt.plot(chans[-1])    # plot the last of the channels
     
+=======
+    Load a wav file that has an unknown number of channels, downsampling to 12 kHz sampling rate. Use **len(chans)** to determine how many channels there are in the file, and plot the last channel. **chans** is a list of 1d audio signal arrays. You can `pop` the rate off the list.
+
+.. code-block Python
+
+    chans = loadsig('threechan.wav', fs=12000)
+    fs = chans.pop()     # Remove sample rate from list of channels
+    print(len(chans))      # the number of channels
+    plt.plot(chans[-1])    # plot the last of the channels
+>>>>>>> 63b43904651c3aaf30fda2f8e57cc5be1b041ecd
     """
-    
-    y, rate = librosa.load(
-        path, sr=rate, mono=False, offset=offset, duration=duration, dtype=dtype
+
+    y, fs = librosa.load(
+        path, sr=fs, mono=False, offset=offset, duration=duration, dtype=dtype
     )
     if y.ndim == 1:
         y = np.expand_dims(y, axis=0)
     if chansel == []:
         chansel = np.arange(y.shape[0], dtype=np.int16)
-    return [ *list(y[chansel, :]), rate ]
+    return [ *list(y[chansel, :]), fs ]
 

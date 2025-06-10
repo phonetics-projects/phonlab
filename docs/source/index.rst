@@ -18,9 +18,7 @@ directories into dataframes, converting subtitles files into textgrids, and more
 Installation
 ------------
 
-The package is currently in testing, and is being distributed from test.pypi.org
-
->>> pip install -i https://test.pypi.org/simple/ phonlab
+>>> pip install phonlab
 
 
 Examples
@@ -40,8 +38,6 @@ Table of Contents
     articphon
     audphon
     util
-
-
 
 
 
