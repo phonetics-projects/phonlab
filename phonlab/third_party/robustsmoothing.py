@@ -82,16 +82,33 @@ http://www.biomecardio.com/publis/expfluids11.pdf
 Examples
 --------
 
-   >>> # 1-D example
-   >>> x = linspace(0,100,2**8);
-   >>> y = cos(x/10)+(x/50)**2 + randn(size(x))/10;
-   >>> y[[70, 75, 80]] = [5.5, 5, 6];
-   >>> z = smoothn(y); # Regular smoothing
-   >>> zr = smoothn(y,'robust'); # Robust smoothing
-   >>> subplot(121), plot(x,y,'r.',x,z,'k','LineWidth',2)
-   >>> axis square, title('Regular smoothing')
-   >>> subplot(122), plot(x,y,'r.',x,zr,'k','LineWidth',2)
-   >>> axis square, title('Robust smoothing')
+.. code-block:: Python
+
+    x = np.linspace(0,100,2**5);
+    y = np.cos(x/10)+(x/50)**2 + np.random.random_sample(len(x))/2;
+    y[[14, 17, 20]] = [2, 2.5, 3];
+
+    z,s,e = phon.smoothn(y); # Regular smoothing
+    zr,sr,e = phon.smoothn(y,isrobust=True); # Robust smoothing
+
+    print(f'regular smoothing factor = {s:.3f}, robust smoothing factor = {sr:.3f}')
+
+    plt.subplot(121), 
+    plt.plot(x,y,'r.')
+    plt.plot(x,z,'k')
+    plt.title("Smoothed")
+
+    plt.subplot(122)
+    plt.plot(x,y,'r.')
+    plt.plot(x,zr,'k')
+    plt.title("Robust Smoothing")
+
+.. figure:: images/smoothing.png
+       :scale: 40 %
+       :alt: left panel shows a noisy cosine with regular smoothing, right panel shows the result of using robust smoothing in smoothn()
+       :align: center
+
+       Comparing regular smoothing with robust smoothing with missing data and outliers in phon.smoothn()
 
     ''' 
 
