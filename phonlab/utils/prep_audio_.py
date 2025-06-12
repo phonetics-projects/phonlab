@@ -3,7 +3,7 @@ __all__=['prep_audio']
 import numpy as np
 from scipy.signal import resample
 
-def prep_audio(x, fs, target_fs=22050, chan = 0, pre = 0, scale = True, outtype = "float", quiet = False):
+def prep_audio(x, fs, target_fs=22050, pre = 0, scale = True, outtype = "float", quiet = False):
     """ Prepare an array of audio waveform samples for acoustic analysis. 
     
 Parameters
@@ -11,16 +11,13 @@ Parameters
     x : array
         a one-dimensional numpy array with audio samples in it. 
 
-    fs : int, default = 22050
+    fs : int
           The sampling rate of the sound in **x**.
    
     target_fs : int, default=22050
         The desired sampling rate of the audio samples that will be returned by the function.  
         Set **target_fs = None** if you want to keep the same **fs** sampling rate as passed 
         for the array in **x**.
-
-    chan : int, default = 0
-        which channel of multichannel audio to keep - default is 0 (the left channel in stereo audio)
 
     pre : float, default = 0
         how much high frequency preemphasis to apply (between 0 and 1).
@@ -43,7 +40,7 @@ Returns
 
 Note
 ====
-This function is opinionated and so by default will return audio with a sampling rate of 22050Hz and scaled to be in the range from [1,-1]
+By default, this function will return audio with a sampling rate of 22050Hz and scaled to be in the range from [1,-1]
 
 Example
 =======

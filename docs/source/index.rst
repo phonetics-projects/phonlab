@@ -3,16 +3,12 @@ Welcome to phonlab!
 
 This is a collection of python functions for doing phonetics.
 
-:doc:`acoustphon`: Functions to calculate acoustic measures of vowels, stops and
-fricatives, tone and intonation.
+The package is divided into functions for :doc:`acoustphon`, to calculate acoustic measures of vowels, stops and
+fricatives, tone and intonation.  In addition there are functions relating to :doc:`articphon` and :doc:`audphon`, including several that modify speech for speech perception experiments, including speech in noise, noise vocoding, and sinewave synthesis.
 
-:doc:`articphon`: Functions for working with electro-glottography (EGG) data. 
+The package also includes functions to :doc:`prep_audio` (read sound files, extract channels, extract clips, scale amplitude, change sampling rate, and apply preemphasis), and functions for :doc:`textgrids` (reading textgrids into Pandas dataframes, writing dataframes into textgrids, merging hierarchical dataframes, and adding context columns), functions for :doc:`corpora` (including reading directories into dataframes, and working with subtitle files), and some miscellaneous :doc:`util` functions.
 
-:doc:`audphon`: Functions related to auditory phonetics, including several that modify speech for speech perception
-experiments, including speech in noise, noise vocoding, and sinewave synthesis.
-
-:doc:`util`:   Functions for opening and preparing audio files, reading and writing Praat TextGrid files, manipulating the dataframes that are read from TextGrids,  reading
-directories into dataframes, converting subtitles files into textgrids, and more.
+Keith Johnson and Ronald Sprouse
 
 
 Installation
@@ -37,6 +33,9 @@ Table of Contents
     acoustphon
     articphon
     audphon
+    prep_audio
+    textgrids
+    corpora
     util
 
 
