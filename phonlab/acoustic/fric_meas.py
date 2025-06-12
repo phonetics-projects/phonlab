@@ -43,7 +43,8 @@ def fricative(x,fs,t):
     is at least 80% of the amplitude range, separated from the nearest peak by at least 500Hz, and prominent
     by 6bB above the next nearest peak (see the **scipy.signal.find_peaks()** documentation).  If no peak is found, 
     relax the amplitude constraint, then the prominence constraint, and then both. 
-    
+
+
     Parameters
     ==========
 
@@ -78,6 +79,18 @@ def fricative(x,fs,t):
         the multi-taper power spectrum at the midpoint
     freq : ndarray
         the frequency scale of the spectrum
+
+
+    Note
+    ----
+
+    The major peaks analysis implemented here draws on ideas from Shadle (2023) and Shadle et al. (2023).
+    
+    Christine H. Shadle; Alternatives to moments for characterizing fricatives: Reconsidering Forrest et al. (1988). J. Acoust. Soc. Am. 1 February 2023; 153 (2): 1412–1426. https://doi.org/10.1121/10.0017231
+
+    Christine H. Shadle, Wei-Rong Chen, Laura L. Koenig, Jonathan L. Preston; Refining and extending measures for fricative spectra, with special attention to the high-frequency range. J. Acoust. Soc. Am. 1 September 2023; 154 (3): 1932–1944. https://doi-org.libproxy.berkeley.edu/10.1121/10.0021075
+
+
 
     Example
     =======

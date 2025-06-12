@@ -237,15 +237,15 @@ def f0_from_harmonics(f_p,i,h):
         i: the starting peak to look at (0,n)
         h: the starting harmonic number to assign to this peak (1,n-1)
     '''
-    N = len(f_p)  # number of peaks
-    m = np.zeros(N)
+    Np = len(f_p)  # number of peaks
+    m = np.zeros(Np)
     f0 = []
     m[i] = h
     f0 = np.append(f0, f_p[i]/h)  # f0 if peak i is harmonic h
     thresh = 0.05 * f0[0]  # 5% of the f0 value
     ex = 0  # number of harmonics over h=11
 
-    for j in range(i+1,N):  # step through the spectral peaks
+    for j in range(i+1,Np):  # step through the spectral peaks
         lowest_deviation = 1000
         best_f0 = np.nan
         for k in range(h+1,7):  # step through harmonics
@@ -260,11 +260,11 @@ def f0_from_harmonics(f_p,i,h):
             f0 = np.append(f0,best_f0)
             if (h>11): ex = ex + 1
             h=h+1
-    C = ((h-1) + (N - ex))/ np.count_nonzero(m)
+    C = ((h-1) + (Np - ex))/ np.count_nonzero(m)
     
-    return C,np.mean(f0)  #,np.int32(m)
+    return C,np.mean(f0) 
     
-def get_f0_acd(y, fs, f0_range = [60,300], prom=20, peak_height = 0.45, crit_c=3.5):
+def get_f0_acd(y, fs, f0_range, prom=3, min_height = 0.5, crit_c=3.5):
     """Track the fundamental frequency of voicing (f0)
 
     The method in this function implements the 'approximate common denominator" algorithm proposed by Aliik, Mihkla and Ross (1984), which was an improvement on the method proposed by Duifuis, Willems and Sluyter (1982).  The method finds candidate harmonic peaks in the spectrum, and chooses a value of f0 that will give the best fitting harmonic pattern.
@@ -275,16 +275,12 @@ def get_f0_acd(y, fs, f0_range = [60,300], prom=20, peak_height = 0.45, crit_c=3
             A one-dimensional array of audio samples
         fs : int
             the sampling rateof the audio in **x**.
-        f0_range : list of two integers, default = [60,300]
-            The lowest and highest values to consider in pitch tracking.
-        prom : numeric, default = 20
-            In deciding whether a peak in the spectrum is a possible harmonic, this prominence value is passed to 
-            scipy.find_peaks().  A larger value means that the spectral peak must be more prominent to be considered as a 
-            possible harmonic peak.
-        peak_height: numeric, default = 0.45
-            In deciding whether a peak in the spectrum is a possible harmonic, this prominence value is used to 
-            calculate the minimum amplitude required to count as a peak.  The value passed to find_peaks is: 
-            `amplitude_max - peak_height*(amplitude_range)`. 
+        f0_range : a list of two integers
+            The lowest and highest values to consider in pitch tracking (e.g. [100,250].  This algorithm is **very sensitive** to this parameter, working much more accurately when you specify as narrow a pitch range as possible. Therefore, no default range is specified; the user must always supply a pitch range to the function.
+        prom : numeric, default = 3 dB
+            In deciding whether a peak in the spectrum is a possible harmonic, this prominence value is passed to scipy.find_peaks().  A larger value means that the spectral peak must be more prominent to be considered as a possible harmonic peak.
+        min_height: numeric, default = 0.5
+            As a proportion of the range between the lowest amplitude in the spectrum and the highest, only peaks above `min_height` will be considered to be harmonics. The value that is passed to find_peaks() is: `amplitude_min + min_height*(amplitude_range)`. 
 
     Returns
     =======
@@ -311,24 +307,25 @@ def get_f0_acd(y, fs, f0_range = [60,300], prom=20, peak_height = 0.45, crit_c=3
          ax2 = ax1.twinx()
          ax2.plot(f0df.sec,f0df.f0, 'go')  
 
-    .. figure:: images/get_f0_acd.png
+    .. figure:: images/acd_pitch_trace.png
        :scale: 50 %
-       :alt: a 'bluescale' spectrogram with red dots marking the f0
+       :alt: a 'bluescale' spectrogram with a comparison of two pitch traces
        :align: center
 
-       Marking the f0 found by `phon.get_f0_acd()`
+       Comparing the f0 found by `phon.get_f0_acd()` plotted with black dots, and the f0 
+       values found by `parselmouth` `to_Pitch()`, plotted with magenta dots.
 
        ..
 
     """
     down_fs = f0_range[1] * 20  # allow for 9 harmonics of the highest f0
-    x, fs = prep_audio(y, fs, target_fs = down_fs, pre=0.94,quiet=True)  
-
+    x, fs = prep_audio(y, fs, target_fs = down_fs, pre=0,quiet=True)  
+    
     step_sec = 0.005
-    N = 512    # FFT size
+    N = 1024    # FFT size
 
-    frame_len = int(down_fs*0.04)  # forty ms frame
-    step = int(down_fs*step_sec)  # stride between frames
+    frame_len = int(fs*0.04)  # forty ms frame
+    step = int(fs*step_sec)  # stride between frames
     noverlap = frame_len - step   # points of overlap between successive frames
 
     while (frame_len > N): N = N * 2  # increase fft size if needed
@@ -342,22 +339,23 @@ def get_f0_acd(y, fs, f0_range = [60,300], prom=20, peak_height = 0.45, crit_c=3
     rms = 20 * np.log10(np.sqrt(np.divide(np.sum(np.square(Sxx),axis=0),len(f)))) 
     
     Sxx = 20 * np.log10(Sxx)
-
-    min_height = np.max(Sxx) - peak_height * np.abs(np.max(Sxx) - np.min(Sxx)) 
-    min_dist = int(f0_range[0]/(down_fs/N)) # min distance btw harmonics
-    max_dist = int(f0_range[1]/(down_fs/N)) 
+    #mh = np.min(Sxx) + min_height * np.abs(np.max(Sxx) - np.min(Sxx)) 
+    
+    min_dist = int(f0_range[0]/(fs/N)) # min distance btw harmonics
+    max_dist = int(f0_range[1]/(fs/N)) 
     
     #print(f'min_dist = {min_dist}, down_fs={down_fs}, len(f)={len(f)}, N={N}')
-    #print(f'min_height = {min_height}, max = {np.max(Sxx)}, min = {np.min(Sxx)}')
-
+    #print(f'min_height = {mh}, max = {np.max(Sxx)}, min = {np.min(Sxx)}')
+    
     for idx in range(nb):
-        peaks,props = find_peaks(Sxx[:,idx], height = min_height, 
-                                 distance = min_dist, prominence=prom, 
-                                 wlen=max_dist)
-            
+        spec = Sxx[:,idx]
+        mh = np.min(spec) + min_height * np.abs(np.max(spec)-np.min(spec))
+        
+        peaks,props = find_peaks(spec, height = mh, prominence=prom,
+                                 distance = min_dist, wlen=max_dist)
         c[idx] = 5
         f0[idx] = np.nan
-        if len(peaks)>7:  # we did find some harmonics?
+        if len(peaks)>5:  # we did find some harmonics?
             for p in range(3):  # for each of the first three spectral peaks
                 for h in range(1,3): # treat it as one of the first three harmonics
                     C,_f0 = f0_from_harmonics(f[peaks],p,h)
@@ -368,7 +366,7 @@ def get_f0_acd(y, fs, f0_range = [60,300], prom=20, peak_height = 0.45, crit_c=3
                             f0[idx] = _f0
                         else:  
                             f0[idx] = np.nan
-        
+        #print(f"mh = {mh},max={np.max(spec)}, min={np.min(spec)}, c={c[idx]}, f0={f0[idx]}")
     return DataFrame({'sec': ts, 'f0':f0, 'rms':rms[:nb], 'c':c[:nb]})
 
 
