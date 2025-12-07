@@ -720,9 +720,9 @@ def explode_intervals(divs, ts=['t1', 't2'], df=None, prefix='obs_'):
     to 0%, 50%, and 100% of the interval: 2.0, 2.5, 3.0.
 
     The subinterval divisions can be specified as an integer number of subdivisions,
-    or as a list of interval proportions. For `int` the number of timepoints produced
-    is the number of subintervals + 1, and for a list of proportions one timepoint
-    is produced for each element of the list.
+    or as a list of interval proportions in the range [0.0, 1.0]. For `int` the number
+    of timepoints produced is the number of subintervals + 1, and for a list of
+    proportions one timepoint is produced for each element of the list.
 
 Parameters
 ----------
@@ -734,12 +734,12 @@ divs : int, list of float in range [0.0, 1.0]
     subinterval timepoints will be created. For example, `[0.25, 0.50, 0.75]` yield
     timepoints at 25%, 50%, and 75% of each input interval.
 
-ts : list of str or list of Series/arrays
+ts : list of str or list of numeric scalar/list/Series/arrays
     If list of `str`, these are the names of time columns in the `df` dataframe. The
     first name defines the start time of the interval to be subdivided, and the second
-    name defines the end time. If list of `pd.Series` or `np.array`, then the first
-    Series/array provides the start times, and the second Series/array provides the
-    end times.
+    name defines the end time. For numeric values, provided as a scalar, list,
+    `pd.Series`, or `np.array`, the first scalar/list/Series/array provides the start
+    times, and the second provides the end times.
 
 df : dataframe
     A dataframe containing start and end times of the intervals to be subdivided, or
@@ -789,8 +789,12 @@ In this example we have a dataframe produced by `phon.tg_to_df()`, and `phon.mer
     The first few rows of a 'vowels' dataframe with observation points added by `phon.explode_intervals()`    
     '''
     # TODO: test different kinds of indexes in input dataframe, e.g. MultiIndex
-    t1col = ts[0] if df is None else df[ts[0]]
-    t2col = ts[1] if df is None else df[ts[1]]
+    try:
+        t1col = np.array(ts[0], ndmin=1) if df is None else df[ts[0]]
+        t2col = np.array(ts[1], ndmin=1) if df is None else df[ts[1]]
+    except KeyError:
+        msg = 'The `ts` values must be column names in `df` if `df` is not None. If `df` is None, `ts` values can be numeric.'
+        raise ValueError(msg) from None
     id_vars = None if df is None else df.index.name
     tindex = t1col.index if isinstance(t1col, pd.Series) else np.arange(len(t1col))
     if isinstance(tindex, pd.Index):
@@ -809,10 +813,16 @@ In this example we have a dataframe produced by `phon.tg_to_df()`, and `phon.mer
         obs_t = np.linspace(t1col, t2col, num=divs+1, endpoint=True).transpose()
         obs_id = np.tile(np.arange(divs+1), len(t1col))
     else:
+        divs = np.array(divs)
+        try:
+            assert((divs.min() >= 0.0) & (divs.max() <= 1.0))
+        except AssertionError:
+            msg = 'When `divs` is specified as a list, the list elements must specify proportions of the interval and be in the range [0.0, 1.0], e.g. [0.25, 0.50, 0.75] for 25%, 50%, 75% timepoints in the interval.'
+            raise ValueError(msg) from None
         obs_t = (
             np.expand_dims((t2col - t1col), axis=1) * np.expand_dims(divs, axis=0)
         ) + np.expand_dims(t1col, axis=1)
-        obs_id = np.tile(np.array(divs), len(t1col))
+        obs_id = np.tile(divs, len(t1col))
 
     obsidcol, obstimecol = f'{prefix}id', f'{prefix}t'
     # .tolist() converts the 2d arrays into list of 1d arrays
