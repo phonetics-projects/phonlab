@@ -37,7 +37,7 @@ Returns
     
     # If a window is provided, we multiply it against the frames
     # to taper the edges and prevent clicking.
-    window = window = 'boxcar' if window is None else window
+    window = 'boxcar' if window is None else window
     win = windows.get_window(window, Nx=frames.shape[1], fftbins=False)
     frames = frames * win
 
