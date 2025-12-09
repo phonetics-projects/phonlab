@@ -1,5 +1,6 @@
 __all__ = ['hz2bark', 'bark2hz', 'fricative']
 
+from collections import namedtuple
 import nitime.algorithms as tsa  # has the multitaper routine
 import numpy as np
 from scipy.signal import find_peaks
@@ -48,6 +49,10 @@ def bark2hz(self, bark):
     return 650 * np.sinh(bark/7)
 
 
+FricMeas = namedtuple('FricMeas', [
+    'Fm', 'Am', 'AmpD', 'Fsec', 'Asec', 'mode',
+    'COG', 'SD', 'Skew', 'Kurtosis', 'spec', 'freq'
+])
 def fricative(x,fs,t):
     """
     Measure fricative acoustic values, from a 20 ms window, centered on time `t`.
@@ -213,4 +218,7 @@ The figure here shows major peaks and COG in several different fricatives.
     Skew = Skew/np.sqrt(Var**3)
     Kurtosis = Kurtosis/(Var**2) - 3
     
-    return(Fm,Am,AmpD,Fsec,Asec,mode,COG,SD,Skew,Kurtosis,spec,freq)
+    return FricMeas(
+        Fm=Fm, Am=Am, AmpD=AmpD, Fsec=Fsec, Asec=Asec, mode=mode,
+        COG=COG, SD=SD, Skew=Skew, Kurtosis=Kurtosis, spec=spec, freq=freq
+    )
