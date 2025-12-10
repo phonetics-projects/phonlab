@@ -1,5 +1,3 @@
-__all__ = ['plot_tier', 'make_figure']
-
 import matplotlib.pyplot as plt
 import pandas as pd
 

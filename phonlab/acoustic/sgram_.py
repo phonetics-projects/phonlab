@@ -1,5 +1,3 @@
-__all__=['compute_sgram','sgram']
-
 from scipy.signal import spectrogram
 from scipy.signal import windows
 import numpy as np

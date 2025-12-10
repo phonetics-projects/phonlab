@@ -1,5 +1,3 @@
-__all__ = ["peak_rms", "add_noise"]
-
 import numpy as np
 import matplotlib.pyplot as plt
 import random

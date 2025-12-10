@@ -1,6 +1,3 @@
-__all__=['track_formants']
-
-#!/usr/bin/env python
 # coding: utf-8
 
 # Author: Keith Johnson

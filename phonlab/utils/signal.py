@@ -1,5 +1,3 @@
-__all__=['loadsig']
-
 import librosa
 import numpy as np
 

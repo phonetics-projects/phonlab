@@ -1,5 +1,3 @@
-__all__ = ['egg_to_oq']
-
 import scipy.signal
 import numpy as np
 import librosa

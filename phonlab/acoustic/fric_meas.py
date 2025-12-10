@@ -1,6 +1,3 @@
-__all__ = ['hz2bark', 'bark2hz', 'fricative']
-
-from collections import namedtuple
 import nitime.algorithms as tsa  # has the multitaper routine
 import numpy as np
 from scipy.signal import find_peaks

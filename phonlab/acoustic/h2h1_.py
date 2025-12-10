@@ -1,5 +1,3 @@
-__all__=['h2h1'] 
-
 import numpy as np
 from scipy.signal import iirpeak,filtfilt,windows, convolve, find_peaks
 from scipy import fft

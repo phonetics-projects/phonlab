@@ -1,5 +1,3 @@
-__all__=['compute_cepstrogram', 'CPP'] 
-
 from ..utils.prep_audio_ import prep_audio
 import numpy as np
 from librosa import util
