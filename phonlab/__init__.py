@@ -1,5 +1,5 @@
 __name__="phonlab"
-__version__="0.0.42"
+__version__="0.0.43"
 
 # -------- functions in the "acoustic" portion of the package -------
 from .acoustic.sgram_ import *
@@ -57,17 +57,16 @@ from .artic.egg2oq_ import *
 __all__ += artic.egg2oq_.__all__
 
 
-#--------- functions in the 'load Audio' portion of the package ---------
+#--------- various utility functions ---------
 from .utils.signal import *
 from .utils.prep_audio_ import *
+from .utils.tidy import *
+from .utils.plot_tiers import *
 
 __all__ += utils.signal.__all__
 __all__ += utils.prep_audio_.__all__
-
-#---------- functions in the 'working with textgrids and working with corpora' portions ------
-from .utils.tidy import *
-
 __all__ += utils.tidy.__all__
+__all__ += utils.plot_tiers.__all__
 
 
 #--------  functions in the 'Utility' portion of the package
