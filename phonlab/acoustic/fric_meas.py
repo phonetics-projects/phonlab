@@ -1,5 +1,6 @@
 __all__ = ['hz2bark', 'bark2hz', 'fricative']
 
+from collections import namedtuple
 import nitime.algorithms as tsa  # has the multitaper routine
 import numpy as np
 from scipy.signal import find_peaks
@@ -48,6 +49,10 @@ def bark2hz(self, bark):
     return 650 * np.sinh(bark/7)
 
 
+FricMeas = namedtuple('FricMeas', [
+    'Fm', 'Am', 'AmpD', 'Fsec', 'Asec', 'mode',
+    'COG', 'SD', 'Skew', 'Kurtosis', 'spec', 'freq'
+])
 def fricative(x,fs,t):
     """
     Measure fricative acoustic values, from a 20 ms window, centered on time `t`.
@@ -71,6 +76,9 @@ Parameters
 Returns
 =======
      
+    fricmeas : namedtuple
+    A `FricMeas` namedtuple of fricative measures is returned, with the following fields:
+
     Fm : float
         Frequency (in Hz) of the first main spectral peak.  A measure correlated with the length of the front tube.
     Am : float
@@ -78,9 +86,9 @@ Returns
     AmpD : float
         The difference in amplitude (dB) between the higher of Am or Asec and the minimum amplitude between 500Hz and Fm.  A measure of sibilance.
     Fsec : float 
-        Frequency of the second major peak in the spectrum.  If the front tube is long there can be a second resonance. If there is no second major peak, this variable will be `None`
+        Frequency of the second major peak in the spectrum.  If the front tube is long there can be a second resonance. If there is no second major peak, this field's value is `None`
     Asec: float
-        Amplitude (in dB) at Fsec. If there is no second major peak, this variable will be `None`
+        Amplitude (in dB) at Fsec. If there is no second major peak, this field's value is `None`
     mode : string
         a report on the peak finding parameters used
     COG : float
@@ -123,14 +131,14 @@ Example
 
     .. code-block:: Python
     
-         x,fs = phon.loadsig("sf3_cln.wav")
-         y,fs = phon.prep_audio(x,fs,target_fs=16000)
-         Fm,Am,AmpD,Fsec,Asec,mode,COG,SD,Skew,Kurtosis,spec,freq = phon.fricative(y,fs,2.25)
+         x, fs = phon.loadsig("sf3_cln.wav")
+         y, fs = phon.prep_audio(x, fs, target_fs=16000)
+         fricm = phon.fricative(y, fs, 2.25)
 
-         print(f"first major peak at {Fm:.1f}, Center of Gravity is {COG:.1f}")
-         plt.plot(freq,spec)
-         plt.axvline(Fm,color="red")
-         plt.axvline(COG,color="green")
+         print(f"first major peak at {fricm.Fm:.1f}, Center of Gravity is {fricm.COG:.1f}")
+         plt.plot(fricm.freq, fricm.spec)
+         plt.axvline(fricm.Fm, color="red")
+         plt.axvline(fricm.COG, color="green")
 
 The figure here shows major peaks and COG in several different fricatives.
 
@@ -213,4 +221,7 @@ The figure here shows major peaks and COG in several different fricatives.
     Skew = Skew/np.sqrt(Var**3)
     Kurtosis = Kurtosis/(Var**2) - 3
     
-    return(Fm,Am,AmpD,Fsec,Asec,mode,COG,SD,Skew,Kurtosis,spec,freq)
+    return FricMeas(
+        Fm=Fm, Am=Am, AmpD=AmpD, Fsec=Fsec, Asec=Asec, mode=mode,
+        COG=COG, SD=SD, Skew=Skew, Kurtosis=Kurtosis, spec=spec, freq=freq
+    )
