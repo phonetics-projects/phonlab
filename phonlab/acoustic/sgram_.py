@@ -49,21 +49,8 @@ def compute_sgram(x,fs,w):
     return (f,ts, Sxx)
     
 
-def sgram(
-    x,
-    fs,
-    start=0,
-    end=-1,
-    tf=8000,
-    band='wb',
-    preemph = 0.94,
-    font_size = 14,
-    min_prop = 0.2,
-    save_name='',
-    slice_time=-1,
-    cmap='Greys',
-    ax=None,
-):
+def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size = 14,
+    min_prop = 0.2, save_name='', slice_time=-1, cmap='Greys', ax=None):
     """Make pretty good looking spectrograms
 
     * This function calls scipy.signal.spectrogram to calculate a magnitude spectrogram, which is then transformed to decibels, and passed to plt.imshow for plotting.  
