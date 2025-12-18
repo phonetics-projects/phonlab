@@ -76,34 +76,33 @@ Parameters
 Returns
 =======
      
-    fricmeas : namedtuple
+namedtuple :
     A `FricMeas` namedtuple of fricative measures is returned, with the following fields:
 
-    Fm : float
-        Frequency (in Hz) of the first main spectral peak.  A measure correlated with the length of the front tube.
-    Am : float
-        Amplitude (in dB) at Fm
-    AmpD : float
-        The difference in amplitude (dB) between the higher of Am or Asec and the minimum amplitude between 500Hz and Fm.  A measure of sibilance.
-    Fsec : float 
-        Frequency of the second major peak in the spectrum.  If the front tube is long there can be a second resonance. If there is no second major peak, this field's value is `None`
-    Asec: float
-        Amplitude (in dB) at Fsec. If there is no second major peak, this field's value is `None`
-    mode : string
-        a report on the peak finding parameters used
-    COG : float
-        center of gravity, the first moment of the spectrum.
-    SD : float
-        standard deviation, the second moment of the spectrum.
-    Skew : float
-        scaled third moment, skew
-    Kurtosis : float
-        scaled fourth moment, kurtosis
-    spec : ndarray
-        the multi-taper power spectrum at the midpoint (e.g. for use in plotting spectra)
-    freq : ndarray
-        the frequency scale of the spectrum (e.g. for use in plotting spectra)
-
+        Fm : float
+            Frequency (in Hz) of the first main spectral peak.  A measure correlated with the length of the front tube.
+        Am : float
+            Amplitude (in dB) at Fm
+        AmpD : float
+            The difference in amplitude (dB) between the higher of Am or Asec and the minimum amplitude between 500Hz and Fm.  A measure of sibilance.
+        Fsec : float 
+            Frequency of the second major peak in the spectrum.  If the front tube is long there can be a second resonance. If there is no second major peak, this field's value is `None`
+        Asec: float
+            Amplitude (in dB) at Fsec. If there is no second major peak, this field's value is `None`
+        mode : string
+            a report on the peak finding parameters used
+        COG : float
+            center of gravity, the first moment of the spectrum.
+        SD : float
+            standard deviation, the second moment of the spectrum.
+        Skew : float
+            scaled third moment, skew
+        Kurtosis : float
+            scaled fourth moment, kurtosis
+        spec : ndarray
+            the multi-taper power spectrum at the midpoint (e.g. for use in plotting spectra)
+        freq : ndarray
+            the frequency scale of the spectrum (e.g. for use in plotting spectra)
 
 Note
 ====

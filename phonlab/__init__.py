@@ -61,13 +61,11 @@ __all__ += artic.egg2oq_.__all__
 from .utils.signal import *
 from .utils.prep_audio_ import *
 from .utils.tidy import *
-from .utils.viewer import *
 from .utils.plot_tiers import *
 
 __all__ += utils.signal.__all__
 __all__ += utils.prep_audio_.__all__
 __all__ += utils.tidy.__all__
-__all__ += utils.viewer.__all__
 __all__ += utils.plot_tiers.__all__
 
 
