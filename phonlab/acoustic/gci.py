@@ -1,5 +1,3 @@
-__all__=['gci_sedreams'] 
-         
 import numpy as np
 from scipy.signal import windows, filtfilt, buttord, butter, sosfiltfilt, argrelmax, argrelmin, find_peaks
 from pandas import DataFrame

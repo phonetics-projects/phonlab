@@ -1,5 +1,3 @@
-__all__=['amplitude_envelope']
-
 import numpy as np
 import scipy
 from ..utils.prep_audio_ import prep_audio

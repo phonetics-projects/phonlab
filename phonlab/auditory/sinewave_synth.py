@@ -1,5 +1,3 @@
-__all__=['sine_synth']
-
 import numpy as np
 
 def sine_synth(formant_data,fs=16000):

@@ -1,5 +1,3 @@
-__all__=["sigcor_noise"]
-
 import numpy as np
 from ..utils.prep_audio_ import prep_audio
 

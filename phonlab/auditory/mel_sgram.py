@@ -1,5 +1,3 @@
-__all__=["compute_mel_sgram", "mel_to_Hz", "Hz_to_mel"]
-
 import tensorflow as tf
 import numpy as np
 

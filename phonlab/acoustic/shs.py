@@ -1,5 +1,3 @@
-__all__=['get_f0_shs'] 
-
 from ..utils.prep_audio_ import prep_audio
 
 import numpy as np

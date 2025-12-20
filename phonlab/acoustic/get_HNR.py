@@ -1,5 +1,3 @@
-__all__=['HNR'] 
-
 from ..utils.prep_audio_ import prep_audio
 
 import numpy as np

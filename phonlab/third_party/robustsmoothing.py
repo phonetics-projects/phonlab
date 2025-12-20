@@ -1,5 +1,3 @@
-__all__=['smoothn']
-
 import scipy.optimize.lbfgsb as lbfgsb
 import numpy.linalg
 from scipy.fftpack import dct,idct

@@ -1,5 +1,3 @@
-__all__=["burst"]
-
 import numpy as np
 import librosa
 
