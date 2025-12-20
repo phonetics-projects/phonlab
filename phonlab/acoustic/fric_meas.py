@@ -1,6 +1,7 @@
 import nitime.algorithms as tsa  # has the multitaper routine
 import numpy as np
 from scipy.signal import find_peaks
+from collections import namedtuple
 
 def dB(x, out=None):
     if out is None:
@@ -50,6 +51,7 @@ FricMeas = namedtuple('FricMeas', [
     'Fm', 'Am', 'AmpD', 'Fsec', 'Asec', 'mode',
     'COG', 'SD', 'Skew', 'Kurtosis', 'spec', 'freq'
 ])
+
 def fricative(x,fs,t):
     """
     Measure fricative acoustic values, from a 20 ms window, centered on time `t`.

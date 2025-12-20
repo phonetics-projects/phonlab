@@ -179,7 +179,6 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
     dur = max(ts)-min(ts) + w   # scale figure size
     figwidth = np.min([(dur * inches_per_sec), max_figwidth])
     if ax is None:
-        print(f"ax is None")
         if slice_time>0: # if spectral slice is desired, add an axes for it
             fig = plt.figure(figsize=(figwidth+slice_width, figheight),dpi=72)
             gs = fig.add_gridspec(nrows=1, ncols=2, width_ratios=[figwidth/slice_width, 1])
