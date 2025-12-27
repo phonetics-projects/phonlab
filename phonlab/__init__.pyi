@@ -35,6 +35,7 @@ __all__ = [
     "compute_mel_sgram",
     "mel_to_Hz",
     "Hz_to_mel",
+    "linear_to_mel_weight_matrix",
     "shannon_bands",
     "third_octave_bands",
     "vocode",
@@ -78,7 +79,7 @@ from .artic.egg2oq_ import egg_to_oq
 
 from .auditory.add_noise_ import peak_rms, add_noise
 from .auditory.audspec import Audspec
-from .auditory.mel_sgram import compute_mel_sgram, mel_to_Hz, Hz_to_mel
+from .auditory.mel_sgram import compute_mel_sgram, linear_to_mel_weight_matrix, mel_to_Hz, Hz_to_mel
 from .auditory.noise_vocoder import shannon_bands, third_octave_bands, vocode, apply_filterbank
 from .auditory.sigcor import sigcor_noise
 from .auditory.sinewave_synth import sine_synth

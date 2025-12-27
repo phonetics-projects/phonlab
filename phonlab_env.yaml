@@ -20,5 +20,4 @@ dependencies:
       - praat-parselmouth==0.4.5
       - phonlab
       - fileorganize
-      - tensorflow
 

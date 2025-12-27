@@ -24,3 +24,6 @@ Helper Functions
 .. autofunction:: phonlab.peak_rms
 .. autofunction:: phonlab.hz2bark
 .. autofunction:: phonlab.bark2hz
+.. autofunction:: phonlab.Hz_to_mel
+.. autofunction:: phonlab.mel_to_Hz
+.. autofunction:: phonlab.linear_to_mel_weight_matrix

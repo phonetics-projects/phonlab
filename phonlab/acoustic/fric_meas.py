@@ -12,7 +12,9 @@ def dB(x, out=None):
 
 def hz2bark(hz):
     """
-    Convert frequency in Hz to Bark using the Schroeder 1977 formula.
+    Convert frequency in Hz to Bark using the Schroeder 1977 formula::
+
+        bark(hz) = 7 * arcsinh(hz/650)
 
     Parameters
     ==========
@@ -31,7 +33,9 @@ def hz2bark(hz):
 
 def bark2hz(self, bark):
     '''
-    Convert frequency in Hz to Bark using the Schroeder 1977 formula.
+    Convert frequency in Hz to Bark using the Schroeder 1977 formula::
+
+        Hz(b) = 650 * sinh(b/7)
 
     Parameters
     ----------
