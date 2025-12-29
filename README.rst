@@ -4,19 +4,23 @@ phonlab
 
 A collection of python functions for doing phonetics.
 
-============
-Installation
-============
+==============================
+Installation and Documentation
+==============================
 
-.. code-block:: Python
+* The package includes a yaml file that can be used to create a conda environment with the command:
+
+.. code-block:: 
+
+  conda env create --file phonlab_env.yaml
+
+* To install phonlab into an existing environment use pip:
+
+.. code-block:: 
 
   pip install phonlab
 
-=============
-Documentation
-=============
-
-https://phonlab.readthedocs.io
+* The phonlab documentation is here:  https://phonlab.readthedocs.io
 
 ========
 Examples
