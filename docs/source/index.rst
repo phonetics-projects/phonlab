@@ -34,6 +34,11 @@ The docstring examples assume that `phonlab` has been imported as ``phon``::
 
 See the examples folder in the project's `github repository <https://github.com/phonetics-projects/phonlab.git>`_.
 
+Feedback
+--------
+
+The developers welcome your feedback and suggestions.  Please visit the project's `github repository <https://github.com/phonetics-projects/phonlab.git>`_ and use the `Issues` tab to report an issue.  See also the project readme file for some instructions on how to contribute a change or addition to the package.
+
 
 Table of Contents
 -----------------
