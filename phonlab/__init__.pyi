@@ -7,6 +7,9 @@ by having a complete doc string and then added to one of the .rst files in the p
 
 __all__ = []
 
+from .acoustic.display_wave_ import display_wave
+__all__ += ["display_wave"]
+
 from .acoustic.DPPT import track_formants_DPPT
 __all__ += ["track_formants_DPPT"]
 

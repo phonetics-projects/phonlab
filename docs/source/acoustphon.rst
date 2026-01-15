@@ -1,8 +1,9 @@
 Acoustic Phonetics
 ==================
 
-Spectrograms
-------------
+Spectrogram/waveform
+--------------------
+.. autofunction:: phonlab.display_wave
 .. autofunction:: phonlab.sgram
 .. autofunction:: phonlab.compute_sgram
 

@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 
-def plot_tier(df, start=0.0, end=-1, ax=None, mark_in_plot = None, 
+def plot_tier(df, start=0.0, end=-1, ax=None, mark_in_plot = [], 
               span_time=None, vertical_place = 0.5, **kwargs):
     """
     Plot the labels from a textgrid tier in a matplotlib plot axes.  See the example for an illustration of how this is used to add textgrid labels to a spectrogram.  This function is a combination of functions plot_tier_times() and plot_tier_spans() that were written by Martin Oberg at UBC.
@@ -22,11 +22,11 @@ Parameters
     ax : axes (default None)
         a matplotlib axes in which to plot the tier.  If none is given the function uses the matplotlib function `gca()`  to find the current axes.  
 
-    mark_in_plot : axes (default None)
-        a matplotlib axes where vertical black lines at t1 and t2 will be marked.  
+    mark_in_plot : list of axes (default [])
+        a list of matplotlib axes where vertical black lines at label boundaries (t1 and t2) will be marked.  
 
     span_time: float (default None)
-        a time value (in seconds) used to choose a label interval that will be highlighted by color shading overlaid on the spectrogram.  By default the color of the shading is blue, and the alpha of the shading is 0.2.  These defaults can be changed by keyword arguments that will be passed to the pyplot functin `axvspan()`.
+        a time value (in seconds) used to choose a label interval that will be highlighted by color shading overlaid on the axes in `mark_in_plot`.  By default the color of the shading is blue, and the alpha of the shading is 0.2.  These defaults can be changed by keyword arguments that will be passed to the pyplot functin `axvspan()`.
 
     vertical_place: float (default 0.5)
         relative vertical location of the label in the axes.  0 = centered at the bottom of the axes, and 1 = centered at the top.
@@ -55,21 +55,30 @@ in the spectrogram, and with one particular phone highlighed (the one that inclu
 
 .. code-block:: Python
 
-    example_file = importlib.resources.files('phonlab') / 'data/example_audio/im_twelve.wav'
+    audio_dir = importlib.resources.files('phonlab') / 'data' / 'example_audio'
+    example_tg = audio_dir / 'im_twelve.TextGrid'
+    example_file = audio_dir / 'im_twelve.wav'
+
+    # read the audio file
     x,fs = phon.loadsig(example_file,chansel=[0])
-    y,fs = phon.prep_audio(x, fs, target_fs=16000)
 
-    example_tg = importlib.resources.files('phonlab') / 'data' / 'example_audio' / 'im_twelve.TextGrid'
-    phdf, wddf = phon.tg_to_df(example_tg, tiersel=['phone', 'word'])
-      
-    start = 0.9
-    end = 2
+    # read the text grid file
+    tiers = ['phone', 'word']
+    phdf, wddf = phon.tg_to_df(example_tg, tiersel=tiers)
 
-    fig, ax = phon.make_figure(n_plots=1, n_tiers=2)  # prepare figure for content
-    ret = phon.sgram(y, fs, start=start, end=end, ax=ax[-1]) # spectrogram at bottom
-    phon.plot_tier(phdf,start=start, end=end, ax=ax[1],mark_in_plot=ax[-1],span_time=1.5)
-    phon.plot_tier(wddf,start=start, end=end, ax=ax[0]) # word tier at top
+    start = 0.175
+    end = 0.85
 
+    height_ratios = [1, 1, 1.5, 10]
+
+    # create a figure that has four plot axes in it
+    fig,[wrd,phn,wav,specgrm] = make_figure(height_ratios)
+
+    # fill the figure with textgrid and acoustic data
+    phon.plot_tier(phdf, start, end, ax=phn, mark_in_plot=[wav,specgrm],span_time=0.5)
+    phon.plot_tier(wddf, start, end, ax=wrd) # word tier at top
+    wav = phon.display_wave(x,fs,start, end, ylabel="", font_size=8, ax=wav)
+    ret = phon.sgram(x,fs,start, end, ax=specgrm)
     
 .. figure:: images/plot_tier.png
     :scale: 40 %
@@ -121,29 +130,26 @@ The second example shows that plot_tier() can be used to add lables directly to 
         ax.text(x_loc, y_loc, row[3], size=16,
                 verticalalignment='center',
                 horizontalalignment='center')
-        if isinstance(mark_in_plot,plt.Axes):
-            mark_in_plot.axvline(row.t1,color='k')
-            mark_in_plot.axvline(row.t2,color='k')
+        for other_axes in mark_in_plot:
+            if isinstance(other_axes,plt.Axes):
+                other_axes.axvline(row.t1,color='k')
+                other_axes.axvline(row.t2,color='k')
         if not span_time is None:
             if row.t1<span_time and row.t2>span_time:
                 ax.axvspan(row.t1, row.t2, color='g', alpha=0.2) 
-                if isinstance(mark_in_plot,plt.Axes):
-                    mark_in_plot.axvspan(row.t1,row.t2,**kwargs)
+                for other_axes in mark_in_plot:
+                    if isinstance(other_axes,plt.Axes):
+                        other_axes.axvspan(row.t1,row.t2,**kwargs)
 
-def make_figure(n_plots=1, n_tiers=1):
+def make_figure(height_ratios = [1,1,5]):
     """
-Set up a matplotlib figure to be filled with calls to `phon.sgram()` and `phon.plot_tier()`.  This
-function was written by Martin Oberg at UBC.  The function determines height ratios for multiple
-plotting axes in the figure based on the number of data plots and text label plots that are anticipated.
+Create a matplotlib figure with axes to be filled with calls to plotting functions like `phon.sgram()` `phon.displacy_wave()`, and `phon.plot_tier()`.  The first version of this function was written by Martin Oberg at UBC.  
 
 Parameters
 ==========
-    n_plots : integer (default 1)
-        The number of axes to be added to the figure for plotting phonetic data (e.g. axes for adding spectrograms, waveform plots, articulatory data, etc.)
-        
-    n_tiers : integer (default 1)
-        The number of axes to be added to the figure for plotting text labels.
-
+    height_ratios: array of numbers, default = [1,1,5]
+        This list determines the number of axes that will be included in the figure, and determines their relative heights.  The default list prepares a figure that will have two narrow axes at the top (like textgrid tiers) and one five-time taller axes for plotting a spectrogram.  Note that when height_ratios is "1" the axis labeling is turned off for the axes.
+    
 Returns
 =======
 
@@ -151,17 +157,22 @@ Returns
         a Matplotlib Figure object.
 
     list
-        a list of Matplotlib Axes objects. The number of axes will be equal to n_plots + n_tiers.  The figure will have n_tiers axes at the top of the figure (ax[0]..ax[n_tiers-1]) and n_plots axes at the bottom of the figure (ax[n_tiers]...ax[-1].  The textgrid axes will be 1/10th as tall as the data axes.
+        a list of Matplotlib Axes objects, as defined by the height_ratios.
+        
     """
     fig = plt.figure(figsize=(5, 2), dpi=72)
-    height_ratios = [1] * n_tiers + [10] * n_plots
     gs = fig.add_gridspec(
         nrows=len(height_ratios), ncols=1, height_ratios=height_ratios
     )
     ax = [fig.add_subplot(x) for x in gs]
-    for i in range(n_tiers):
-        ax[i].set_axis_off()  # hide axes for tiers
-    for i in range(1, len(height_ratios)):
-        ax[i].sharex(ax[0])   # share x axis across all plots
+    
+    for i in range(len(height_ratios)): 
+        if height_ratios[i] == 1: # hide axes for tiers
+            ax[i].set_axis_off()  
+        if i != (len(height_ratios)-1):  # hide x axis for all but the bottom
+            ax[i].get_xaxis().set_visible(False)
+    for i in range(1, len(height_ratios)): # share x axis across all plots
+        ax[i].sharex(ax[0])   
 
     return fig, ax
+

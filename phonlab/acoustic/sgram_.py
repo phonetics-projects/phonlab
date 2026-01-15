@@ -175,7 +175,7 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
     f,ts,Sxx = compute_sgram(x2[i1:i2],fs,w)
     
     # ------------ display in a matplotlib figure --------------------
-    ts = np.add(ts,start)  # increment the spectrogram time by the start value
+    ts = np.add(ts,start)  # increment the spectrogram times by the start value
     dur = max(ts)-min(ts) + w   # scale figure size
     figwidth = np.min([(dur * inches_per_sec), max_figwidth])
     if ax is None:
@@ -196,14 +196,14 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
     extent = (min(ts),max(ts),min(f),max(f))  # get the time and frequency values for indices.
     im = ax1.imshow(Sxx, aspect='auto', interpolation='nearest', cmap=cmap, vmin = vmin, 
                 extent = extent, origin='lower')
-    ax1.grid(which='major', axis='y', linestyle=':')  # add grid lines
+    ax1.grid(which='major', axis='y', linestyle='-')  # add grid lines
     ax1.set_xlabel("Time (sec)", size=font_size)
     ax1.set_ylabel("Frequency (Hz)", size=font_size)
     ax1.tick_params(labelsize=font_size)
-
+    ax1.locator_params(axis='y', prune="upper")  # for stacking sgram with other axes
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     # plt.subplots_adjust(left=0.1, bottom=0.148, right=0.99, top=0.99, wspace=0, hspace=0)
-   
+
     if slice_time > 0:  # if spectral slice is desired, plot the spectrum
         i = np.argmin(np.abs(ts-slice_time))  # find the index of the spectral slice
         ax1.axvline(x=slice_time,color='black',linestyle="--")
