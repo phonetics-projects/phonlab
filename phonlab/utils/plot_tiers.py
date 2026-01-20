@@ -31,6 +31,9 @@ Parameters
     vertical_place: float (default 0.5)
         relative vertical location of the label in the axes.  0 = centered at the bottom of the axes, and 1 = centered at the top.
 
+    **kwargs : keyword arguments
+        arguments passed to axvspan() to control the appearance of span shading requested with the span_time argument.
+
 Returns
 =======
 

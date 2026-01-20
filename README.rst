@@ -46,7 +46,7 @@ We solicit contributions/corrections from the research community.  Here are some
 #. If you are adding a function, also do these things:
 
     * edit the __init__.pyi file to include your file in the package, following the examples in that file.
-    * edit the appropriate *.rst file in the docs/source folder to include your function in the package documentation.
+    * edit the appropriate .rst file in the docs/source folder to include your function in the package documentation.
 
 #. If your change requires a new python package, update the pyproject.toml and phonlab_env.yaml files to include the dependency.
 #. Add/Commit your changes (preferably one commit per change rather than a set of unrelated changes in one big commit).
