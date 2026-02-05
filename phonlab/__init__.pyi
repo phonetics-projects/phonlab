@@ -7,6 +7,13 @@ by having a complete doc string and then added to one of the .rst files in the p
 
 __all__ = []
 
+from .acoustic.rlpc import RLPC_formants
+__all__ += ["RLPC_formants"]
+
+from .acoustic.tvlp import track_formants_tvlp, tvlp_warmup_numba
+__all__ += ["track_formants_tvlp",
+            "tvlp_warmup_numba"]
+
 from .acoustic.display_wave_ import display_wave
 __all__ += ["display_wave"]
 
@@ -64,8 +71,9 @@ __all__ += ["formant_to_df",
             "intensity_to_df", 
             "mfcc_to_df"]
 
-from .acoustic.track_formants_ import track_formants
-__all__ += ["track_formants"]
+from .acoustic.track_formants_ import track_formants, choose_order
+__all__ += ["track_formants",
+            "choose_order"]
 
 from .acoustic.vowel_norm import get_deltaF, deltaF_norm, resize_vt
 __all__ += ["get_deltaF", 

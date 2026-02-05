@@ -1,7 +1,3 @@
-# coding: utf-8
-
-# Author: Keith Johnson
-
 import numpy as np
 from scipy import signal
 from scipy import fft
@@ -24,9 +20,9 @@ g_method = 'lpc'       # formant tracking method
 # speaker parameters used in IFC tracking.  EG params[spkr]["fr"] are formant expectations for male if spkr == 0
 params = [
     {
-        'fr':np.array([ 120, 500, 1500, 2500, 3500]),
+        'fr':np.array([ 60, 500, 1500, 2500, 3500]),
         'bws':np.array([200,50,70,90,130]),
-        'upper_fs':np.array([5500,4500,4500]),
+        'upper_fs':np.array([5500,5500,4500]),
         'upper_bws': np.array([80,80,200]),
         'bands':np.array([[200,1100], [700, 2200], [2000,3500], [3000,4300]]),
         'spec_bounds':np.array([120,5500]),
@@ -35,14 +31,14 @@ params = [
     {
         'fr':np.array([ 60, 620, 1860, 3100, 4340]),
         'bws':np.array([200,50,70,90,130]),
-        'upper_fs':np.array([5580,5580]),
+        'upper_fs':np.array([5580,5580]),  # stick with Ueda et al. (2007) on this.
         'upper_bws':np.array([3200,200]),
-        'bands':np.array([[300,1300], [1000, 2500], [3500,4800], [3000,4300]]),
+        'bands':np.array([[300,1300], [1000, 2500], [2500,4000], [3500,4800]]),
         'spec_bounds':np.array([250,5500]),
         'du1':400, 'du2':700, 'dh1':300, 'dh2':600
     },
     {
-        'fr':np.array([ 60, 200, 1800, 3000, 4450]),
+        'fr':np.array([ 60, 680, 2050, 3420, 4790]),
         'bws':np.array([200,50,70,90,130]),
         'upper_fs':np.array([6000,5500]),
         'upper_bws':np.array([2700,2700]),
@@ -550,25 +546,27 @@ def IFC_process_frame(x,fs, spkr,f0_range,filterbank):
         b0 = 200
         
         # estimate F2 and F3 first
-        y2 = inv_filter(y,fs,[f4,f0,f1],[b4,b0,b1])  # filter out all but f2 and f3
         if (r23 >= -20): b0 = 100*r23 + 2200
+        y2 = inv_filter(y,fs,[f4,f0,f1],[b4,b0,b1])  # filter out all but f2 and f3
         f2,f3 = IFCBLOCK(y2,fs,3,f3,b3,2,f2,b2,f0,b0,spkr)
         (f1,f2,f3,f4) = order(f1, f2, f3, f4)
 
         # estimate F1 and F2 next
-        if spkr==1:  # longer vocal tract - remove f6 again
+        if spkr==0:  # longer vocal tract - remove f6 again
             y2 = inv_filter(y,fs, [5500,f3,f4],[200,b3,b4])
         else:
             y2 = inv_filter(y,fs, [f3,f4],[b3,b4]) # filter out all but f1 and f2
         
         if (r12 >= -20): b0 = 100*r12 + 2200
+        else: b0 = 200
         f1,f2 = IFCBLOCK(y2,fs,1,f1,b1,2,f2,b2,f0,b0,spkr)
         (f1,f2,f3,f4) = order(f1, f2, f3, f4)
 
         # estimate F3 and F4
         
-        y2 = inv_filter(y,fs,[f1,f0,f2],[b1,b0,b2])  # filter out all but f3 and f4
         if (r34 >= -20): b0 = 100*r34 + 2200
+        else: b0 = 200
+        y2 = inv_filter(y,fs,[f1,f0,f2],[b1,b0,b2])  # filter out all but f3 and f4
         f3,f4 = IFCBLOCK(y2,fs,3,f3,b3,4,f4,b4,f0,b0,spkr)
         (f1,f2,f3,f4) = order(f1, f2, f3, f4)
     
@@ -708,7 +706,6 @@ def get_LPC_lr(x,fs, frame_length,p):
     t = librosa.frames_to_time(range(frames.shape[0]),sr=fs, hop_length=step,n_fft=frame_length)
     A = librosa.lpc(frames, order=p,axis= -1)
     return A,t
-    
 
 def choose_order(x,frame_length,fs):
     '''choose_order() -- The most impactful parameter in LPC analysis is the 'order',
@@ -719,11 +716,14 @@ def choose_order(x,frame_length,fs):
     at each of several orders [8,10,12,14,16] -- assuming that the fs is 12,0000 Hz.
     It then returns the order that produced the lowest A[1] over the span.  
 
-    Input
+    Parameters
+    ----------
         x - a one-dimensional numpy arry with audio waveform samples (must be sampled at 12kHz)
         frame_length - the number of samples in a frame
         fs - the sampling frequency of x
+        
     Result
+    ------
         lpc_order - the best fitting choice to use as the order term in LPC analysis
     '''
     
@@ -736,7 +736,7 @@ def choose_order(x,frame_length,fs):
     w = signal.windows.hamming(frame_length)
     frames = np.multiply(frames,w)   # apply a Hamming window to each frame
 
-    for order in range(os,oe,2):  # try different order values
+    for order in range(os,oe):  # try different order values
         A = librosa.lpc(frames,order = order, axis=1)
         A1 = np.linalg.norm(A[:,1])
         if A1 < min:
@@ -776,6 +776,7 @@ def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0, quie
     rms = 20*np.log10(rms[0])
    
     if (preemphasis > 0): y = np.append(x[0], x[1:] - preemphasis * x[:-1])  # now apply pre-emphasis
+    else: y=x
         
     if order<0:  # guess the correct LPC order
         if len(x) < fs*2:

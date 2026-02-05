@@ -4,7 +4,9 @@ import numpy as np
 from scipy.signal import resample_poly
 
 
-def prep_audio(x, fs, target_fs=32000, pre = 0, scale = True, add_tiny_noise = False, outtype = "float", quiet = False):
+def prep_audio(x, fs, target_fs=32000, pre = 0, scale = True, 
+               add_tiny_noise = False, outtype = "float", pad_to = 0.0,
+               quiet = False):
     """ Prepare an array of audio waveform samples for acoustic analysis. 
     
 Parameters
@@ -27,6 +29,10 @@ Parameters
 
     add_tiny_noise: boolean, default = False
         add a tiny bit of noise to the audio to avoid problematic waveforms with many samples at zero amplitude.
+
+    pad_to: float, default = 0.0
+        add samples so duration is a multiple of `pad_to`. For example, if the duration is 1.99 seconds 
+        and `pad_to` is 0.1 then the signal will be padded to 2.0 seconds
 
     outtype : string {"float", "int"), default = "float"
         The "int" waveform is 16 bit integers - in the range from [-32768, 32767].
@@ -89,7 +95,11 @@ Take the right channel, and resample to 16,000 Hz
     if (pre > 0): y = np.append(x2[0], x2[1:] - pre * x2[:-1])  # apply pre-emphasis
     else: y = x2
     if scale: y = y/np.max(y) * 0.9  # scale to about full range
-    if add_tiny_noise:  y = y + ((np.random.rand(len(y)) - 0.5) * 0.00001)
+    if add_tiny_noise:  y = y + ((np.random.rand(len(y)) - 0.5) * 0.0001)
+    if pad_to > 0: 
+        extra_time = pad_to - ((len(x)/fs) % pad_to)
+        extra_samples = int(extra_time * fs)
+        y = np.concatenate((y,(np.random.rand(extra_samples) - 0.5) * 0.0001))
     if outtype == "int":  y = np.rint(np.iinfo(np.int16).max * y).astype(np.int16)
     if outtype == "int16":  y = np.rint(np.iinfo(np.int16).max * y).astype(np.int16)
 

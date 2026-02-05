@@ -1,12 +1,14 @@
 import numpy as np
 from librosa import util, lpc
-from scipy.signal import windows, fftconvolve
+from scipy.signal import windows, lfilter
 
 from ..utils.prep_audio_ import prep_audio
+from numba import njit
 
-def overlap_add(frames, hop_length, window='cosine'):
+@njit(cache=True)
+def overlap_add(frames, hop_length, window_vec):
     """
-Perform Overlap-Add reconstruction from 2D frames to a 1D signal.
+    Perform Overlap-Add reconstruction from 2D frames to a 1D signal.
 
 Parameters
 ==========
@@ -16,11 +18,9 @@ Parameters
     hop_length : int
         Number of samples to shift for each frame
 
-    window : str, tuple, numeric, callable, list-like (default 'cosine')
-        Window to apply to each frame before adding. This value is passed
-        as the `window` parameter to `scipy.signal.windows.get_window`). 
-        The default value 'cosine' matches the behavior of the overlap_and_add()
-        function in the tensor flow library. If None, add raw 'boxcar' frames.
+    window_vec : 1D array (frame_length) 
+        use scipy.signal.windows to get this vector with a statement like 
+        `win = windows.get_window('cosine', Nx=frames.shape[1], fftbins=False)`
 
 Returns
 =======
@@ -28,25 +28,18 @@ Returns
         The reconstructed 1D signal.
     """
     n_frames, frame_length = frames.shape
-    
-    # Preallocate the output buffer with zeros
     final_length = (n_frames - 1) * hop_length + frame_length
-    y = np.zeros(final_length)
-    
-    # If a window is provided, we multiply it against the frames
-    # to taper the edges and prevent clicking.
-    window = 'boxcar' if window is None else window
-    win = windows.get_window(window, Nx=frames.shape[1], fftbins=False)
-    frames = frames * win
 
-    # Overlap-Add Loop using slice assignment, which is highly optimized in numpy.
+    y = np.zeros(final_length, dtype=np.float32)
+    
     for i in range(n_frames):
-        # Calculate start and end indices for this frame and add to the buffer
         start = i * hop_length
-        end = start + frame_length
-        y[start:end] += frames[i, :]
-        
+        for j in range(frame_length):
+            # Windowing and Adding performed in a single pass 
+            # to maximize CPU cache efficiency
+            y[start + j] += frames[i, j] * window_vec[j]
     return y
+
 
 def lpcresidual(y, fs, target_fs=16000, order = 18, l=0.04, s=0.005, window='cosine'):    
     """Compute the residual signal which results from filtering the input array **y** 
@@ -86,27 +79,61 @@ Returns
 
     
     """
-    x, fs = prep_audio(y, fs, target_fs=target_fs, pre = 0, quiet=True)  # resample
+        
+    # 1. Resample and Pre-process
+    x, fs = prep_audio(y, fs, target_fs=target_fs, pre=0, quiet=True)
+    x = x.astype(np.float32) # Use float32 for speed and memory efficiency
     
-    frame_length = int(fs * l) # number of samples in a frame
-    step = int(fs * s)  # number of samples between frames, hop
+    frame_length = int(fs * l)
+    step = int(fs * s)
 
-    frames = util.frame(x, frame_length=frame_length, hop_length=step,axis=0)   # view as frames
-    window = window = 'boxcar' if window is None else window
-    win = windows.get_window(window, Nx=frames.shape[1])
-    frames = frames * win
+    # 2. Frame the signal
+    # util.frame creates a 'view', which is O(1) memory and time.
+    frames = util.frame(x, frame_length=frame_length, hop_length=step, axis=0)
+    
+    # 3. Compute LPC Coefficients
+    # librosa.lpc is generally efficient, but we process frames in one go.
+    A = lpc(frames, order=order) 
 
-    A = lpc(frames, order=order)  # get lpc coefficients
-    inv = fftconvolve(frames,A,mode="same",axes=1) # inverse filter, 
+    # 4. Inverse Filtering (The Bottleneck)    
+
+    # Pre-allocate output for frames
+    inv = np.zeros_like(frames)
+    
+    # Applying the filter A[i] to frames[i]
+    # A coefficients from librosa are [1, a1, a2, ...] 
+    # The residual is calculated by filtering the frame with A
+    for i in range(frames.shape[0]):
+        # lfilter is significantly faster than fftconvolve for short FIR filters
+        inv[i] = lfilter(A[i], [1.0], frames[i])
+
+    # 5. Energy Normalization (Vectorized)
+    # Compute energy per frame to match original logic
     inv = inv * np.sum(np.square(frames))/np.sum(np.square(inv))
 
-    lpc_resid = overlap_add(inv, step, window)  # put frames into waveform with overlap and add
+    #frame_energy = np.sum(frames**2, axis=1, keepdims=True)
+    #inv_energy = np.sum(inv**2, axis=1, keepdims=True)
+    # Avoid division by zero
+    #scale = np.sqrt(frame_energy / (inv_energy + 1e-12))
+    #inv *= scale
+    #print(f"scale.shape = {scale.shape}")
 
-    lpc_resid = lpc_resid/np.max(np.fabs(lpc_resid))
+    # 6. Overlap-Add
+    window = window = 'boxcar' if window is None else window
+    w = windows.get_window(window, Nx=frames.shape[1], fftbins=False)
+    lpc_resid = overlap_add(inv, step, w)
 
-    # pad the lpc_residual to be the same length as the input
-    npad = len(x)-len(lpc_resid)
-
-    lpc_resid = np.pad(lpc_resid,(0,npad),mode='edge')  ## repeat the last sample npad times
+    # 7. Final Normalization and Padding
+    #lpc_resid = lpc_resid/np.max(np.fabs(lpc_resid))
     
-    return lpc_resid,fs
+    max_val = np.max(np.fabs(lpc_resid))
+    if max_val > 0:
+        lpc_resid /= max_val
+
+    # Pad to match original length
+    if len(lpc_resid) < len(x):
+        lpc_resid = np.pad(lpc_resid, (0, len(x) - len(lpc_resid)), mode='edge')
+    else:
+        lpc_resid = lpc_resid[:len(x)]
+    
+    return lpc_resid, fs
