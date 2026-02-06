@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Phonlab'
-copyright = '2025, Regents of the University of California'
+copyright = '2026, Regents of the University of California'
 author = 'Keith Johnson and Ronald Sprouse'
 release = "Beta"
 
