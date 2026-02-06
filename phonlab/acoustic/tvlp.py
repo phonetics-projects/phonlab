@@ -487,10 +487,15 @@ def tvlp_batch(x, frame_length, hop_length, p, q, norm='l2', max_iter=10, verbos
 
 def tvlp_warmup_numba(verbose=True):
     """
-    Pre-compile Numba functions with minimal data.
+    Pre-compile Numba functions for TVLP_formants() with minimal data.
+
+    Parameters
+    ==========
+    verbose: string, default='True'
+    
     """
     if verbose:
-        print("Warming up Numba (compiling LP analysis functions)...", end='', flush=True)
+        print("Warming up Numba (compiling TVLP analysis functions)...", end='', flush=True)
     
     start = time.time()
     
@@ -620,7 +625,7 @@ def qcp_wt(x, DQ, PQ, d, Nramp, gci, fs):
     
     return w
 
-def track_formants_tvlp(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2', 
+def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2', 
                         formant_interval=0.01, npeaks=3, max_bandwidth=800, 
                         min_freq=200, max_freq=None, use_parallel=True, verbose=False):
     """

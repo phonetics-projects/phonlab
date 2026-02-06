@@ -10,8 +10,8 @@ __all__ = []
 from .acoustic.rlpc import RLPC_formants
 __all__ += ["RLPC_formants"]
 
-from .acoustic.tvlp import track_formants_tvlp, tvlp_warmup_numba
-__all__ += ["track_formants_tvlp",
+from .acoustic.tvlp import TVLP_formants, tvlp_warmup_numba
+__all__ += ["TVLP_formants",
             "tvlp_warmup_numba"]
 
 from .acoustic.display_wave_ import display_wave
