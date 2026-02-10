@@ -92,7 +92,7 @@ Returns
     frames = util.frame(x, frame_length=frame_length, hop_length=step, axis=0)
     
     # 3. Compute LPC Coefficients
-    # librosa.lpc is generally efficient, but we process frames in one go.
+    # librosa.lpc is generally efficient, we process frames in one go.
     A = lpc(frames, order=order) 
 
     # 4. Inverse Filtering (The Bottleneck)    

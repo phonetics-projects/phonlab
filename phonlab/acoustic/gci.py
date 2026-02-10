@@ -29,7 +29,7 @@ def get_mbs(x,fs, f0median, width = 1.4):
 
 # GCI function
 
-def gci_sedreams(x,fs,f0median=200,order=None,cthresh=0.0):
+def gci_sedreams(x,fs,f0median=170, target_fs = 16000, order=None, cthresh=0.0):
     '''Identify Glottal Closure instances (GCI) using Drugman & Dutoit's (2009) `sedreams` algorithm which 
 was published as a Matlab function in the Covarep repository.   The function also returns f0 and vocal jitter 
 based on the derived GCI estimates.  Two parameters are given here which were not a part of the original 
@@ -38,11 +38,13 @@ orders for different f0medians.
 
     .. code-block:: Python
 
+        low_order = int(fs/1000) + 2  # at 16kHz sampling this is 18
+
         if order==None:
-            if f0median<190: order = 18
-            elif f0median<250: order = 16
-            elif f0median<300: order = 14
-            else: order = 12
+            if f0median<190: order = low_order
+            elif f0median<250: order = low_order-2
+            elif f0median<300: order = low_order-4
+            else: order = low_order-6
 
 If you don't explicitly specify and LPC order one will be chosen for you.  This differs from D&D in that 
 they just used order=18 for everything.  This doesn't seem to change much in the operation of this function.
@@ -60,10 +62,12 @@ Parameters
     x : ndarray
         A one-dimensional array of audio samples
     fs : int
-        ampling rate of **x**
-    f0median : float
+        sampling rate of **x**
+    f0median : float, default = 200
         The median of the fundamental frequency of voicing in **x**. This value can be estimated 
         by the user, but it is best to measure the median of values given by a pitch tracker.
+    target_fs : int, default=16000
+        the sampling rate of the returned residual and mbs waveforms.
     order : int, default = None
         By default the order used in LPC analysis (to calculate the LPC residual signal) is guessed
         based on the value of F0median.  Drugmand & Dutoit (2009) used order=18.
@@ -133,14 +137,11 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
        
     '''
     
-    y,fs = prep_audio(x,fs,target_fs=16000,pre=0,quiet=True)
+    y,fs = prep_audio(x,fs,target_fs,pre=0,quiet=False)
 
-    if order==None:
-        if f0median<190: order = 18
-        elif f0median<250: order = 16
-        elif f0median<300: order = 14
-        else: order = 12
-            
+    # ========================
+    # 1. get the mean based signal and find peaks and valleys in it
+    
     mbs = get_mbs(y,fs,f0median)
 
     # get the locations of the peaks and valleys in the mbs
@@ -151,7 +152,22 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
     while imin[-1]>imax[-1]:
         imin = np.delete(imin,-1)
 
-    resid,fs = lpcresidual(y,fs,order = order)
+    # =======================
+    # 2. calculate the lpc residual signal
+    
+    low_order = int(fs/1000) + 2
+
+    if order==None:
+        if f0median<190: order = low_order
+        elif f0median<250: order = low_order-2
+        elif f0median<300: order = low_order-4
+        else: order = low_order-6
+            
+
+    resid,fs = lpcresidual(y,fs,target_fs, order = order)
+
+    # ========================
+    # 3. set an expectation for the median relative postion of the GCI in the MBS
     
     # get some big residual peaks -- to find an estimate for where to find the GCI in the MBS
     rp,_ = find_peaks(resid,height=0.3)
@@ -167,6 +183,9 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
         ratioGCI = 0.5
     else:
         ratioGCI = np.median(relpos)  # a reasonable expectation of where the GCI will be
+
+    # =========================
+    # 4. Find the glottal closure instants (GCI) - peaks in the residual
     
     gci = np.full(len(imin),np.nan)  # initialize with nan values
     soe = np.full(len(imin),np.nan)  # initialize with nan values
@@ -186,9 +205,17 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
     soe = soe[~np.isnan(soe)]
     gci = gci[~np.isnan(gci)]  # remove rows that didn't get filled
     gci = (gci)/fs
+
+    # ==========================
+    # 5. Measure F0 from the list of GCI
+    
     t1 = gci[1:]-gci[:-1]  # duration between adjacent GCI
     t1 = np.pad(t1,(0,1),mode='edge')  # repeat the last one
-    f0 = 1/t1
+    f0 = 1/t1  # should filter this to f0 values in a range
+
+    # ==========================
+    # 6. Measure jitter of adjacent periods
+    
     t2 = gci[2:]-gci[:-2] # duration between intervals of 2 GCI
     t2 = np.pad(t2,(0,2),mode='edge') # repeat the last two
     jitter = 2 * np.fabs(0.5 - (t1/t2)) # 0 = identical adjacent periods, 1 = one is twice as long as the other

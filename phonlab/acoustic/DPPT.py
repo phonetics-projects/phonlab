@@ -3,6 +3,7 @@ from scipy.signal import windows
 from librosa import util
 from pandas import DataFrame
 import numpy as np
+from numba import jit
 from ..utils.prep_audio_ import prep_audio
 
 def formantPeakPick(spec,n=6):  # maybe replace with scipy.pickpeaks ??
@@ -11,7 +12,7 @@ def formantPeakPick(spec,n=6):  # maybe replace with scipy.pickpeaks ??
 
     return an array of indices - the locations of the peaks
     '''
-    peakIndex=np.array([])
+    peakIndex=np.array([]).astype(np.float32)
     for i in range(n,len(spec)-n):
         is_peak = True
         for k in range(1,n):  is_peak = is_peak and spec[i]>=spec[i-k] and spec[i]>=spec[i+k]
@@ -20,7 +21,7 @@ def formantPeakPick(spec,n=6):  # maybe replace with scipy.pickpeaks ??
     return peakIndex
 
     
-def track_formants_DPPT(x,fs, pre=0, l=0.03, s=0.01, deltaF=1100, n=6):
+def DPPT_formants(x,fs, pre=0, l=0.03, s=0.01, deltaF=1100, n=6):
     '''Bozkurt et al.'s (2004) Differential-Phase Peak Tracking (DPPT) method of vowel formant 
     tracking is implemented in this function. The implementation here is a translation and 
     interpretation of the matlab routine `formant_CGDZP()` written by Bozkurt and Drugman and 

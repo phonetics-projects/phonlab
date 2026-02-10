@@ -19,7 +19,7 @@ Formant Tracking
 .. autofunction:: phonlab.RLPC_formants
 .. autofunction:: phonlab.TVLP_formants
 .. autofunction:: phonlab.tvlp_warmup_numba
-.. autofunction:: phonlab.track_formants_DPPT
+.. autofunction:: phonlab.DPPT_formants
 .. autofunction:: phonlab.formant_to_df
 .. autofunction:: phonlab.get_deltaF
 .. autofunction:: phonlab.deltaF_norm

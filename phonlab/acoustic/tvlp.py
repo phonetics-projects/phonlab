@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import time
 from numba import jit, prange
+from ..utils.prep_audio_ import prep_audio
+from ..acoustic.gci import gci_sedreams
 
 @jit(nopython=True)
 def _build_matrices(x, p, q, w):
@@ -113,7 +115,7 @@ def _compute_time_varying_coeffs(aki, frame_length):
 
 
 @jit(nopython=True, parallel=True)
-def _process_frames_l2_parallel(frames, p, q):
+def _process_frames_l2_parallel(frames, weights, p, q):
     """
     Process multiple frames in parallel using L2 norm.
     Computes time-varying coefficients directly, discarding aki matrices.
@@ -132,7 +134,7 @@ def _process_frames_l2_parallel(frames, p, q):
     for frame_idx in prange(n_frames):
         # Ensure frame is contiguous
         x = np.ascontiguousarray(frames[frame_idx])
-        w = np.ones(frame_length, dtype=np.float32)
+        w = np.ascontiguousarray(weights[frame_idx])
         
         Ypu, Yn = _build_matrices(x, p, q, w)
         x_opt = _solve_lstsq_numba(Ypu, Yn)
@@ -151,7 +153,7 @@ def _process_frames_l2_parallel(frames, p, q):
 
 
 @jit(nopython=True, parallel=True)
-def _process_frames_l1_parallel(frames, p, q, max_iter=10):
+def _process_frames_l1_parallel(frames, weights, p, q, max_iter=10):
     """
     Process multiple frames in parallel using L1 norm (IRLS).
     Computes time-varying coefficients directly, discarding aki matrices.
@@ -170,7 +172,7 @@ def _process_frames_l1_parallel(frames, p, q, max_iter=10):
     for frame_idx in prange(n_frames):
         # Ensure frame is contiguous
         x = np.ascontiguousarray(frames[frame_idx])
-        w = np.ones(frame_length, dtype=np.float32)
+        w = np.ascontiguousarray(weights[frame_idx])
         
         Ypu, Yn = _build_matrices(x, p, q, w)
         x_opt = _irls_iteration(Ypu, Yn, max_iter=max_iter)
@@ -188,7 +190,6 @@ def _process_frames_l1_parallel(frames, p, q, max_iter=10):
     return all_ak
 
 
-@jit(nopython=True)
 def _extract_frames(x, frame_length, hop_length):
     """Extract overlapping frames from signal."""
     n_samples = len(x)
@@ -313,7 +314,7 @@ def extract_formants_single_frame_sequential(ak, sample_indices, npeaks, fs,
     return fi, bw
 
 
-def tvlptoformants(all_ak, frame_length_samples, formant_interval, fs, 
+def tvlptoformants(all_ak, frame_length_samples, step, fs, 
                         npeaks=5, max_bandwidth=800, min_freq=0, max_freq=None, 
                         verbose=False, use_parallel=False):
     """
@@ -325,8 +326,8 @@ def tvlptoformants(all_ak, frame_length_samples, formant_interval, fs,
         Time-varying LP coefficients for all samples in all frames
     frame_length_samples : int
         Length of each frame in samples
-    formant_interval : float
-        Time interval between formant extractions in seconds (e.g., 0.01 for 10ms)
+    step : float
+        Time interval between formant measurements in seconds (e.g., 0.01 for 10ms)
     fs : float
         Sampling frequency in Hz
     npeaks : int
@@ -362,7 +363,7 @@ def tvlptoformants(all_ak, frame_length_samples, formant_interval, fs,
     
     # Calculate sample indices for formant extraction
     # Start from the middle of the first interval
-    interval_samples = int(formant_interval * fs)
+    interval_samples = int(step * fs)
     start_offset = interval_samples // 2
     sample_times = np.arange(start_offset, frame_length_samples, interval_samples, dtype=np.int64)
     n_timepoints = len(sample_times)
@@ -370,7 +371,7 @@ def tvlptoformants(all_ak, frame_length_samples, formant_interval, fs,
     if verbose:
         print(f"Extracting formants from {n_frames} frames")
         print(f"Frame length: {frame_length_samples} samples ({frame_length_samples/fs*1000:.1f} ms)")
-        print(f"Formant extraction interval: {formant_interval} sec ({interval_samples} samples)")
+        print(f"Formant extraction interval: {step} sec ({interval_samples} samples)")
         print(f"Starting at sample {start_offset} (middle of first interval)")
         print(f"Number of extraction points per frame: {n_timepoints}")
     
@@ -439,7 +440,7 @@ def tvlptoformants(all_ak, frame_length_samples, formant_interval, fs,
     return all_fi, all_bw, sample_times
 
 
-def tvlp_batch(x, frame_length, hop_length, p, q, norm='l2', max_iter=10, verbose=False):
+def tvlp_batch(x, fs, frame_length, p, q, norm, qcp=True, f0median =200,max_iter=10, verbose=False):
     """
     Process long audio files in parallel using Numba.
     Returns only time-varying coefficients (aki matrices are not stored).
@@ -453,23 +454,30 @@ def tvlp_batch(x, frame_length, hop_length, p, q, norm='l2', max_iter=10, verbos
     
     # Convert to float32 and ensure contiguous
     x = np.ascontiguousarray(x, dtype=np.float32)
-    
+    if qcp: 
+        gci,mbs,resid = gci_sedreams(x,fs,f0median, target_fs=fs,order=None,cthresh=0.0)
+        w = qcp_wt(x, gci['sec'], fs)
+    else:
+        w = np.ones(len(x), dtype=np.float32)
+        
     if verbose:
         print(f"Processing {len(x)} samples")
-        print(f"Frame length: {frame_length}, hop: {hop_length}")
+        print(f"Frame length: {frame_length}")
     
-    # Extract frames
-    frames = _extract_frames(x, frame_length, hop_length)
+    # Reshape - non-overlapping frames
+    frames = x.reshape((-1,frame_length))
+    weights = w.reshape((-1,frame_length))    
     
     if verbose:
         print(f"Extracted {len(frames)} frames")
+        print(f"Weight shape is {weights.shape}")
         print(f"Processing in parallel with Numba ({norm.upper()})...")
     
     # Process frames in parallel
     if norm.lower() == 'l2':
-        all_ak = _process_frames_l2_parallel(frames, p, q)
+        all_ak = _process_frames_l2_parallel(frames, weights, p, q)
     elif norm.lower() == 'l1':
-        all_ak = _process_frames_l1_parallel(frames, p, q, max_iter=max_iter)
+        all_ak = _process_frames_l1_parallel(frames, weights, p, q, max_iter=max_iter)
     else:
         raise ValueError("norm must be 'l1' or 'l2'")
     
@@ -485,52 +493,27 @@ def tvlp_batch(x, frame_length, hop_length, p, q, norm='l2', max_iter=10, verbos
     return all_ak
 
 
-def tvlp_warmup_numba(verbose=True):
+def qcp_wt(x, gci, fs, DQ=0.7, PQ=0.05, d=0.00001, Nramp=4):
     """
-    Pre-compile Numba functions for TVLP_formants() with minimal data.
-
-    Parameters
-    ==========
-    verbose: string, default='True'
-    
-    """
-    if verbose:
-        print("Warming up Numba (compiling TVLP analysis functions)...", end='', flush=True)
-    
-    start = time.time()
-    
-    # Minimal test data
-    test_signal = np.random.randn(2400).astype(np.float32)
-    
-    # Compile LP analysis functions
-    frames = _extract_frames(test_signal, 800, 800)
-    _ = _process_frames_l2_parallel(frames[:2], 10, 3)
-    _ = _process_frames_l1_parallel(frames[:2], 10, 3, max_iter=1)
-    
-    if verbose:
-        print(f" Done! ({time.time() - start:.1f}s)")
-
-def qcp_wt(x, DQ, PQ, d, Nramp, gci, fs):
-    """
-    Create an AME weight function for x
+    Create a pitch-synchronous weight function for x
     
     Parameters:
     -----------
     x : array-like
         Input signal of length N
-    DQ : float
-        Duration quotient (from 0 to 1)
-    PQ : float
-        Position Quotient (from 0 to 1)
-    d : float
-        Minimum value of the weight function
-    Nramp : int
-        Length of the linear ramp (in samples)
     gci : array-like
         Glottal Closure Instants in seconds
     fs : int
         Sampling rate in Hz
-        
+    DQ : float, default = 0.7
+        Duration quotient (from 0 to 1)
+    PQ : float, default = 0.05
+        Position Quotient (from 0 to 1)
+    d : float, default = 0.00001
+        Minimum value of the weight function
+    Nramp : int, default = 4
+        Length of the linear ramp (in samples)
+   
     Returns:
     --------
     w : ndarray
@@ -539,7 +522,7 @@ def qcp_wt(x, DQ, PQ, d, Nramp, gci, fs):
     N = len(x)
     
     # Convert GCI from time (seconds) to sample indices
-    gci_ins = np.round(np.array(gci) * fs).astype(np.int64)
+    gci_ins = np.round(np.array(gci) * fs).astype(int)
     
     # Create ramps if needed
     if Nramp > 0:
@@ -551,7 +534,7 @@ def qcp_wt(x, DQ, PQ, d, Nramp, gci, fs):
         DQ = 1 - PQ
     
     # Initialize weight array
-    w = np.full(N, d, dtype=np.float64)
+    w = np.full(N, d, dtype=np.float32)
     
     # Process all GCI pairs
     num_gci = len(gci_ins)
@@ -625,9 +608,35 @@ def qcp_wt(x, DQ, PQ, d, Nramp, gci, fs):
     
     return w
 
-def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2', 
-                        formant_interval=0.01, npeaks=3, max_bandwidth=800, 
-                        min_freq=200, max_freq=None, use_parallel=True, verbose=False):
+
+
+def tvlp_warmup_numba(verbose=True):
+    """
+    Pre-compile Numba functions for TVLP_formants() with minimal data.
+
+    Parameters
+    ==========
+    verbose: string, default='True'
+    
+    """
+    if verbose:
+        print("Warming up Numba (compiling TVLP analysis functions)...",end="",flush=True)
+    
+    start = time.time()
+    
+    # Minimal test data
+    frames = np.random.randn(2400).astype(np.float32).reshape((3,800))
+    weights = np.ones(2400).astype(np.float32).reshape((3,800))
+    
+    _ = _process_frames_l2_parallel(frames[:2], weights[:2], 10, 3)
+    _ = _process_frames_l1_parallel(frames[:2], weights[:2], 10, 3, max_iter=1)
+    
+    if verbose:
+        print(f" Done! ({time.time() - start:.1f}s)")
+
+def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2', qcp=True,
+                        step=0.01, nformants=3, f0median=200, max_bandwidth=800, 
+                        min_freq=200, max_freq=None, use_parallel=False, verbose=False):
     """
     This formant tracking function implements the time-varying, pitch synchronous, method that was described by Gowda et al. (2020).  The most important innovation of this method is that it smooths the Linear Prediction coefficients over time, providing a continuity constraint at the level of the LP coefficients. The second most important method is that (like Robust LPC) the method can optionally weight the audio samples pitch synchronously so the LP coefficients are caluculated from the glottal closed phase where the assumptions of LPC analysis are better met.  The third innovation, which also seems to be both the most computationally costly and least important for good formant tracking, is that the LP coefficients can be calculated minimizing the L1 norm (city-block) norm rather than the L2 norm (Euclidian distance).  
     
@@ -635,41 +644,33 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2',
     ==========
     x : array_like
         a one-dimensional array of audio samples
-
     fs : int
         Sampling frequency of **x** in Hz 
-
     frame_duration_sec : float, default 0.1 = 100ms
         Duration of each frame in seconds.  Gowda et al.'s tests found that 100ms provides the most accurate formant measurements.
-
     p : int, default = 10
         Linear prediction order 
-
     q : int, default = 3
         Time-varying polynomial order
-
     norm : str, default = 'l2'
         Choose whether to minimize the 'l1' or 'l2' norm in finding the LP and polynomial coefficients.  The L1 norm requires an iterative reweighting algorithm which is much slower than minimizing the L2 norm.
-        
-    formant_interval : float, default = 0.01
-        Time interval between formant extractions in seconds. Formants are taken from the middle of each interval
-
-    npeaks : int, default=3
+    qcp : bool, default = True
+        Choose whether or not to do a pitch synchronous analysis, limiting the estimation function to the glottal closed phase (the Quasi-Closed-Phase).  If True the analysis will be pitch synchronous.
+    step : float, default = 0.01
+        Time interval between formant measurements in seconds. Formants are taken from the middle of each interval
+    nformants : int, default=3
         Number of formants to extract
-
+    f0median : float, default=170.0
+        This is an estimate of the median F0 value to expect in the signal being analyzed.  This parameter is used in the pitch synchronous method (i.e. when `qcp` is **True**) to guide the algorithm's expectation for finding glottal closure intervals.
     max_bandwidth : float, default=800
         Maximum formant bandwidth in Hz, formants with bandwidth greater than this are rejected.
-
     min_freq : float, default=200
         Minimum formant frequency in Hz, formants with frequency less than this are rejected.
-
     max_freq : float or None, default=None
-        Maximum formant frequency in Hz
-        
+        Maximum formant frequency in Hz  
     use_parallel : bool, default=True
         Try to use parallel processing for formant extraction.
         Note: Usually doesn't work in Jupyter notebooks, set to False for notebooks
-
     verbose : bool, default=False
         Print progress
     
@@ -680,7 +681,7 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2',
         - 'sec': Time in seconds for each measurement
         - 'F1', 'F2', 'F3', 'F4', 'F5': Formant frequencies in Hz
         - 'B1', 'B2', 'B3', 'B4', 'B5': Formant bandwidths in Hz
-        Number of formant columns depends on npeaks parameter.
+        Number of formant columns depends on the nformants parameter.
 
     References
     ==========
@@ -688,11 +689,10 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2',
     D. Gowda, R. Kadiri, B. Story, P. Alku (2020) `Time-varying quasi-closed-phase analysis for accurate formant tracking in speech signals.` in IEEE/ACM Transactions on Audio, Speech, and Language Processing, vol. 28, pp. 1901-1914, doi: 10.1109/TASLP.2020.3000037.
     """
     overall_start = time.time()
-    
-    # Convert frame duration from seconds to samples
+       
+    x, fs = prep_audio(x, fs, target_fs = 12000, pre = 0, pad_to=frame_duration_sec, quiet = True)
     frame_length_samples = int(frame_duration_sec * fs)
-    hop_length_samples = frame_length_samples  # Non-overlapping frames
-    
+
     if verbose:
         duration_sec = len(x) / fs
         print("=" * 60)
@@ -700,10 +700,13 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2',
         print("=" * 60)
         print(f"Audio: {len(x)} samples ({duration_sec:.2f}s at {fs} Hz)")
         print(f"Frame duration: {frame_duration_sec}s ({frame_length_samples} samples)")
-        print(f"Formant interval: {formant_interval} sec")
+        print(f"Formant interval: {step} sec")
         print(f"LP order: p={p}, q={q}, norm={norm}")
+        if qcp:
+            print(f"QCP: Window the residual to fit LP coefficients on closed phase samples")
+        else:
+            print(f"No pitch synchronous windowing - no QCP")
         print(f"Parallel processing: {'Enabled (may fail in notebooks)' if use_parallel else 'Disabled (recommended for notebooks)'}")
-        print(f"Precision: float32 (memory efficient)")
         print("=" * 60)
         print()
     
@@ -712,8 +715,8 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2',
         print("Step 1: Computing time-varying LP coefficients...")
     
     all_ak = tvlp_batch(
-        x, frame_length=frame_length_samples, hop_length=hop_length_samples,
-        p=p, q=q, norm=norm, max_iter=10, verbose=verbose
+        x, fs, frame_length=frame_length_samples, p=p, q=q, 
+        norm=norm, qcp=qcp, f0median=f0median, verbose=verbose
     )
     
     if verbose:
@@ -725,8 +728,8 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2',
     
     formant_freqs, formant_bws, sample_times = tvlptoformants(
         all_ak, frame_length_samples=frame_length_samples, 
-        formant_interval=formant_interval, fs=fs,
-        npeaks=npeaks, max_bandwidth=max_bandwidth, 
+        step=step, fs=fs,
+        npeaks=nformants, max_bandwidth=max_bandwidth, 
         min_freq=min_freq, max_freq=max_freq, 
         use_parallel=use_parallel, verbose=verbose
     )

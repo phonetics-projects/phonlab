@@ -120,15 +120,6 @@ Example
         peak2 = int(np.argmin(np.fabs(peaks-(F0[n]*2))))
         h2h1[n] = spec[n,peaks[peak2]] - spec[n,peaks[peak1]]
 
-        '''
-        if (n==66):
-            print(f'peaks = {peaks}')
-            print(peak1,peak2,F0[n])
-            plt.plot(spec[n,0:1000])
-            plt.axvline(peaks[peak1], color="red",alpha=0.4)
-            plt.axvline(peaks[peak2], color="red",alpha=0.4)
-            print(h2h1[n])
-        '''
     df = f0df.copy()
     df['h2h1'] = h2h1
     return df

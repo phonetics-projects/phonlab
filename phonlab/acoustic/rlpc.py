@@ -3,7 +3,7 @@ from librosa import util, lpc, frames_to_time
 from scipy.signal import windows, fftconvolve, lfilter
 from scipy.linalg import inv
 from pandas import DataFrame
-from numba import jit, prange
+from numba import jit
 
 # prep_audio, choose_order
 from ..utils.prep_audio_ import prep_audio
@@ -29,27 +29,27 @@ def weighted_cor(x,weight,npoles):
     return c1[1:npoles+1]
     
 def RLPC_formants(x, fs, order = -1, preemphasis = 0.94,s = 0.01, 
-                 l = 0.03, window = None,numiter=1):
-    """An implementation of Lee's (1988) method for Robust Linear Prediction Coding. The method computes the residual signal from a conventional LPC analysis and used to down-weight samples that produce large prediction error. Formant frequencies are found from the LPC coefficients using polynomial root solving.  
+                 l = 0.03, window = None, numiter=1):
+    """An implementation of Lee's (1988) method for Robust Linear Prediction Coding. The method computes the residual signal from a conventional LPC analysis and the uses it to down-weight samples that produce large prediction error. It is possible to iterate the residual reweighting process, though not much improvement is gained after the first iteration.  Formant frequencies are found from the LPC coefficients using polynomial root solving.  
     
     Parameters
     ==========
     x : ndarrar
-            the name of a sound file, or an array of audio samples
+        a 1D array of audio samples
     fs : int
-            the sampling rate of sound if it is an array - will be resampled to 12,000 Hz
+        the sampling rate of samples in x.  This will be resampled to 12,000 Hz for analysis, so choose the order paramter with this in mind.
     order : int (default = -1)
-            pass a value of -1 to have the function call choose_order() to determine the best value for this parameter.  Or pass a positive integer.
+        pass a value of -1 to use the function choose_order() to determine the best value for this parameter.  Or pass a positive integer.
     preemphasis : float (default = 0.94)
-            factor of a preemphasis factor (0-1).
+        factor of a preemphasis factor (0-1).
     s : float (default = 0.01)
-            the interval (in seconds) between successive formant measurements.
+        the interval (in seconds) between successive formant measurements.
     l : float (default = 0.05)
-            duration (in seconds) of analysis frames
+        duration (in seconds) of analysis frames
     window : string (default = 'cosine')
-            The name of a window shape for scipy.signal.windows.get_window()
+        The name of a window shape for scipy.signal.windows.get_window()
     numiter : integer (default = 2)
-            Number of robust LPC iterations to perform.  If this value is 0 the results of the conventional LPC analysis are returned with no robust recalculation of the linear prediction.
+        Number of robust LPC iterations to perform.  If this value is 0 the results of the conventional LPC analysis are returned with no robust recalculation of the linear prediction.
             
     Returns
     =======

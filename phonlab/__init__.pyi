@@ -17,8 +17,8 @@ __all__ += ["TVLP_formants",
 from .acoustic.display_wave_ import display_wave
 __all__ += ["display_wave"]
 
-from .acoustic.DPPT import track_formants_DPPT
-__all__ += ["track_formants_DPPT"]
+from .acoustic.DPPT import DPPT_formants
+__all__ += ["DPPT_formants"]
 
 from .acoustic.amp_env import amplitude_envelope
 __all__ += ["amplitude_envelope"]

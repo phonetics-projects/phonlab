@@ -81,7 +81,7 @@ Take the right channel, and resample to 16,000 Hz
             x2 = x
         else:
             if not quiet: 
-                print(f'Resampling from {fs} to {target_fs}')
+                print(f'Prep Audio: Resampling from {fs} to {target_fs}')
             cd = np.gcd(fs,target_fs)   # common denominator   
             x2 = resample_poly(x,up=target_fs/cd, down=fs/cd)
         
@@ -97,9 +97,12 @@ Take the right channel, and resample to 16,000 Hz
     if scale: y = y/np.max(y) * 0.9  # scale to about full range
     if add_tiny_noise:  y = y + ((np.random.rand(len(y)) - 0.5) * 0.0001)
     if pad_to > 0: 
-        extra_time = pad_to - ((len(x)/fs) % pad_to)
-        extra_samples = int(extra_time * fs)
+        # check whether any extra are needed
+        extra_time = pad_to - ((len(y)/target_fs) % pad_to)
+        extra_samples = int(extra_time * target_fs)
         y = np.concatenate((y,(np.random.rand(extra_samples) - 0.5) * 0.0001))
+        if not quiet:
+            print(f"Prep Audio: Padding signal to {pad_to} sec, which involves adding {extra_samples} extra samples.")
     if outtype == "int":  y = np.rint(np.iinfo(np.int16).max * y).astype(np.int16)
     if outtype == "int16":  y = np.rint(np.iinfo(np.int16).max * y).astype(np.int16)
 
