@@ -7,6 +7,9 @@ by having a complete doc string and then added to one of the .rst files in the p
 
 __all__ = []
 
+from .utils.test_sig import test_signal
+__all__ += ["test_signal"]
+
 from .acoustic.rlpc import RLPC_formants
 __all__ += ["RLPC_formants"]
 

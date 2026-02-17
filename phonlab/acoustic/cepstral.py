@@ -205,13 +205,20 @@ Parameters
 
 Returns
 =======
-    freq : ndarray
-        A one dimensional numpy array with frequency values (in Hz)
     sec : ndarray
         A one dimensional numpy array with frame time points (in seconds)
-    Sxx : ndarray
-        A two dimensional numpy array with spectral magnitudes at these timepoints and frequencies.  The spectrum at 
-        time point `i` is found at Sxx[:,i].
+    freqE : ndarray
+        A one dimensional numpy array with frequency values (in Hz) for the smoothed spectral envelope, Exx.
+    Exx : ndarray
+        A two dimensional numpy array with cepstrally smoothed spectral magnitudes at these timepoints and frequencies.  The spectrum at time point `i` is found at Exx[:,i].
+    freqS : ndarray
+        The frequency axis for the raw spectral array, Sxx.
+    Sxx : nd array
+        A two dimensional numpy array with raw spectral magnitudes, before smoothing.  A narrow band spectrogram.
+    quef : nd array
+        A one dimensional numpy array with quefrency values (in ms) corresponding to axis 1 of the cepstra array, Cxx.
+    Cxx : nd array
+        A two dimensional numpy array of cepstra at the time points in sec.
 
 
 References
@@ -227,14 +234,15 @@ References
         
     x,fs = phon.loadsig(example_file,chansel=[0])
 
-    freq, ts, Sxx = phon.cepstral_smooth(x, fs, lift=0.0022)
+    freq, ts, Exx, Sxx, quef, Cxx = phon.cepstral_smooth(x, fs, lift=0.0022)
 
     # ------ plot spectra at a particular time point -------
 
     slice_time = 1.4
     i = np.argmin(np.abs(ts-slice_time))  # find the index of the spectral slice
 
-    plt.plot(freq,Sxx[:,i], color='blue')
+    plt.plot(freq,Exx[:,i], color='blue')
+    plt.plot(freq1,Sxx[:,i],alpha=0.2,color='gray')
 
 
 .. figure:: images/cepstral_smooth.png
@@ -257,18 +265,20 @@ References
     half_frame = int(n_fft//2)
 
     # note the librosa routines being used in this line
-    Dxx = amplitude_to_db(np.abs(stft(x, n_fft=n_fft, win_length=n_fft, hop_length= step, center=True)))
+    Sxx = amplitude_to_db(np.abs(stft(x, n_fft=n_fft, win_length=n_fft, hop_length= step, center=True)))
+    freqS = np.arange(Sxx.shape[0])*(fs/2)/Sxx.shape[0]       # frequency axis
 
-    ts = (np.array(range(Dxx.shape[1])) * step + half_frame)/fs  # time axis
-    Cxx = np.apply_along_axis(func1d=lambda x: np.fft.irfft(x).real, axis=0, arr=Dxx)   # cepstrogram
+    ts = (np.array(range(Sxx.shape[1])) * step + half_frame)/fs  # time axis
+    Cxx = np.apply_along_axis(func1d=lambda x: np.fft.irfft(x).real, axis=0, arr=Sxx)   # cepstrogram
+    quef = np.arange(n_fft//2 + 1)/fs
 
     lift = int(lift * fs)  # convert lift value to samples (from seconds)
     Exx = Cxx.copy()
     Exx = np.concatenate(  (Exx, Exx[1:][::-1]), axis=0 )   # mirror spectrum
     Exx[lift:-lift, :] = 0.     # filter, set all to zero exept below lift period (shorter periods only)
     Exx = np.apply_along_axis(func1d=lambda x: np.fft.rfft(x).real[:Cxx.shape[0]], axis=0, arr=Exx)  # back to frequency axis
-    freq = np.arange(Exx.shape[0])*(fs/2)/Exx.shape[0]                       # frequency axis
+    freqE = np.arange(Exx.shape[0])*(fs/2)/Exx.shape[0]                       # frequency axis
 
     #print(f"target_fs = {target_fs}, fs = {fs}, Dxx.shape = {Dxx.shape}, Exx.shape = {Exx.shape}")
     #print(f"  Cxx.shape = {Cxx.shape}, len(freq) = {len(freq)}, freqmax = {freq[-1]}, n_fft = {n_fft}")
-    return freq, ts, Exx
+    return ts, freqE, Exx, freqS, Sxx, quef, Cxx
