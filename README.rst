@@ -8,12 +8,6 @@ A collection of python functions for doing phonetics.
 Installation and Documentation
 ==============================
 
-* The package includes a yaml file that can be used to create a conda environment with the command:
-
-.. code-block:: 
-
-  conda env create --file phonlab_env.yaml
-
 * To install phonlab into an existing environment use pip:
 
 .. code-block:: 
@@ -22,13 +16,20 @@ Installation and Documentation
 
 * The phonlab documentation is here:  https://phonlab.readthedocs.io
 
+* The github page for this package (https://github.com/phonetics-projects/phonlab) includes a yaml file that can be used to create a conda environment with all of the phonlab dependencies installed.  Use this command:
+
+.. code-block:: 
+
+  conda env create --file phonlab_env.yaml
+
+
 ========
 Examples
 ========
 
 See the `Phonlab Workshop slide deck <https://docs.google.com/presentation/d/1gfwlxLWZaZY7Zth8zP1LvmHAi21qQs6uBAm1Ep7DpYw/edit?usp=sharing>`_ for some background on this package.  There are example jupyter notebooks in the google drive linked in those slides.
 
-See also the `examples` folder in this repository!
+See also the `examples` folder in the github repository!
 
 ============
 Contributing
@@ -36,8 +37,8 @@ Contributing
 
 We solicit contributions/corrections from the research community.  Here are some steps you can follow to contribute to this project.
 
-#. Open a new issue in the phonetics-projects/phonlab repository on github
-#. Use git to Clone the repository
+#. Open a new issue in the https://github.com/phonetics-projects/phonlab repository.
+#. Use git to Clone the repository.
 #. Make your changes on your local clone of the repository
 
     * if you are adding a function, add it to the repository in a separate file, and write a good doc string for it
