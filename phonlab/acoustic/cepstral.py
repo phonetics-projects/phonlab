@@ -1,6 +1,6 @@
 from ..utils.prep_audio_ import prep_audio
 import numpy as np
-from librosa import util
+from librosa import util, stft, amplitude_to_db
 from scipy import fft
 from pandas import DataFrame
 from scipy.signal import windows,filtfilt
@@ -178,3 +178,97 @@ This example plots the cepstral peak prominence through the "I'm twelve" example
         cpp = cpp-p
             
     return DataFrame({'sec': sec, 'f0':f0, 'cpp':cpp})
+
+
+def cepstral_smooth(x, fs, tf=5000, s=0.005, l=0.04, lift=0.003):
+    '''Smooth spectra by cepstral 'liftering' to remove the periodic source, leaving only the overall spectral envelope shape. 
+The implementation here borrows heavily from Seonju Kim's repository (https://github.com/hwang9u/pyceps).  
+
+Parameters
+==========
+    x : ndarray
+        A one-dimensional array of audio samples
+    fs : int
+        Sampling rate of **x**
+    tf : int, default = 5000
+        The top frequency (in Hz) of the smoothed spectrum.  The audio will be resampled to the sampling rate `tf` * 2.
+    s : float, default = 0.005
+        Step size, of hops between analysis windows. The default is 5 milliseconds.  
+    l : float, default = 0.04
+        Length of analysis windows.  The default is 40 milliseconds.  The actual size of the analysis windows will 
+        be the smallest power of 2 that is greater than or equal to this length in samples.
+    lift : float, default = 0.003
+        The filtering coefficient (in seconds).  Compenents that have a period longer than the `lift` value will be 
+        removed from the signal.  The default value of 3 ms means that cepstral components lower than 333Hz will be
+        removed.  Smaller values of this parameter lead to more smoothing, and larger values lead to less spectral 
+        smoothing.
+
+Returns
+=======
+    freq : ndarray
+        A one dimensional numpy array with frequency values (in Hz)
+    sec : ndarray
+        A one dimensional numpy array with frame time points (in seconds)
+    Sxx : ndarray
+        A two dimensional numpy array with spectral magnitudes at these timepoints and frequencies.  The spectrum at 
+        time point `i` is found at Sxx[:,i].
+
+
+References
+==========
+    B. P. Bogert, M. J. R. Healy, and J. W. Tukey, (1963) `The Quefrency Alanysis [sic] of Time Series for Echoes: Cepstrum, Pseudo Autocovariance, Cross-Cepstrum and Saphe Cracking, `Proceedings of the Symposium on Time Series Analysis` (M. Rosenblatt, Ed) Chapter 15, 209-243. New York: Wiley.
+
+.. code-block:: Python
+
+    import matplotlib.pyplot as plt
+
+    audio_dir = importlib.resources.files('phonlab') / 'data' / 'example_audio'
+    example_file = audio_dir / 'sf3_cln.wav'
+        
+    x,fs = phon.loadsig(example_file,chansel=[0])
+
+    freq, ts, Sxx = phon.cepstral_smooth(x, fs, lift=0.0022)
+
+    # ------ plot spectra at a particular time point -------
+
+    slice_time = 1.4
+    i = np.argmin(np.abs(ts-slice_time))  # find the index of the spectral slice
+
+    plt.plot(freq,Sxx[:,i], color='blue')
+
+
+.. figure:: images/cepstral_smooth.png
+    :scale: 50 %
+    :alt: A ceptrally smoothed spectrum taken at time 1.4 in file sf3_cln.wav
+    :align: center
+
+    A ceptrally smoothed spectrum taken at time 1.4 in file sf3_cln.wav, in comparison with the unsmoothed FFT spectrum.
+
+
+    '''
+    
+    target_fs = int(tf*2)
+    
+    x,fs = prep_audio(x, fs, target_fs=target_fs, pre=0.0, quiet=True)  # resample to target_fs
+
+    step = int(fs*s)
+    frame_length = int(fs*l)
+    n_fft = int(2**(np.ceil(np.log(frame_length)/np.log(2)))) # choose smallest power of 2 >= frame_length
+    half_frame = int(n_fft//2)
+
+    # note the librosa routines being used in this line
+    Dxx = amplitude_to_db(np.abs(stft(x, n_fft=n_fft, win_length=n_fft, hop_length= step, center=True)))
+
+    ts = (np.array(range(Dxx.shape[1])) * step + half_frame)/fs  # time axis
+    Cxx = np.apply_along_axis(func1d=lambda x: np.fft.irfft(x).real, axis=0, arr=Dxx)   # cepstrogram
+
+    lift = int(lift * fs)  # convert lift value to samples (from seconds)
+    Exx = Cxx.copy()
+    Exx = np.concatenate(  (Exx, Exx[1:][::-1]), axis=0 )   # mirror spectrum
+    Exx[lift:-lift, :] = 0.     # filter, set all to zero exept below lift period (shorter periods only)
+    Exx = np.apply_along_axis(func1d=lambda x: np.fft.rfft(x).real[:Cxx.shape[0]], axis=0, arr=Exx)  # back to frequency axis
+    freq = np.arange(Exx.shape[0])*(fs/2)/Exx.shape[0]                       # frequency axis
+
+    #print(f"target_fs = {target_fs}, fs = {fs}, Dxx.shape = {Dxx.shape}, Exx.shape = {Exx.shape}")
+    #print(f"  Cxx.shape = {Cxx.shape}, len(freq) = {len(freq)}, freqmax = {freq[-1]}, n_fft = {n_fft}")
+    return freq, ts, Exx

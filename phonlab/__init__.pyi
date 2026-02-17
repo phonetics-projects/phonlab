@@ -26,9 +26,9 @@ __all__ += ["amplitude_envelope"]
 from .acoustic.burst_detect import burst
 __all__ += ["burst"]
 
-from .acoustic.cepstral import compute_cepstrogram, CPP
+from .acoustic.cepstral import compute_cepstrogram, CPP, cepstral_smooth
 __all__ += ["compute_cepstrogram", 
-            "CPP"]
+            "CPP", "cepstral_smooth"]
 
 from .acoustic.fric_meas import hz2bark, bark2hz, fricative
 __all__ += ["hz2bark", 

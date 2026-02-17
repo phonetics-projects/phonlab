@@ -6,6 +6,7 @@ Spectrogram/waveform
 .. autofunction:: phonlab.display_wave
 .. autofunction:: phonlab.sgram
 .. autofunction:: phonlab.compute_sgram
+.. autofunction:: phonlab.cepstral_smooth
 
 Amplitude Contour
 -----------------

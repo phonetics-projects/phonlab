@@ -30,7 +30,7 @@ def weighted_cor(x,weight,npoles):
     
 def RLPC_formants(x, fs, order = -1, preemphasis = 0.94,s = 0.01, 
                  l = 0.03, window = None, numiter=1):
-    """An implementation of Lee's (1988) method for Robust Linear Prediction Coding. The method computes the residual signal from a conventional LPC analysis and the uses it to down-weight samples that produce large prediction error. It is possible to iterate the residual reweighting process, though not much improvement is gained after the first iteration.  Formant frequencies are found from the LPC coefficients using polynomial root solving.  
+    """An implementation of Lee's (1988) method for Robust Linear Prediction Coding. The method computes the residual signal from a conventional LPC analysis and then uses it to down-weight samples that produce large prediction error. It is possible to iterate the residual reweighting process more than once, though not much improvement is gained after the first iteration.  Formant frequencies are found from the LPC coefficients using polynomial root solving.  
     
     Parameters
     ==========
@@ -48,7 +48,7 @@ def RLPC_formants(x, fs, order = -1, preemphasis = 0.94,s = 0.01,
         duration (in seconds) of analysis frames
     window : string (default = 'cosine')
         The name of a window shape for scipy.signal.windows.get_window()
-    numiter : integer (default = 2)
+    numiter : integer (default = 1)
         Number of robust LPC iterations to perform.  If this value is 0 the results of the conventional LPC analysis are returned with no robust recalculation of the linear prediction.
             
     Returns
