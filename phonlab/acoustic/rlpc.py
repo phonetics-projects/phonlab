@@ -66,7 +66,7 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
     ====
     The columns in the output dataframe are:
         * sec - midpoint time of the frame 
-        * gain - a one-dimensional numpy array with the gain (variance of the residual) for each frame.
+        * gain - the LPC gain (variance of the residual) for each frame.
         * F1-4 - the lowest four vowel 'formants' - vocal tract resonances.
         * BW1-4 - bandwidths of the vowel formants
 

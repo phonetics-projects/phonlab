@@ -31,7 +31,7 @@ def hz2bark(hz):
     
     return 7 * np.arcsinh(hz/650)
 
-def bark2hz(self, bark):
+def bark2hz(bark):
     '''
     Convert frequency in Hz to Bark using the Schroeder 1977 formula::
 

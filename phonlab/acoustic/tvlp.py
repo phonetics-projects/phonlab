@@ -688,8 +688,6 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, order=-1, q=3, norm='l2', qcp=T
         * F1-4 - the lowest four vowel 'formants' - vocal tract resonances.
         * BW1-4 - bandwidths of the vowel formants
 
-
-
     References
     ==========
 
@@ -798,7 +796,6 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, order=-1, q=3, norm='l2', qcp=T
         print(f"Total processing time: {overall_time:.2f}s")
         print(f"DataFrame shape: {df.shape}")
         print(f"Time range: {df['sec'].min():.4f}s to {df['sec'].max():.4f}s")
-        print(f"Memory saved with float32: ~50% vs float64")
         if len(x) > fs:
             rtf = (len(x) / fs) / overall_time
             print(f"Real-time factor: {rtf:.1f}x")
