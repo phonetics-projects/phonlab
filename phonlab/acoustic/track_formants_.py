@@ -4,6 +4,7 @@ from scipy import fft
 import librosa
 from pandas import DataFrame
 from ..utils.prep_audio_ import prep_audio
+from ..acoustic.choose_order_ import choose_order
 
 # constants and global variables
 SR = 12000
@@ -577,7 +578,7 @@ def IFC_process_frame(x,fs, spkr,f0_range,filterbank):
 
     return np.round([f1,f2,f3,f4,f0,c],3)
 
-
+"""
 # ------------ functions for LPC analysis -----------------------
 #
 #  The functions create_frames(), solve_lpc(), and get_LPC()  are lightly adapted from those provided by 
@@ -678,7 +679,7 @@ def get_LPC(x,fs, frame_length,p):  # add a flag for computing RMS
     A = np.insert(-A, 0, 1,axis=1)  # inverse filter is a[0] = 1, a[1-p] = -a
     return (A,rms,t)
 # ------------ functions for LPC analysis -----------------------
-
+"""
 
 def get_LPC_lr(x,fs, frame_length,p):
     '''get_LPC_lr() -- uses librosa functions to compute LPC coefficients for a waveform array.  
@@ -706,43 +707,6 @@ def get_LPC_lr(x,fs, frame_length,p):
     t = librosa.frames_to_time(range(frames.shape[0]),sr=fs, hop_length=step,n_fft=frame_length)
     A = librosa.lpc(frames, order=p,axis= -1)
     return A,t
-
-def choose_order(x,frame_length,fs):
-    '''choose_order() -- The most impactful parameter in LPC analysis is the 'order',
-    the number of LPC coefficients to use in calculating a fit to the spectrum.  Many
-    authors propose a rule of thumb having to do with the expected number of formants
-    in the analyzed frequency range.  This function takes an array of waveform samples,
-    and calculates LPC coeffients
-    at each of several orders [8,10,12,14,16] -- assuming that the fs is 12,0000 Hz.
-    It then returns the order that produced the lowest A[1] over the span.  
-
-    Parameters
-    ----------
-        x - a one-dimensional numpy arry with audio waveform samples (must be sampled at 12kHz)
-        frame_length - the number of samples in a frame
-        fs - the sampling frequency of x
-        
-    Result
-    ------
-        lpc_order - the best fitting choice to use as the order term in LPC analysis
-    '''
-    
-    min = 1e10 
-    os = (fs//1000) - 4  # 12-4 = 8
-    oe = (fs//1000) + 3  # 12+3 = 15
-
-    frames = librosa.util.frame(x, frame_length=frame_length, 
-                                hop_length=step,axis=0)  # use librosa to make frames  
-    w = signal.windows.hamming(frame_length)
-    frames = np.multiply(frames,w)   # apply a Hamming window to each frame
-
-    for order in range(os,oe):  # try different order values
-        A = librosa.lpc(frames,order = order, axis=1)
-        A1 = np.linalg.norm(A[:,1])
-        if A1 < min:
-            min = A1
-            lpc_order = order        
-    return lpc_order
 
 def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0, quiet = False):
     '''LPC_tracking() uses the Librosa implemenation of linear predictive coding 
@@ -779,20 +743,8 @@ def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0, quie
     else: y=x
         
     if order<0:  # guess the correct LPC order
-        if len(x) < fs*2:
-            test_x = y   # choose order using the whole file
-        else:
-            m = np.argmax(rms)*step  # limit the sample to 2 seconds (centered on the peak RMS amplitude)
-            s = m - fs  # back a second
-            e = m + fs  # forward a second
-            if s<0:  # don't foll off the front or back of the buffer
-                s=0; e=fs*2
-            if e > len(x)-1:
-                e = len(x)-1
-                s = e-fs*2
-            test_x = y[s:e]
-        order = choose_order(test_x,frame_length,fs)
-        if not quiet: print(f"Selected LPC order is: {order}")
+        order,time = choose_order(y,fs,frame_length/fs)
+        if not quiet: print(f"Selected LPC order is: {order}, measured at time {time:.3f}")
 
     (A,t) = get_LPC_lr(y,fs, frame_length,order)  # LPC coefs for whole file using this order
 

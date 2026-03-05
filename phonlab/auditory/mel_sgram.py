@@ -134,10 +134,10 @@ Parameters
 
 Returns
 =======
-    mel_f : ndarray
-        a one dimensional array of mel frequency values - the frequency axis of the spectrogram
     sec : ndarray
         a one dimensional array of time values, the time axis of the spectrogram
+    mel_f : ndarray
+        a one dimensional array of mel frequency values - the frequency axis of the spectrogram
     mel_sgram: ndarray
         A two-dimensional (time,frequency) array of amplitufe values.  The intervals between 
         time slices is dependent on the **s** input parameter, by default 10 ms, and the 
@@ -189,7 +189,7 @@ that to the tensor flow function to compute mel-frequency cepstral coefficients 
     start,stop = Hz_to_mel(np.array([lower_edge_hertz, upper_edge_hertz]))
     mel_f = np.linspace(start,stop,num_mel_bins)
     
-    return mel_f, t, log_mel_sgram
+    return t, mel_f, log_mel_sgram
 
 '''
 # version that uses tensorflow routines

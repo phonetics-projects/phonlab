@@ -7,6 +7,9 @@ by having a complete doc string and then added to one of the .rst files in the p
 
 __all__ = []
 
+from .acoustic.choose_order_ import choose_order, choose_order_A
+__all__ += ["choose_order", "choose_order_A"]
+
 from .utils.test_sig import test_signal
 __all__ += ["test_signal"]
 
@@ -74,9 +77,8 @@ __all__ += ["formant_to_df",
             "intensity_to_df", 
             "mfcc_to_df"]
 
-from .acoustic.track_formants_ import track_formants, choose_order
-__all__ += ["track_formants",
-            "choose_order"]
+from .acoustic.track_formants_ import track_formants
+__all__ += ["track_formants"]
 
 from .acoustic.vowel_norm import get_deltaF, deltaF_norm, resize_vt
 __all__ += ["get_deltaF", 

@@ -110,11 +110,11 @@ Parameters
 
 Returns
 -------
-    f : ndarray, one-dimensional
-        the frequency axis of the rhythmogram, in Hz
-        
     t : ndarray, one-dimensional 
         the time axis of the rhythmogram, in seconds
+
+    f : ndarray, one-dimensional
+        the frequency axis of the rhythmogram, in Hz   
         
     Sxx : ndarray, two-dimensional
         the amplidude values of the rhythmogram, axis 1 is time, axis 0 is frequency
@@ -132,7 +132,7 @@ Example
 .. code-block:: Python
 
          x,fs = phon.loadsig("s1202a.wav", chansel=[0])
-         f,ts,Sxx = phon.rhythmogram(x,fs)  # calculate rhythm spectra over time
+         ts,f,Sxx = phon.rhythmogram(x,fs)  # calculate rhythm spectra over time
          
          m = np.mean(Sxx,axis=0)  # the mean spectrum of the file
          sd = np.std(Sxx,axis=0)  # the standard deviation of the spectrum
@@ -182,5 +182,5 @@ Example
     f = freq[i]
     Sxx = np.squeeze(psd[:,i])
     
-    return f, t, Sxx  
+    return t, f, Sxx  
  

@@ -75,7 +75,7 @@ in the spectrogram, and with one particular phone highlighed (the one that inclu
     height_ratios = [1, 1, 1.5, 10]
 
     # create a figure that has four plot axes in it
-    fig,[wrd,phn,wav,specgrm] = make_figure(height_ratios)
+    fig,[wrd,phn,wav,specgrm] = phon.make_figure(height_ratios)
 
     # fill the figure with textgrid and acoustic data
     phon.plot_tier(phdf, start, end, ax=phn, mark_in_plot=[wav,specgrm],span_time=0.5)

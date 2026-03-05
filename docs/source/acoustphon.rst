@@ -22,6 +22,7 @@ Formant Tracking
 .. autofunction:: phonlab.tvlp_warmup_numba
 .. autofunction:: phonlab.DPPT_formants
 .. autofunction:: phonlab.formant_to_df
+.. autofunction:: phonlab.choose_order
 .. autofunction:: phonlab.get_deltaF
 .. autofunction:: phonlab.deltaF_norm
 .. autofunction:: phonlab.resize_vt

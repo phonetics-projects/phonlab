@@ -4,6 +4,10 @@ import time
 from numba import jit, prange
 from ..utils.prep_audio_ import prep_audio
 from ..acoustic.gci import gci_sedreams
+from ..acoustic.choose_order_ import choose_order
+
+# This set of functions was written interactively with the AI model Claude, translating
+# and adapting Gowda's ftrack matlab code.  Keith Johnson, Feb 2026
 
 @jit(nopython=True)
 def _build_matrices(x, p, q, w):
@@ -634,11 +638,13 @@ def tvlp_warmup_numba(verbose=True):
     if verbose:
         print(f" Done! ({time.time() - start:.1f}s)")
 
-def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2', qcp=True,
-                        step=0.01, nformants=3, f0median=200, max_bandwidth=800, 
-                        min_freq=200, max_freq=None, use_parallel=False, verbose=False):
+def TVLP_formants(x, fs, frame_duration_sec=0.1, order=-1, q=3, norm='l2', qcp=True,
+                        step=0.01, nformants=4, f0median=200, max_bandwidth=800, 
+                        use_parallel=False, verbose=False):
     """
-    This formant tracking function implements the time-varying, pitch synchronous, method that was described by Gowda et al. (2020).  The most important innovation of this method is that it smooths the Linear Prediction coefficients over time, providing a continuity constraint at the level of the LP coefficients. The second most important method is that (like Robust LPC) the method can optionally weight the audio samples pitch synchronously so the LP coefficients are caluculated from the glottal closed phase where the assumptions of LPC analysis are better met.  The third innovation, which also seems to be both the most computationally costly and least important for good formant tracking, is that the LP coefficients can be calculated minimizing the L1 norm (city-block) norm rather than the L2 norm (Euclidian distance).  
+    This formant tracking function implements the time-varying, pitch synchronous, method that was described by Gowda et al. (2020).  The most important innovation of this method is that it smooths the Linear Prediction coefficients over time, providing a continuity constraint at the level of the LP coefficients. The second most important method is that (like Robust LPC) the method can optionally weight the audio samples pitch synchronously so the LP coefficients are caluculated from the glottal closed phase where the assumptions of LPC analysis are better met.  The third innovation, which also seems to be both the most computationally costly and least important for good formant tracking, is that the LP coefficients can be calculated minimizing the L1 norm (city-block) norm rather than the default L2 norm (Euclidian distance).  The L1 norm is 10 times slower than the L2 norm and results in almost no change in the derived formant frequencies.   
+
+    This Python implementation is a translation (done with extensive help from the AI model Claude) of Gowda's ftrack matlab code.  It uses numba for just-in-time (JIT) compilation of machine code, and parallelization of some loops which dramatically increases the speed of processing.  However, the first call to the function includes the compilation of the JIT code (on a typical laptop this can be 10 seconds!). Subsequent calls to `TVLP_formants()` will used the compiled JIT code.  However, in some situations you may want to separate the compilation from the first call to `TVLP_formants()`. Therefore a helper function `tvlp_warmup_numba()` is provided.  The helper function can be called at the beginning of a session to compile the JIT code, and then all subsequent calls to TVLP_formants() will be accelerated by the numba functions.
     
     Parameters
     ==========
@@ -648,8 +654,8 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2', qcp=True,
         Sampling frequency of **x** in Hz 
     frame_duration_sec : float, default 0.1 = 100ms
         Duration of each frame in seconds.  Gowda et al.'s tests found that 100ms provides the most accurate formant measurements.
-    p : int, default = 10
-        Linear prediction order 
+    order : int, default = 10
+        The number of LPC coefficients to use -- the 'order' of the LPC filter.  If this parameter is -1 then we will use `phon.choose_order(base='BIC')` to determine the best value for this parameter.
     q : int, default = 3
         Time-varying polynomial order
     norm : str, default = 'l2'
@@ -660,14 +666,10 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2', qcp=True,
         Time interval between formant measurements in seconds. Formants are taken from the middle of each interval
     nformants : int, default=3
         Number of formants to extract
-    f0median : float, default=170.0
-        This is an estimate of the median F0 value to expect in the signal being analyzed.  This parameter is used in the pitch synchronous method (i.e. when `qcp` is **True**) to guide the algorithm's expectation for finding glottal closure intervals.
+    f0median : float, default=200.0
+        This is an estimate of the median F0 value to expect in the signal being analyzed.  This parameter is used in the pitch synchronous method (i.e. when `qcp` is **True**) to guide the algorithm's expectation for finding glottal closure intervals.  It is important to get this approximately correct.
     max_bandwidth : float, default=800
         Maximum formant bandwidth in Hz, formants with bandwidth greater than this are rejected.
-    min_freq : float, default=200
-        Minimum formant frequency in Hz, formants with frequency less than this are rejected.
-    max_freq : float or None, default=None
-        Maximum formant frequency in Hz  
     use_parallel : bool, default=True
         Try to use parallel processing for formant extraction.
         Note: Usually doesn't work in Jupyter notebooks, set to False for notebooks
@@ -677,11 +679,16 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2', qcp=True,
     Returns
     =======
     df : a Pandas DataFrame
-        DataFrame with columns:
-        - 'sec': Time in seconds for each measurement
-        - 'F1', 'F2', 'F3', 'F4', 'F5': Formant frequencies in Hz
-        - 'B1', 'B2', 'B3', 'B4', 'B5': Formant bandwidths in Hz
-        Number of formant columns depends on the nformants parameter.
+         See the note.  The number of formant columns depends on the nformants parameter.
+
+    Note
+    ====
+    The columns in the output dataframe are:
+        * sec - midpoint time of the frame 
+        * F1-4 - the lowest four vowel 'formants' - vocal tract resonances.
+        * BW1-4 - bandwidths of the vowel formants
+
+
 
     References
     ==========
@@ -692,6 +699,15 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2', qcp=True,
        
     x, fs = prep_audio(x, fs, target_fs = 12000, pre = 0, pad_to=frame_duration_sec, quiet = True)
     frame_length_samples = int(frame_duration_sec * fs)
+
+    p=order
+    if p<0:  # guess the correct LPC order
+        p,order_time = choose_order(x,fs,verbose=verbose)
+        print(f"in TVLP_formants(), order is {p}, taken at time {order_time:.3f}")
+
+    max_freq = fs / 2.0
+    min_freq = f0median
+
 
     if verbose:
         duration_sec = len(x) / fs
@@ -747,12 +763,10 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2', qcp=True,
     formant_bws_flat = formant_bws.reshape(-1, n_formants)
     
     # Create time array in seconds
-    time_array = []
-    for frame_idx in range(n_frames):
-        frame_start_sec = frame_idx * frame_duration_sec
-        for sample_idx in sample_times:
-            time_sec = frame_start_sec + (sample_idx / fs)
-            time_array.append(time_sec)
+    frame_starts = np.arange(n_frames) * frame_duration_sec
+    sample_offsets = sample_times / fs
+    ta = frame_starts[:, np.newaxis] + sample_offsets[np.newaxis, :]
+    time_array = ta.ravel()
     
     time_array = np.array(time_array, dtype=np.float64)  # Keep time in float64 for precision
     
@@ -765,13 +779,13 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, p=10, q=3, norm='l2', qcp=True,
     
     # Add bandwidth columns
     for i in range(n_formants):
-        data_dict[f'B{i+1}'] = formant_bws_flat[:, i]
+        data_dict[f'BW{i+1}'] = formant_bws_flat[:, i]
     
     df = pd.DataFrame(data_dict)
     
     # Replace zeros with NaN for cleaner representation
     formant_cols = [f'F{i+1}' for i in range(n_formants)]
-    bandwidth_cols = [f'B{i+1}' for i in range(n_formants)]
+    bandwidth_cols = [f'BW{i+1}' for i in range(n_formants)]
     df[formant_cols] = df[formant_cols].replace(0, np.nan)
     df[bandwidth_cols] = df[bandwidth_cols].replace(0, np.nan)
     

@@ -7,7 +7,7 @@ from numba import jit
 
 # prep_audio, choose_order
 from ..utils.prep_audio_ import prep_audio
-from ..acoustic.track_formants_ import choose_order
+from ..acoustic.choose_order_ import choose_order
 
 @jit(nopython=True)
 def weighted_cov(x,weight,npoles):
@@ -28,20 +28,24 @@ def weighted_cor(x,weight,npoles):
             c1[j] += x[n] * x[n-j] * weight[n]
     return c1[1:npoles+1]
     
-def RLPC_formants(x, fs, order = -1, preemphasis = 0.94,s = 0.01, 
-                 l = 0.03, window = None, numiter=1):
-    """An implementation of Lee's (1988) method for Robust Linear Prediction Coding. The method computes the residual signal from a conventional LPC analysis and then uses it to down-weight samples that produce large prediction error. It is possible to iterate the residual reweighting process more than once, though not much improvement is gained after the first iteration.  Formant frequencies are found from the LPC coefficients using polynomial root solving.  
+def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC", s = 0.01, 
+                 l = 0.03, window = None, numiter=1, verbose=False):
+    """An implementation of Lee's (1988) method for Robust Linear Prediction Coding. The method computes the residual signal from a conventional LPC analysis and then uses it to down-weight samples that produce large prediction error. It is possible to iterate the residual reweighting process more than once, though not much improvement is gained after the first iteration.  Formant frequencies are found from the LPC coefficients using polynomial root solving.  There are a couple of functions called by `RLPC_formants()` are accelerated by the use of numba just in time (JIT) compilation into machine code.  Therefore, the first call to `RLPC_formants()` will be slower (by about 10 ms) than subsequent calls.
     
     Parameters
     ==========
-    x : ndarrar
+    x : ndarray
         a 1D array of audio samples
     fs : int
         the sampling rate of samples in x.  This will be resampled to 12,000 Hz for analysis, so choose the order paramter with this in mind.
-    order : int (default = -1)
-        pass a value of -1 to use the function choose_order() to determine the best value for this parameter.  Or pass a positive integer.
+    tf : int (default = 6000)
+        The top frequency of the analysis band.  The input signal will be resampled to a rate of tf*2.  
     preemphasis : float (default = 0.94)
-        factor of a preemphasis factor (0-1).
+        value of a high frequency preemphasis (spectral tilt) factor (0-1).
+    order : int (default = -1)
+        The LPC 'order' (i.e. the number of coefficients in the LPC filter.  A value of -1 uses the function phon.choose_order() to determine the best value for this parameter. 
+    base : string (default = 'BIC')
+        If `order` is -1, then use this base ('BIC' or 'coef') in phon.choose_order().
     s : float (default = 0.01)
         the interval (in seconds) between successive formant measurements.
     l : float (default = 0.05)
@@ -50,15 +54,21 @@ def RLPC_formants(x, fs, order = -1, preemphasis = 0.94,s = 0.01,
         The name of a window shape for scipy.signal.windows.get_window()
     numiter : integer (default = 1)
         Number of robust LPC iterations to perform.  If this value is 0 the results of the conventional LPC analysis are returned with no robust recalculation of the linear prediction.
+    verbose : boolean (default = False)
+        Print diagnostic messages
             
     Returns
     =======
-        df - a pandas dataframe with formant, f0, amplitude, and voicing score measurements at 0.01 sec intervals.
+    df - a pandas dataframe with columns as described in the note below.
+    A - a two-dimensional numpy matrix with the LPC coefficients for each analysis frame.
 
-        The columns in the output dataframe are:
-            sec - midpoint time of the frame 
-            F1-4 - the lowest four vowel 'formants' - vocal tract resonances.
-            BW1-4 - bandwidths of the vowel formants
+    Note
+    ====
+    The columns in the output dataframe are:
+        * sec - midpoint time of the frame 
+        * gain - a one-dimensional numpy array with the gain (variance of the residual) for each frame.
+        * F1-4 - the lowest four vowel 'formants' - vocal tract resonances.
+        * BW1-4 - bandwidths of the vowel formants
 
     References
     ==========
@@ -66,22 +76,17 @@ def RLPC_formants(x, fs, order = -1, preemphasis = 0.94,s = 0.01,
     C.H. Lee (1988) On robust prediction of speech. `IEEE Transactions on Acoustics, Speech and Signal Processing`, 36,5: 642-650.
     
     """
+    target_fs = tf*2
     
-    x, fs = prep_audio(x, fs, target_fs = 12000, pre = preemphasis, quiet = True)
+    x, fs = prep_audio(x, fs, target_fs = target_fs, pre = preemphasis, quiet = not verbose)
     
     frame_length = int(fs*l)
     step = int(fs*s)
        
     if order<0:  # guess the correct LPC order
-        if len(x) < fs*3:
-            test_x = x   # choose order using the whole file
-        else:
-            m = np.argmax(x[fs:-fs])  # limit the sample to 2 seconds (centered on the peak amplitude)
-            s = m - fs  # back a second
-            e = m + fs  # forward a second
-            test_x = x[s:e]
-        order = choose_order(test_x,frame_length,fs)
-        print(f"in RLPC_formants(), order is ",order)
+        order,time = choose_order(x,fs,l, base='BIC', verbose=verbose)
+        if verbose:
+            print(f"in RLPC_formants(), order is {order}, taken at time {time:.3f}")
     
     frames = util.frame(x, frame_length=frame_length, 
                                 hop_length=step, axis=0) 
@@ -97,21 +102,17 @@ def RLPC_formants(x, fs, order = -1, preemphasis = 0.94,s = 0.01,
     nb = A.shape[0]  # the number of frames in the LPC analysis
 
     # begin robust LPC process
-    for iter in range(numiter):
-        for i in range(frames.shape[0]):
-            resid[i] = lfilter(A[i], [1.0], frames[i])
-
-        #resid = fftconvolve(frames,A,mode="same",axes=1) # get residual 
-        #resid = resid * np.sum(np.square(frames))/np.sum(np.square(resid))  # is this scaling really necessary?
+    for iter in range(numiter):  # iterate this loop numiter times
+        for i in range(nb):
+            resid[i] = lfilter(A[i], [1.0], frames[i]) # prediction error
         sd = np.std(resid,axis=1)
         temp = np.clip(resid/sd[:,None],a_min=-1.5,a_max=1.5)  # min/max clipping
         weight = (sd[:,None] * temp)/resid   # down weight samples with high error
-        # covariance
         for i in range(nb):  # recompute A frame by frame
             C = weighted_cov(frames[i],weight[i],order)
             c = weighted_cor(frames[i],weight[i],order)
             A[i,1:order+1] = np.dot(-inv(C), c)
-            
+
     # Now we have the refined LPC coefficients 
     nf = int((order-2)/2)  # the number of formants that will be computed
 
@@ -119,12 +120,12 @@ def RLPC_formants(x, fs, order = -1, preemphasis = 0.94,s = 0.01,
     bandwidths = np.empty((nb,nf))
 
     for i in range(nb):  # find formants from LPC coefficients (A) using root solving
-
         roots = np.roots(A[i,:])  # solve for the roots of the polynomial
         roots = roots[np.imag(roots)>=0]  # only keep the positive ones
         fr = np.angle(roots) *  fs/(2 * np.pi)  # calculate formant frequencies from them
         bw = -(fs/(np.pi)) * np.log(abs(roots)) # calculate bandwidths from them
-
+        resid[i] = lfilter(A[i], [1.0], frames[i]) # prediction error
+        
         # A wide bandwidth criterion (about 800 Hz) is needed to capture fast moving formants.
         fr[bw>800] = np.nan  # reject formants with too wide bandwidth, NaN sorts to the end of the array
         s = np.argsort(fr)  # get the sort order so you can apply it more than one array
@@ -133,8 +134,10 @@ def RLPC_formants(x, fs, order = -1, preemphasis = 0.94,s = 0.01,
 
         formants[i,:] = fr[:nf]  
         bandwidths[i,:] = bw[:nf]
-    
-    list = ['sec',] + [f"F{i}" for i in range(1,nf+1)] + [f"BW{i}" for i in range(1,nf+1)]
-    df = DataFrame(np.concatenate((t.reshape(nb,1), formants, bandwidths), axis=1),columns=(list))
 
-    return df
+    gain = np.std(resid,axis=1,ddof=order)**2
+    list = ['sec',] + [f"F{i}" for i in range(1,nf+1)] + [f"BW{i}" for i in range(1,nf+1)] + ['gain']
+    df = DataFrame(np.concatenate((t.reshape(nb,1), formants, 
+                                   bandwidths, gain.reshape(nb,1)), axis=1),columns=(list))
+
+    return df,A

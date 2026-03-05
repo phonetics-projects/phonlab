@@ -1,6 +1,7 @@
 from ..utils.prep_audio_ import prep_audio
+from ..acoustic.sgram_ import compute_sgram
 import numpy as np
-from librosa import util, stft, amplitude_to_db
+from librosa import util, stft, amplitude_to_db, frames_to_time
 from scipy import fft
 from pandas import DataFrame
 from scipy.signal import windows,filtfilt
@@ -53,8 +54,8 @@ References
     f = frames.shape[1]
     w = windows.hann(frame_length)
     
-    Sxx = 10 * np.log10(np.abs(fft.rfft(w*frames,NFFT))**2)
-    Sxx2 = np.abs(fft.rfft(Sxx,NFFT))**2   # spectrum of the spectrum -- cepstrum
+    Sxx = 10 * np.log10(np.abs(fft.rfft(w*frames,NFFT)))
+    Sxx2 = np.abs(fft.rfft(Sxx,NFFT))   # spectrum of the spectrum -- cepstrum
     if (dBscale):
         Ceps = 10 * np.log10(Sxx2[:,:-1])
     else:
@@ -62,7 +63,7 @@ References
         
     ts = (np.array(range(nb)) * step + half_frame)/fs
 
-    return(quef, ts, Ceps)
+    return(ts, quef, Ceps)
 
 def CPP(x,fs, target_fs = 16000, smooth=2, norm=True, dBscale=True, f0_range = [60,400], l= 0.04, s=0.005):
     '''Measure Cepstral Peak Prominence - an acoustic measure that has been shown to be highly correlated with 
@@ -153,7 +154,7 @@ This example plots the cepstral peak prominence through the "I'm twelve" example
 
     if smooth: s = 0.002  # faster framerate if smoothed
 
-    quef,sec,Sxx = compute_cepstrogram(y, fs, dBscale, l, s)
+    sec, quef, Sxx = compute_cepstrogram(y, fs, dBscale, l, s)
     
     if smooth:
         Sxx = gaussian_filter(Sxx,sigma = smooth,truncate=3)
@@ -180,7 +181,7 @@ This example plots the cepstral peak prominence through the "I'm twelve" example
     return DataFrame({'sec': sec, 'f0':f0, 'cpp':cpp})
 
 
-def cepstral_smooth(x, fs, tf=5000, s=0.005, l=0.04, lift=0.003):
+def cepstral_smooth(x, fs, tf=5000, s=0.005, l=0.04, preemphasis=0.0, lift=0.003):
     '''Smooth spectra by cepstral 'liftering' to remove the periodic source, leaving only the overall spectral envelope shape. 
 The implementation here borrows heavily from Seonju Kim's repository (https://github.com/hwang9u/pyceps).  
 
@@ -252,33 +253,27 @@ References
 
     A ceptrally smoothed spectrum taken at time 1.4 in file sf3_cln.wav, in comparison with the unsmoothed FFT spectrum.
 
-
     '''
-    
     target_fs = int(tf*2)
     
-    x,fs = prep_audio(x, fs, target_fs=target_fs, pre=0.0, quiet=True)  # resample to target_fs
+    x,fs = prep_audio(x, fs, target_fs=target_fs, pre=preemphasis, quiet=False)  # resample to target_fs
 
     step = int(fs*s)
     frame_length = int(fs*l)
-    n_fft = int(2**(np.ceil(np.log(frame_length)/np.log(2)))) # choose smallest power of 2 >= frame_length
-    half_frame = int(n_fft//2)
+    half_frame = frame_length//2
 
-    # note the librosa routines being used in this line
-    Sxx = amplitude_to_db(np.abs(stft(x, n_fft=n_fft, win_length=n_fft, hop_length= step, center=True)))
-    freqS = np.arange(Sxx.shape[0])*(fs/2)/Sxx.shape[0]       # frequency axis
-
-    ts = (np.array(range(Sxx.shape[1])) * step + half_frame)/fs  # time axis
-    Cxx = np.apply_along_axis(func1d=lambda x: np.fft.irfft(x).real, axis=0, arr=Sxx)   # cepstrogram
-    quef = np.arange(n_fft//2 + 1)/fs
+    ts,freqS,Sxx = compute_sgram(x,fs,l,s)
+                              
+    Cxx = np.apply_along_axis(func1d=lambda xx: np.fft.irfft(xx).real, 
+                              axis=0, arr=Sxx)   # cepstrogram
+    quef = np.arange(Cxx.shape[0])/fs
 
     lift = int(lift * fs)  # convert lift value to samples (from seconds)
     Exx = Cxx.copy()
     Exx = np.concatenate(  (Exx, Exx[1:][::-1]), axis=0 )   # mirror spectrum
     Exx[lift:-lift, :] = 0.     # filter, set all to zero exept below lift period (shorter periods only)
-    Exx = np.apply_along_axis(func1d=lambda x: np.fft.rfft(x).real[:Cxx.shape[0]], axis=0, arr=Exx)  # back to frequency axis
-    freqE = np.arange(Exx.shape[0])*(fs/2)/Exx.shape[0]                       # frequency axis
+    Exx = np.apply_along_axis(func1d=lambda xx: np.fft.rfft(xx).real[:Cxx.shape[0]], 
+                              axis=0, arr=Exx)  # back to frequency axis
+    freqE = np.arange(1,Exx.shape[0]+1)*(fs/2)/Exx.shape[0]                       # frequency axis
 
-    #print(f"target_fs = {target_fs}, fs = {fs}, Dxx.shape = {Dxx.shape}, Exx.shape = {Exx.shape}")
-    #print(f"  Cxx.shape = {Cxx.shape}, len(freq) = {len(freq)}, freqmax = {freq[-1]}, n_fft = {n_fft}")
     return ts, freqE, Exx, freqS, Sxx, quef, Cxx
