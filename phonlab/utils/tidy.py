@@ -1,3 +1,4 @@
+import sys
 import pandas as pd
 import numpy as np
 import srt
@@ -159,7 +160,7 @@ def _df_degap(df, t1fld, t2fld, lblfld, start, end, fill):
     ).sort_values(t1fld).reset_index(drop=True)
 
 def df_to_tg(dfs, tiercols, ts=['t1', 't2'], start=0.0, end=None, tgtype='short',
-    codec='utf-8', fmt=None, fill_gaps='', outfile=None):
+    codec='utf-8', fmt=None, fill_gaps='', allow_overlaps=False, outfile=None):
     """
 Convert one or more dataframes to a Praat textgrid.
 
@@ -227,6 +228,13 @@ fill_gaps : str or None (default '' empty string)
     in which the end time of one row is less than the start time of the next row).
     The string value of `fill_gaps` is used as the text content of the inserted
     labels.
+
+allow_overlaps : bool (default False)
+    When `allow_overlaps` is False, raise an error if any interval labels in a
+    tier overlap in time with another label in the same tier. If True,
+    then the textgrid will be created with the overlaps and a warning message
+    will be sent to STDERR. **NOTE: textgrids with overlapping labels cannot
+    be opened in Praat.**
 
 outfile : file path, optional
     If provided, write the textgrid to `outfile` and return `None` instead of
@@ -341,20 +349,18 @@ Example
     for df, colmap, (t1col, t2col) in zip(dfs, tiercols, ts):
         tiercol, tiername = list(colmap.items())[0]
         try:
-            if len(df) > 1:
-                assert((df[t1col].diff().iloc[1:] > 0).all())
-                if t2col is not None:
-                    assert((df[t2col].diff().iloc[1:] > 0).all())
-        except AssertionError:
-            raise RuntimeError(
-                'Dataframe labels not sorted by time or duplicate times found.'
-            ) from None
-        try:
             if t2col is not None:
                 assert(((df[t2col] > df[t1col])).all())
         except AssertionError:
             raise RuntimeError(
-                'Interval label end values must be greater than start values in all rows.'
+                f'Found bad interval times in tier "{tiername}". All "{t2col}" values must be greater than the "{t1col}" values in all dataframe rows.'
+            ) from None
+        try:
+            if len(df) > 1:
+                assert((df[t1col].diff().iloc[1:] > 0).all())
+        except AssertionError:
+            raise RuntimeError(
+                f'Dataframe labels not sorted by time or duplicate times found in tier "{tiername}".'
             ) from None
         try:
             # Every t1 must be >= the preceding t2.
@@ -363,9 +369,12 @@ Example
                     (df[t1col].shift(-1) >= df[t2col]).iloc[:-1].all()
                 )
         except AssertionError:
-            raise RuntimeError(
-                'Dataframe interval labels cannot overlap in time. The start time of a row cannot be less than the end time of the preceding row.'
-            ) from None
+            if allow_overlaps is True:
+                sys.stderr.write(f'Found interval labels that overlap in time in tier "{tiername}". The textgrid will not be readable in Praat.\n')
+            else:
+                raise RuntimeError(
+                    f'Dataframe interval labels cannot overlap in time, and an overlap was found in tier "{tiername}". Use `allow_overlaps=True` to ignore this error and produce a textgrid that is not readable in Praat.'
+                ) from None
 
         if fill_gaps is not None and t2col is not None:
             df = _df_degap(
