@@ -9,7 +9,7 @@ from ..acoustic.rlpc import RLPC_formants
 from ..acoustic.cepstral import cepstral_smooth
 from ..third_party.robustsmoothing import smoothn
 
-def nasality(x,fs, order=-1, analysis_band=(200,2500),  acoustic_spectrum = "FFT",
+def nasality(x,fs, order=-1, analysis_band=(200,2500),  acoustic_spectrum = "CEP",
              smoothing_factor=None, preemphasis=0.96, length=0.04, step=0.005, lift=0.002, 
              target_fs=12000, slice_time=-1, verbose=False):
 
@@ -46,9 +46,10 @@ Parameters
         Or pass a positive integer.
     analysis_band : list, default = (200,2500)
         Compute the spectral difference over this frequency band (in Hz)
-    acoustic_spectrum : string, default = "FFT"
+    acoustic_spectrum : string, default = "CEP"
         Which acoustic spectrum to compare with the LPC spectrum.  Allowable values are "FFT" for the 
-        narrow-band FFT, or "CEP" for the cepstrally smoothed spectrum.
+        narrow-band FFT, or "CEP" for the cepstrally smoothed spectrum.  The default approach, using 
+        the cepstrally smoothed spectrum seems to be less affected by voice pitch effects.
     smoothing_factor : float, default = None
         If the value of this parameter is less than zero, then no smoothing will be done.  Otherwise this
         is the `s` parameter to be passed to phon.smoothn() to robustly smooth the data.
@@ -156,7 +157,10 @@ Example
     highidx = np.argmin(abs(freq-analysis_band[1]))
 
     LPC_frames = Lxx[lowidx:highidx, :]
+    if acoustic_spectrum=="FFT":
         Env_frames = Sxx[lowidx:highidx, :]
+    else:
+        Env_frames = Exx[lowidx:highidx, :]
     numerator = np.sum(LPC_frames * Env_frames, axis=0)
     denominator = np.linalg.norm(LPC_frames, axis=0) * np.linalg.norm(Env_frames, axis=0)
     SCD = np.sqrt(2*(1-(numerator / denominator))) * 100  # cosine distance between spectra
