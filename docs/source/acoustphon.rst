@@ -49,6 +49,7 @@ Consonant Features
 ------------------
 .. autofunction:: phonlab.fricative
 .. autofunction:: phonlab.burst
+.. autofunction:: phonlab.nasality
 
 Rhythm
 ------

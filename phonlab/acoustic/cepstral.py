@@ -264,8 +264,7 @@ References
 
     ts,freqS,Sxx = compute_sgram(x,fs,l,s)
                               
-    Cxx = np.apply_along_axis(func1d=lambda xx: np.fft.irfft(xx).real, 
-                              axis=0, arr=Sxx)   # cepstrogram
+    Cxx = np.apply_along_axis(func1d=lambda xx: np.fft.irfft(xx).real, axis=0, arr=Sxx)   # cepstrogram
     quef = np.arange(Cxx.shape[0])/fs
 
     lift = int(lift * fs)  # convert lift value to samples (from seconds)

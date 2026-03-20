@@ -114,7 +114,10 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
             A[i,1:order+1] = np.dot(-inv(C), c)
 
     # Now we have the refined LPC coefficients 
-    nf = int((order-2)/2)  # the number of formants that will be computed
+    if (order-2)/2 < 4: 
+        nf = int((order-2)/2)  # the number of formants that will be computed
+    else:
+        nf = 4  # the number of formants that will be returned
 
     formants = np.empty((nb,nf))  # arrays to be filled by analysis
     bandwidths = np.empty((nb,nf))

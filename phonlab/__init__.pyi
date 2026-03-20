@@ -7,6 +7,9 @@ by having a complete doc string and then added to one of the .rst files in the p
 
 __all__ = []
 
+from .acoustic.nasality_measures import nasality
+__all__ += ['nasality']
+
 from .acoustic.choose_order_ import choose_order, choose_order_A
 __all__ += ["choose_order", "choose_order_A"]
 
