@@ -24,10 +24,8 @@ def nasality(x,fs, order=-1, analysis_band=(200,2500),  acoustic_spectrum = "CEP
     In this function phon.RLPC_formants() is used to to produce LPC spectra, phon.compute_sgram() 
     is used to compute narrow-band spectra, and phon.cepstral_smooth() 
     is used to produce cepstrally smoothed spectra. The function then reports the spectral 
-    cosine difference (SCD) (in the specified analysis band) between the LPC spectrum and (depending
-    on the these to ways of 
-    estimating the smoothed spectrum (one which assumes an all-pole [non-nasal] filter and one 
-    which does not).
+    cosine difference (SCD) (in the specified analysis band) between the LPC spectrum and either the 
+    cepstrally smoothed acoustic spectrum or the raw (FFT) narrow-band acoustic spectrum. 
     
     In addition the function returns two commonly used measures of vowel nasality: the bandwidth 
     of F1 from the RLPC function, and the difference between the amplitude of the harmonic 
