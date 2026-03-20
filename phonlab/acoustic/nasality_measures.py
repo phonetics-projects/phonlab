@@ -91,7 +91,7 @@ Note
         * gain - the LPC gain (variance of the residual) for each frame.
         * BW1_nas - the smoothed BW1, bandwidth of F1. Larger values indicate more nasality.
         * a1h1 - the difference in amplitude of the harmonic closest to F1 and the lowest harmonic.  Smaller values indicate more nasality (lower amplitude F1).
-        * SCD - the spectral cosine distance between the LPC spectrum and the cepstrally smoothed spectrum in the analysis band.  Larger values indicate more nasality.
+        * SCD - the spectral cosine distance between the LPC spectrum and the acoustic spectrum in the analysis band.  Larger values indicate more nasality.
 
 
 Example
