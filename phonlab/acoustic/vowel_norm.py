@@ -92,7 +92,7 @@ Example
     if groupby is None:
         df = _norm_one(df,deltaf=deltaF)
     else:
-        df = df.groupby(groupby).apply(_norm_one,include_groups=False,kwargs={deltaf:deltaF}).reset_index()
+        df = df.groupby(groupby).apply(_norm_one,args=(df,deltaF)).reset_index()
         df.drop(columns=['level_1'], inplace=True)  # clean up the dataframe
 
     return
