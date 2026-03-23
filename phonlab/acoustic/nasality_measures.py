@@ -9,8 +9,8 @@ from ..acoustic.rlpc import RLPC_formants
 from ..acoustic.cepstral import cepstral_smooth
 from ..third_party.robustsmoothing import smoothn
 
-def nasality(x,fs, order=-1, analysis_band=(200,2500),  acoustic_spectrum = "CEP",
-             smoothing_factor=None, preemphasis=0.96, length=0.04, step=0.005, lift=0.002, 
+def nasality(x,fs, order=18, analysis_band=(80,2500),  acoustic_spectrum = "CEP",
+             smoothing_factor=None, preemphasis=0.96, length=0.04, step=0.005, lift=0.0025, 
              target_fs=12000, slice_time=-1, verbose=False):
 
     '''This function implements an idea in Johnson (`Acoustic and Auditory Phonetics`) that 
@@ -38,11 +38,12 @@ Parameters
     fs : int
         the sampling rate of samples in x.  This will be resampled to 'target_fs' for analysis, 
         so choose the order paramter with this in mind.
-    order : int (default = -1)
-        Number of LPC coefficients, passed to RLPC_formant().  Pass a value of -1 to use the 
-        function choose_order() to determine the best value for this parameter.  
-        Or pass a positive integer.
-    analysis_band : list, default = (200,2500)
+    order : integer (default = 18)
+        Number of LPC coefficients, passed to RLPC_formant().  The default value is rather large,
+        allowing the LPC function to capture more peaks and valleys than may be typical in vowel formant
+        tracking analyses.  You can set this parameter to -1 and then the 
+        function choose_order() will be used to determine the value for this parameter.  
+    analysis_band : list, default = (80,2500)
         Compute the spectral difference over this frequency band (in Hz)
     acoustic_spectrum : string, default = "CEP"
         Which acoustic spectrum to compare with the LPC spectrum.  Allowable values are "FFT" for the 
@@ -61,11 +62,11 @@ Parameters
         duration (in seconds) of analysis frames, the default of 0.04 gives a narrowband spectrum with resolution appropriate for resolving harmonics.
     step : float, default = 0.005
         the interval (in seconds) between successive formant measurements.
-    lift : float, default = 0.003
+    lift : float, default = 0.0025
         The cepstral smoothing filtering coefficient (in seconds).  Compenents that have a period 
         longer than the `lift` value will be removed from the signal. This is used in cepstral 
         smoothing to remove source spectral characteristics and keep vocal tract filter effects. 
-        The default value of 3 ms means that cepstral components lower than 333 Hz will be removed.  
+        The default value of 2.5 ms means that cepstral components lower than 400 Hz will be removed.  
         Smaller values of this parameter lead to more cepstral smoothing, and larger values lead to 
         less spectral cepstral smoothing.
     target_fs : int, default = 12000
@@ -96,26 +97,42 @@ Note
 Example
 =======
 
-    This example returns nasality measurements in a dataframe, and plots example spectra at a particular slice time.  The Spectral Cosine Distance values are plotted on the spectrogram.
+    This example returns nasality measurements in a dataframe, and plots example spectra at a particular slice time.  The Spectral Cosine Distance and a1h1 measures are plotted on the spectrogram.
 
     .. code-block:: Python
 
         audio_dir = importlib.resources.files('phonlab') / 'data/example_audio'
-        example_file = audio_dir / 'the_soviet_union.wav'
+        example_file = audio_dir / 'FR_bon_beau.wav'
         x,fs = phon.loadsig(example_file,chansel=[0])
 
-        st = 0.72
+        st = 0.41
 
-        nasdf = phon.nasality(x,fs, order=-1, slice_time=st, smoothing_factor=None, verbose=True)
-
-        # --------  plots -----------
-        ax,_ = phon.sgram(x,fs,tf=5000)
+        nasdf = phon.nasality(x,fs, slice_time=st, verbose=True)
+        
+        # --------  plot -----------
+        ax = phon.sgram(x,fs,tf=5000)[0]
         ax.plot(nasdf.sec,nasdf.F1,'w.')
+        ax.text(0.2,4500, "[ bõ ]",fontsize=18)
+        ax.text(0.8,4500, "[ bo ]",fontsize=18)
+        ax.text(1.4,4500, "[ bõ ]",fontsize=18)
+        ax.text(2,4500, "[ bo ]",fontsize=18)
         if st >0: 
             ax.axvline(st,color='red')
+        
         ax2 = ax.twinx()
-        ax2.plot(nasdf.sec,nasdf.SCD,'mo')
- 
+        ax2.plot(nasdf.sec,nasdf.SCD,'md')
+        ax2.set_ylim(0,16)
+        ax3 = ax.twinx()
+        ax3.plot(nasdf.sec,nasdf.a1h1,color='dodgerblue',marker='o',linewidth=0)
+        ax3.set_ylim(0,16)
+
+    .. figure:: images/nasality.png
+        :scale: 33 %
+        :alt: Overlaid on a spectrogram is plotted nasalityn measures SCD (magenta diamonds) and a1h1 (blue dots) for two repetitions of the French minimal pair <bon> and <beau>.
+        :align: center
+        
+        Overlaid on a spectrogram is plotted nasalityn measures SCD (magenta diamonds) and a1h1 (blue dots) for two repetitions of the French minimal pair <bon> and <beau>.  Frequency of F1 is plotted with small white dots.
+       
     '''    
     top_freq = target_fs//2
     
