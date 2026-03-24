@@ -40,7 +40,7 @@ Example
     else:
         return deltaf
 
-def deltaF_norm(df,groupby = None,deltaF=None):
+def deltaF_norm(df,column = None,deltaF=None):
     '''Perform vocal tract length normalization (deltaF normalization) for each speaker indicated by a 'groupby' variable in a dataframe of vowel formant measurements.  The estimate is more stable when the dataframe contains a representative set of vowels spoken by the talker (see Johnson, 2020).
 
 Parameters
@@ -75,7 +75,6 @@ Example
     fmtsdf.head()  # now there are five new columns in the dataframe
 
     '''
-
     def _norm_one(df,deltaf=None):  
         # this function normalizes based on all observations in the df
         # use it in a groupby().apply() call to do once for each speaker
@@ -89,13 +88,17 @@ Example
 
         df['deltaF'] = deltaf
 
-    if groupby is None:
-        df = _norm_one(df,deltaf=deltaF)
-    else:
-        df = df.groupby(groupby).apply(_norm_one,args=(df,deltaF)).reset_index()
-        df.drop(columns=['level_1'], inplace=True)  # clean up the dataframe
+        return df
 
-    return
+    if column is None:
+        result = _norm_one(df,deltaf=deltaF)
+    else:
+        if deltaF is not None:
+            print(f"Grouping by {column}, and ignoring the deltaF value {deltaf}")
+        result = df.groupby(column).apply(_norm_one,include_groups=False)
+        result = result.reset_index()
+       
+    return result
 
 def resize_vt(df,deltaf):  
     '''Compute new vowel formant values, from normalized values, as produced by the `phonlab.deltaF_norm()`
