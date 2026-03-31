@@ -72,11 +72,11 @@ Parameters
     target_fs : int, default = 12000
         Sampling frequency at which the analysis will be done. The top frequency in the analysis is 
         thus the Nyquist frequency (1/2 of the target_fs).
-    slice_time, float, default = -1
+    slice_time : float, default = -1
         If a time value greater than 0 is given, then a diagnostic plot will be produced for
         the spectral slice at the slice_time.
-    verbose : boolean (default = False)
-        Print diagnostic messages
+    verbose : boolean, default = False
+        If true, print diagnostic messages.
 
 Returns
 =======
@@ -127,11 +127,11 @@ Example
         ax3.set_ylim(0,16)
 
     .. figure:: images/nasality.png
-        :scale: 33 %
-        :alt: Overlaid on a spectrogram is plotted nasalityn measures SCD (magenta diamonds) and a1h1 (blue dots) for two repetitions of the French minimal pair <bon> and <beau>.
+        :scale: 36 %
+        :alt: Overlaid on a spectrogram are plotted nasality measures SCD (magenta diamonds) and a1h1 (blue dots) for two repetitions of the French minimal pair <bon> and <beau>.
         :align: center
         
-        Overlaid on a spectrogram is plotted nasalityn measures SCD (magenta diamonds) and a1h1 (blue dots) for two repetitions of the French minimal pair <bon> and <beau>.  Frequency of F1 is plotted with small white dots.
+        Overlaid on a spectrogram are plotted nasality measures SCD (magenta diamonds) and a1h1 (blue dots) for two repetitions of the French minimal pair <bon> and <beau>.  Frequency of F1 is plotted with small white dots.
        
     '''    
     top_freq = target_fs//2
