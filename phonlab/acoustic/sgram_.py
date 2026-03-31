@@ -49,7 +49,7 @@ def compute_sgram(x,fs,w,s=0.001,order=13):
     
 
 def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size = 14,
-    min_prop = 0.55, save_name='', slice_time=-1, cmap='Greys', ax=None):
+    min_prop = 0.55, save_name='', slice_time=-1, cmap='Greys', resize=True, ax=None):
     """Make pretty good looking spectrograms
 
     * This function calls scipy.signal.spectrogram to calculate a magnitude spectrogram, which is then transformed to decibels, and passed to plt.imshow for plotting.  
@@ -87,6 +87,11 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
         name of a file to save the figure pyplot.savefig(), by default no file is saved.
     slice_time : float, default = -1
         location (in seconds) of an optional spectral slice.
+    resize : boolean, default = True
+        if a matplotlib axes object is passed in (the `ax` parameter), resize it to 
+        classical spectrogram dimensions.
+    ax : a matplotlib axes object, default = None
+        the user may provide a matplotlib object to which the spectrogram will be plotted.
     cmap : string, default = "Grays"
         name of a matplotlib colormap for the spectrogram
 
@@ -189,8 +194,9 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
             fig = plt.figure(figsize=(figwidth, figheight),dpi=72)
             ax1 = fig.add_subplot(111)
     else:
-        fig = plt.gcf()  # get the current figure
-        fig.set_size_inches(figwidth, figheight) # resize it by the values here
+        if resize:
+            fig = plt.gcf()  # get the current figure
+            fig.set_size_inches(figwidth, figheight) # resize it by the values here
         ax1 = ax
 
     vmin = np.min(Sxx) + (np.max(Sxx)-np.min(Sxx))*min_prop
