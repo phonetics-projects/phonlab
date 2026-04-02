@@ -167,7 +167,7 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
     cmap = plt.get_cmap(cmap)
     
     # ----------- condition waveform -----------------------
-    x2, fs = prep_audio(x,fs, target_fs = target_fs, pre = preemph,quiet=True)
+    x2, fs = prep_audio(x,fs, target_fs = target_fs, pre = preemph, quiet=True)
 
     i1 = int(start * fs)   # index of starting time: seconds to samples
     i2 = int(end * fs)     # index of ending time

@@ -63,7 +63,7 @@ References
         
     ts = (np.array(range(nb)) * step + half_frame)/fs
 
-    return(ts, quef, Ceps)
+    return(quef, ts, Ceps)
 
 def CPP(x,fs, target_fs = 16000, smooth=2, norm=True, dBscale=True, f0_range = [60,400], l= 0.04, s=0.005):
     '''Measure Cepstral Peak Prominence - an acoustic measure that has been shown to be highly correlated with 

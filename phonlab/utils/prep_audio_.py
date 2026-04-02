@@ -5,7 +5,7 @@ from scipy.signal import resample_poly
 
 
 def prep_audio(x, fs, target_fs=32000, pre = 0, scale = True, 
-               add_tiny_noise = False, outtype = "float", pad_to = 0.0,
+               add_tiny_noise = True, outtype = "float", pad_to = 0.0,
                quiet = False):
     """ Prepare an array of audio waveform samples for acoustic analysis. 
     
