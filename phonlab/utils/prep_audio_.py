@@ -27,7 +27,7 @@ Parameters
     scale: boolean, default = True
         scale the samples to use the full range for audio samples (based on the peak amplitude in the signal)
 
-    add_tiny_noise: boolean, default = False
+    add_tiny_noise: boolean, default = True
         add a tiny bit of noise to the audio to avoid problematic waveforms with many samples at zero amplitude.
 
     pad_to: float, default = 0.0

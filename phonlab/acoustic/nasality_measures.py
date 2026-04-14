@@ -14,22 +14,13 @@ def nasality(x,fs, order=18, analysis_band=(80,2500),  acoustic_spectrum = "CEP"
              target_fs=12000, slice_time=-1, verbose=False):
 
     '''This function implements an idea in Johnson (`Acoustic and Auditory Phonetics`) that 
-    vowel nasality may be indicated by the spectral cosine difference (SCD) between the LPC 
-    spectrum (which assumes non-nasality) and a spectrum with fewer assumptions (a narrow-band FFT 
-    or a cepstrally smoothed spectrum).  
-    The idea is that because nasality introduces antiformants and/or additional resonant peaks in 
-    the spectrum of a vowel, nasalized vowels should have a greater difference between the LPC 
-    spectrum and an acoustic spectrum than the SCD we will find in non-nasalized vowels.
-
-    In this function phon.RLPC_formants() is used to to produce LPC spectra, phon.compute_sgram() 
-    is used to compute narrow-band spectra, and phon.cepstral_smooth() 
-    is used to produce cepstrally smoothed spectra. The function then reports the spectral 
-    cosine difference (SCD) (in the specified analysis band) between the LPC spectrum and either the 
-    cepstrally smoothed acoustic spectrum or the raw (FFT) narrow-band acoustic spectrum. 
+vowel nasality may be indicated by the spectral cosine difference (SCD) between the LPC spectrum (which assumes non-nasality) and a spectrum with fewer assumptions (a narrow-band FFT or a cepstrally smoothed spectrum).  
     
-    In addition the function returns two commonly used measures of vowel nasality: the bandwidth 
-    of F1 from the RLPC function, and the difference between the amplitude of the harmonic 
-    closest to F1 and the lowest harmonic. 
+The idea is that because nasality introduces antiformants and/or additional resonant peaks in the spectrum of a vowel, nasalized vowels should have a greater difference between the LPC spectrum and an acoustic spectrum than the SCD we will find in non-nasalized vowels.
+
+In this function phon.RLPC_formants() is used to to produce LPC spectra, phon.compute_sgram() is used to compute narrow-band spectra, and phon.cepstral_smooth() is used to produce cepstrally smoothed spectra. The function then reports the spectral cosine difference (SCD) (in the specified analysis band) between the LPC spectrum and either the cepstrally smoothed acoustic spectrum or the raw (FFT) narrow-band acoustic spectrum. 
+    
+In addition the function returns two commonly used measures of vowel nasality: the bandwidth of F1 from the RLPC function, and the difference between the amplitude of the harmonic closest to F1 and the lowest harmonic. 
     
 Parameters
 ==========

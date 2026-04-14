@@ -1,9 +1,0 @@
-name: opensauce_env
-channels:
-  - conda-forge
-  - defaults
-dependencies:
-  - git
-  - numpy
-  - python
-  - scipy

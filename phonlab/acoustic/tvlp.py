@@ -638,13 +638,13 @@ def tvlp_warmup_numba(verbose=True):
     if verbose:
         print(f" Done! ({time.time() - start:.1f}s)")
 
-def TVLP_formants(x, fs, frame_duration_sec=0.1, order=-1, q=3, norm='l2', qcp=True,
-                        step=0.01, nformants=4, f0median=200, max_bandwidth=800, 
-                        use_parallel=False, verbose=False):
+def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3, 
+                  norm='l2', qcp=True, step=0.01, nformants=4, f0median=200, 
+                  max_bandwidth=800, use_parallel=False, verbose=False):
     """
     This formant tracking function implements the time-varying, pitch synchronous, method that was described by Gowda et al. (2020).  The most important innovation of this method is that it smooths the Linear Prediction coefficients over time, providing a continuity constraint at the level of the LP coefficients. The second most important method is that (like Robust LPC) the method can optionally weight the audio samples pitch synchronously so the LP coefficients are caluculated from the glottal closed phase where the assumptions of LPC analysis are better met.  The third innovation, which also seems to be both the most computationally costly and least important for good formant tracking, is that the LP coefficients can be calculated minimizing the L1 norm (city-block) norm rather than the default L2 norm (Euclidian distance).  The L1 norm is 10 times slower than the L2 norm and results in almost no change in the derived formant frequencies.   
 
-    This Python implementation is a translation (done with extensive help from the AI model Claude) of Gowda's ftrack matlab code.  It uses numba for just-in-time (JIT) compilation of machine code, and parallelization of some loops which dramatically increases the speed of processing.  However, the first call to the function includes the compilation of the JIT code (on a typical laptop this can be 10 seconds!). Subsequent calls to `TVLP_formants()` will used the compiled JIT code.  However, in some situations you may want to separate the compilation from the first call to `TVLP_formants()`. Therefore a helper function `tvlp_warmup_numba()` is provided.  The helper function can be called at the beginning of a session to compile the JIT code, and then all subsequent calls to TVLP_formants() will be accelerated by the numba functions.
+    This Python implementation is a translation (done with extensive help from the AI model Claude) of Gowda's ftrack matlab code.  It uses numba for just-in-time (JIT) compilation of machine code, and parallelization of some loops which dramatically increases the speed of processing.  However, the first call to the function includes the compilation of the JIT code (on a typical laptop this can be 10 seconds!). Subsequent calls to `TVLP_formants()` will use the compiled JIT code and be much faster than the first call.  However, in some situations you may want to separate the compilation from the first call to `TVLP_formants()`. Therefore a helper function `tvlp_warmup_numba()` is provided.  The helper function can be called at the beginning of a session to compile the JIT code, and then all subsequent calls to TVLP_formants() will be accelerated by the numba functions.
     
     Parameters
     ==========
@@ -652,10 +652,12 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, order=-1, q=3, norm='l2', qcp=T
         a one-dimensional array of audio samples
     fs : int
         Sampling frequency of **x** in Hz 
-    frame_duration_sec : float, default 0.1 = 100ms
-        Duration of each frame in seconds.  Gowda et al.'s tests found that 100ms provides the most accurate formant measurements.
+    tf : int, default = 6000
+        Top frequency.  The signal will be resampled to tf*2.
     order : int, default = 10
         The number of LPC coefficients to use -- the 'order' of the LPC filter.  If this parameter is -1 then we will use `phon.choose_order(base='BIC')` to determine the best value for this parameter.
+    frame_duration_sec : float, default 0.1 = 100ms
+        Duration of each frame in seconds.  Gowda et al.'s tests found that 100ms provides the most accurate formant measurements.
     q : int, default = 3
         Time-varying polynomial order
     norm : str, default = 'l2'
@@ -694,8 +696,9 @@ def TVLP_formants(x, fs, frame_duration_sec=0.1, order=-1, q=3, norm='l2', qcp=T
     D. Gowda, R. Kadiri, B. Story, P. Alku (2020) `Time-varying quasi-closed-phase analysis for accurate formant tracking in speech signals.` in IEEE/ACM Transactions on Audio, Speech, and Language Processing, vol. 28, pp. 1901-1914, doi: 10.1109/TASLP.2020.3000037.
     """
     overall_start = time.time()
-       
-    x, fs = prep_audio(x, fs, target_fs = 12000, pre = 0, pad_to=frame_duration_sec, quiet = True)
+
+    target_fs = tf * 2
+    x, fs = prep_audio(x, fs, target_fs = target_fs, pre = 0, pad_to=frame_duration_sec, quiet = not verbose)
     frame_length_samples = int(frame_duration_sec * fs)
 
     p=order

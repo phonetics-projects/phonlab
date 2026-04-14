@@ -30,7 +30,9 @@ def weighted_cor(x,weight,npoles):
     
 def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC", s = 0.01, 
                  l = 0.03, window = None, numiter=1, verbose=False):
-    """An implementation of Lee's (1988) method for Robust Linear Prediction Coding. The method computes the residual signal from a conventional LPC analysis and then uses it to down-weight samples that produce large prediction error. It is possible to iterate the residual reweighting process more than once, though not much improvement is gained after the first iteration.  Formant frequencies are found from the LPC coefficients using polynomial root solving.  There are a couple of functions called by `RLPC_formants()` are accelerated by the use of numba just in time (JIT) compilation into machine code.  Therefore, the first call to `RLPC_formants()` will be slower (by about 10 ms) than subsequent calls.
+    """An implementation of Lee's (1988) method for Robust Linear Prediction Coding. The method computes the residual signal from a conventional LPC analysis and then uses it to down-weight samples that produce large prediction error. It is possible to iterate the residual reweighting process more than once, though not much improvement is gained after the first iteration.  Formant frequencies are found from the LPC coefficients using polynomial root solving.  A couple of functions called by `RLPC_formants()` are accelerated by the use of numba just in time (JIT) compilation into machine code.  Therefore, the first call to `RLPC_formants()` will be slower (by about 10 ms) than subsequent calls.
+
+    Note that unlike other formant analysis functions, this one returns both a dataframe with analysis results and also a 2D matrix with time-varying LPC coefficients.
     
     Parameters
     ==========
