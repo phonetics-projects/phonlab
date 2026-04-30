@@ -440,7 +440,7 @@ In this example we have the name of an existing Praat Textgrid file, and use **t
 
     '''
     tg = pcall('Read from file...', str(tg))[0]
-    ntiers = pcall(tg, 'Get number of tiers')
+    ntiers = int(pcall(tg, 'Get number of tiers'))
     tiers = []
     tiermap = {pcall(tg, 'Get tier name...', n+1): n for n in range(ntiers)}
     if tiersel == []:
@@ -458,8 +458,9 @@ In this example we have the name of an existing Praat Textgrid file, and use **t
             msg = f'Not enough names listed in `names`. There are {len(names)} names for {ntiers} selected tiers.'
             raise ValueError(msg) from None
         recs = []
-        if pcall(tg, 'Is interval tier...', n+1) is True:
-            nlabels = pcall(tg, 'Get number of intervals...', n+1)
+        isintvl = pcall(tg, 'Is interval tier...', n+1)
+        if isintvl is True or isintvl == 1 or isintvl == '1':
+            nlabels = int(pcall(tg, 'Get number of intervals...', n+1))
             for i in range(nlabels):
                 recs.append({
                     't1': pcall(tg, 'Get start time of interval...', n+1, i+1),
@@ -467,7 +468,7 @@ In this example we have the name of an existing Praat Textgrid file, and use **t
                     tiername: pcall(tg, 'Get label of interval...', n+1, i+1)
                 })
         else:
-            nlabels = pcall(tg, 'Get number of points...', n+1)
+            nlabels = int(pcall(tg, 'Get number of points...', n+1))
             for i in range(nlabels):
                 recs.append({
                     't1': pcall(tg, 'Get time of point...', n+1, i+1),
