@@ -144,15 +144,24 @@ The second example shows that plot_tier() can be used to add lables directly to 
                     if isinstance(other_axes,plt.Axes):
                         other_axes.axvspan(row.t1,row.t2,**kwargs)
 
-def make_figure(height_ratios = [1,1,5]):
+def make_figure(height_ratios = [1,1,5], figsize=(5, 2), dpi=72, **fig_kw):
     """
-Create a matplotlib figure with axes to be filled with calls to plotting functions like `phon.sgram()` `phon.displacy_wave()`, and `phon.plot_tier()`.  The first version of this function was written by Martin Oberg at UBC.  
+Create a matplotlib figure with axes to be filled with calls to plotting functions like `phon.sgram()` `phon.display_wave()`, and `phon.plot_tier()`.  The first version of this function was written by Martin Oberg at UBC.
 
 Parameters
 ==========
     height_ratios: array of numbers, default = [1,1,5]
         This list determines the number of axes that will be included in the figure, and determines their relative heights.  The default list prepares a figure that will have two narrow axes at the top (like textgrid tiers) and one five-time taller axes for plotting a spectrogram.  Note that when height_ratios is "1" the axis labeling is turned off for the axes.
-    
+
+    figsize : 2-tuple of floats,  default  = (5, 2)
+        The `figsize` parameter value to pass to the `plt.Figure` constructor.
+
+    dpi : float, default = 72
+        The `dpi` parameter value to pass to the `plt.Figure` constructor.
+
+    **fig_kw
+        All additional keyword arguments are passed to the `plt.Figure` constructor.
+
 Returns
 =======
 
@@ -163,7 +172,7 @@ Returns
         a list of Matplotlib Axes objects, as defined by the height_ratios.
         
     """
-    fig = plt.figure(figsize=(5, 2), dpi=72)
+    fig = plt.figure(figsize=figsize, dpi=dpi, **fig_kw)
     gs = fig.add_gridspec(
         nrows=len(height_ratios), ncols=1, height_ratios=height_ratios
     )
