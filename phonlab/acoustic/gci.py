@@ -91,7 +91,8 @@ The columns in the returned DataFrame are:
     * sec - the time points (in seconds) of each glottal closure instant. These are the GCI times.
     * f0 - pitch of voicing, which is `1/t`, where `t` is the glottal period - the duration between adjacent GCI times.
     * jitter - the relative discrepancy between adjacent glottal period durations (call them t1 and t2). The value is calculated as `j = 2 * |0.5 - t1/(t1+t2)|`. This results in values on a scale from 0 (adjacent periods (t) are equal in duration), to 1 (the theoretical limit of jitter).  A value of 0.5 means that t1 is twice (or 1/2) as long as t2.  This corresponds to 1/2 of Praat's "local jitter" measurement (which is scaled from 0 to 2).
-    * soe - strength of excitation is the height of the LPC residual peak for each GCI
+    * soe - strength of excitation (SOE)is the height of the LPC residual peak for each GCI
+    * shimmer - relative discrepancy between adjacent glottal SOE, measured in dB with the formula: shimmer = 20*log(soe[i+1]/soe[i])
 
 References
 ==========
@@ -193,14 +194,15 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
     idx = 0
     for k in range(len(imin)):
         t = imax[k] - imin[k]
-        start = imin[k] + round((ratioGCI - 0.3)*t)
+        start = imin[k] + round((ratioGCI - 0.3)*t)  # back a bit
         if start < 1: start = 1
         if start > len(resid): break
-        stop = imin[k] + round((ratioGCI + 0.3)*t)
+        stop = imin[k] + round((ratioGCI + 0.3)*t)  # forward a bit
         if stop > len(resid): stop = len(resid)
-        if np.max(resid[start:stop]) > cthresh:  # threshold to posit glottal closure
+        peak_resid = np.max(resid[start:stop])
+        if peak_resid > cthresh:  # threshold to posit glottal closure
             i = np.argmax(resid[start:stop])
-            soe[k] = np.max(resid[start:stop])
+            soe[k] = peak_resid  # strength of excitation = height of residual peak
             gci[k] = start + i -1
     soe = soe[~np.isnan(soe)]
     gci = gci[~np.isnan(gci)]  # remove rows that didn't get filled
@@ -220,6 +222,11 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
     t2 = np.pad(t2,(0,2),mode='edge') # repeat the last two
     jitter = 2 * np.fabs(0.5 - (t1/t2)) # 0 = identical adjacent periods, 1 = one is twice as long as the other
 
-    df = DataFrame({'sec': gci, 'f0':f0, 'jitter':jitter, 'soe':soe})
+    # ==========================
+    # 7. Shimmer
+    shimmer = 20*np.log10(soe[1:]/soe[:-1]) # amplitude difference between adjacent pulses.
+    shimmer = np.pad(shimmer,1,0),mode='edge')  # repeat the first one
+    
+    df = DataFrame({'sec': gci, 'f0':f0, 'jitter':jitter, 'soe':soe, 'shimmer':shimmer})
     
     return df,mbs,resid
