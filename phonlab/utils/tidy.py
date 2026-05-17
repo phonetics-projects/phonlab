@@ -937,17 +937,21 @@ formants dataframe and adds measurements at the desired observation times in the
     tol = np.mean(np.diff(meas_ts)) / 2 if tol is None else tol
     # An interpolation timepoint is out of tolerance if its minimum absolute
     # distance to a measurement timepoint is greater than `tol`
-    outoftol = np.min(
-        np.abs(
-            np.expand_dims(meas_ts, axis=0) - np.expand_dims(interp_ts, axis=1)
-        ),
-        axis=1
-    ) > tol
+    meas_vals = np.asarray(meas_ts)
+    interp_vals = np.asarray(interp_ts)
+    idx = np.searchsorted(meas_vals, interp_vals)
+    idx_right = np.clip(idx, 0, len(meas_vals) - 1)
+    idx_left = np.clip(idx - 1, 0, len(meas_vals) - 1)
+    nearest_dist = np.minimum(
+        np.abs(meas_vals[idx_right] - interp_vals),
+        np.abs(meas_vals[idx_left] - interp_vals),
+    )
+    outoftol = nearest_dist > tol
     try:
         assert(not outoftol.any())
     except AssertionError:
         with np.printoptions(threshold=3):
-            msg = f'The maximum distance allowed from an interpolation timepoint to the nearest measurement timepoint is {tol}, and that tolerance is exceeded at interpolation timepoint(s) {interp_ts[outoftol].values}. Use the `tol` param to adjust the tolerance or exclude these interpolation timepoint(s).'
+            msg = f'The maximum distance allowed from an interpolation timepoint to the nearest measurement timepoint is {tol}, and that tolerance is exceeded at interpolation timepoint(s) {np.asarray(interp_ts[outoftol])}. Use the `tol` param to adjust the tolerance or exclude these interpolation timepoint(s).'
         raise ValueError(msg) from None
     try:
         assert(np.all(np.diff(meas_ts) > 0))
@@ -956,7 +960,7 @@ formants dataframe and adds measurements at the desired observation times in the
         raise ValueError(msg) from None
     meas_cols = [c for c in meas_df.columns if c != meas_ts.name]
     try:
-        if not overwrite:
+        if not overwrite and interp_df is not None:
             overlaps = set(interp_df.columns) & set(meas_cols)
             assert(len(overlaps) == 0)
     except AssertionError:
