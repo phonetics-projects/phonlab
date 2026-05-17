@@ -228,7 +228,7 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
     # ==========================
     # 7. Shimmer
     shimmer = 20*np.log10(soe[1:]/soe[:-1]) # amplitude difference between adjacent pulses.
-    shimmer = np.pad(shimmer,1,0),mode='edge')  # repeat the first one
+    shimmer = np.pad(shimmer,(1,0),mode='edge')  # repeat the first one
     
     df = DataFrame({'sec': gci, 'f0':f0, 'jitter':jitter, 'soe':soe, 'shimmer':shimmer})
     
