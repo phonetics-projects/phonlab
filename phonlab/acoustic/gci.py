@@ -11,6 +11,9 @@ def get_mbs(x,fs, f0median, width = 1.4):
     width is the size of the window in number of glottal pulses.  Drugman and Dutoit used 1.75,
     1.4 seems to be better for higher pitched voices without harming performance with lower 
     voices.
+
+    TO DO: What about using F0 trajectory rather than a single median?  This would mean 
+    having a time series of windows w with length determined frame by frame.   
     '''
     
     # calculate the MeanBased Signal - smooth with a window that is 1.4 glottal pulses wide

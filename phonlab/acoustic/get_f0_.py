@@ -148,7 +148,7 @@ def get_f0(y, fs, f0_range = [63,400], s= 0.005):
     HNR = 10 * np.log10(c/(1-c),where=np.where(c<1,True,False),out=np.zeros(c.shape))
 
     # voicing decision
-    odds = np.exp(-2.25 + (0.26*rms) + (3.39*c))  # logistic formula, trained on ASC corpus
+    odds = np.exp(-5.92 + (0.133*rms) + (3.324*c))  # logistic formula, trained on ASC corpus
     probv = odds / (1 + odds)
     Voiced = probv > 0.5
     #Voiced = ((rms - np.mean(rms)) + HNR) > 4
@@ -202,7 +202,7 @@ The f0 range is adaptively adjusted.
 Probability of voicing is given from a logistic regression formula using `rms` and `srh` 
 trained to predict the voicing state as determined by EGG data using the function `phonlab.egg_to_oq()` 
 over the 10 speakers in the ASC corpus of Mandarin speech. The prediction of the EGG voicing 
-decision was about 83% correct.
+decision was about 84% correct.
 
 Parameters
 ==========
@@ -274,7 +274,7 @@ T. Drugman, A. Alwan (2011) Joint robust voicing detection and pitch estimation 
         F0med = int(np.nanmedian(np.where(SRHval<0.1,f0,np.nan)))
 
     # ---------- get voicing decisions --------------
-    odds = np.exp(1.65 + (0.15*rms) + (15.26*SRHval))  # logistic formula, trained on ASC corpus
+    odds = np.exp(3.43 + (0.155*rms) + (13.407*SRHval))  # logistic formula, trained on ASC corpus
     probv = odds / (1 + odds)
     voiced = probv > 0.5
 
@@ -401,7 +401,7 @@ def f0_from_harmonics(f_p,i,h,nh):
     mean_f0 = np.average(f0,weights=np.arange(len(f0))+1)
     return C,mean_f0 
     
-def get_f0_acd(y, fs,  f0_range=[60,400], l=0.05, s=0.005, prom=14, min_height = 0.6, test_time=-1):
+def get_f0_acd(y, fs,  f0_range=[60,400], l=0.05, s=0.005, prom=5, min_height = 0.6, test_time=-1):
     """Track the fundamental frequency of voicing, using a frequency domain method.
 
 This function implements the 'approximate common denominator" algorithm proposed by Aliik, Mihkla and Ross (1984), which was an improvement on the method proposed by Duifuis, Willems and Sluyter (1982).  The algorithm finds candidate harmonic peaks in the spectrum, and chooses a value of f0 that best predicts the harmonic pattern.  One feature of this method is that it reports a voice quality measure (the difference in the amplitudes of harmonic 1 and harmonic 2).
@@ -421,7 +421,7 @@ Parameters
         Length of the pitch analysis window in seconds. The default is 50 milliseconds.  
     s : float, default = 0.005
         "Hop" interval between successive analysis windows. The default is 5 milliseconds
-    prom : numeric, default = 14 dB
+    prom : numeric, default = 5 dB
         In deciding whether a peak in the spectrum is a possible harmonic, this prominence value is passed to scipy.find_peaks().  A larger value means that the spectral peak must be more prominent to be considered as a possible harmonic peak, and thus the algorithm is less likely to report pitch values when the parameter is given a high value.  In general, 20 is a high value, and 3 is low.
     min_height: numeric, default = 0.6
         As a proportion of the range between the lowest amplitude in the spectrum and the highest, only peaks above `min_height` will be considered to be harmonics. The value that is passed to find_peaks() is: `amplitude_min + min_height*(amplitude_range)`. 
@@ -508,7 +508,7 @@ Example
     nb = len(ts)  # the number of frames in the spectrogram
     f0 = np.full(nb,np.nan)  # array filled with nan
     h1h2 = np.full(nb,np.nan)        # array filled with nan
-    c = np.full(nb,11.0)      # default value of c is 5.0
+    c = np.full(nb,9.0)      # default value of c is 9.0
         
     min_dist = int(f0_range[0]/(fs/N)) # min distance btw harmonics
     max_dist = int(f0_range[1]/(fs/N))
@@ -558,8 +558,7 @@ Example
             print(f"height = {height:0.2f},max={np.max(spec):0.2f}, min={np.min(spec):0.2f}, c={best_c}")
             print(f"time = {test_time}, f0 = {f0[idx]:0.2f}, h1h2 = {h1h2[idx]:0.2f}")
 
-
-    odds = np.exp(8.32 + (0.149*rms) - (0.616*c) - (0.0062*h1h2))  # logistic formula, trained on ASC corpus
+    odds = np.exp(8.34 + (0.167*rms) - (0.072*c))  # logistic formula, trained on ASC corpus
     probv = odds / (1 + odds)
     voiced = probv > 0.5
 
