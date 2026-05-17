@@ -31,6 +31,17 @@ See the `Phonlab Workshop slide deck <https://docs.google.com/presentation/d/1gf
 
 See also the `examples` folder in the github repository!
 
+=======
+Testing
+=======
+
+To run the unit tests:
+
+.. code-block::
+
+  pip install pytest
+  python -m pytest test/ -v
+
 ============
 Contributing
 ============
