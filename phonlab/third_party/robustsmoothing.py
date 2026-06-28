@@ -113,9 +113,9 @@ Examples
     s0=None  # starting value of smoothing parameter
 
     if type(y) == pd.core.series.Series:  # gracefully handle pandas series
-        y = y.values
+        y = np.array(y.values)
     if type(W) == pd.core.series.Series:  # gracefully handle pandas series
-        W = W.values
+        W = np.array(W.values)
     
     if type(y) == ma.core.MaskedArray:  # masked array
         is_masked = True
