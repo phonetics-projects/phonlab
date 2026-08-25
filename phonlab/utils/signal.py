@@ -78,3 +78,50 @@ In this example we load channels from a wav file that has an unknown number of c
         chansel = np.arange(y.shape[0], dtype=np.int16)
     return [ *list(y[chansel, :]), fs ]
 
+
+def channels_are_duplicates(chan_a, chan_b, atol=1e-6, rtol=1e-5, corr_thresh=0.999, rel_diff_thresh=0.01):
+    """
+    Determine whether two audio channels carry effectively the same signal.
+
+    A mono recording saved as "stereo" is usually bit-identical across
+    channels (no lossy step involved), so an exact/near-exact check via
+    np.allclose catches that case cheaply. Channels that passed through a
+    lossy codec (e.g. mid-side-coded MP3/AAC) won't be bit-exact even when
+    they originated from the same mono source, so we fall back to a
+    correlation + relative-RMS-difference check for near-duplicates.
+
+Parameters
+==========
+
+    chan_a, chan_b : ndarray
+        two arrays of audio samples
+    
+    atol: float (default = 1e-6)
+        absolute difference tolerance passed to np.allclose()
+
+    rtol: float (default = 1e-5)
+        relative difference tolerance passed to np.allclose()
+
+    corr_thresh: float (default=0.999)
+        fall back correlation threshold for near-duplicates
+
+    rel_diff_thresh: float (default=0.01)
+        fall back relative RMS difference threshold for near-duplicates
+
+Returns
+=======
+
+    boolean, True if chan_a and chan_b are duplicates of each other.
+
+    
+    """
+    if chan_a.shape != chan_b.shape:
+        return False
+    if np.allclose(chan_a, chan_b, rtol=rtol, atol=atol):
+        return True
+    if np.std(chan_a) == 0 or np.std(chan_b) == 0:
+        return np.allclose(chan_a, chan_b, atol=atol)
+    corr = np.corrcoef(chan_a, chan_b)[0, 1]
+    diff_rms = np.sqrt(np.mean((chan_a - chan_b) ** 2))
+    sig_rms = np.sqrt(np.mean(chan_a ** 2))
+    return corr >= corr_thresh and diff_rms / sig_rms < rel_diff_thresh

@@ -13,9 +13,6 @@ __all__ += ['nasality']
 from .acoustic.choose_order_ import choose_order, choose_order_A
 __all__ += ["choose_order", "choose_order_A"]
 
-from .utils.test_sig import test_signal
-__all__ += ["test_signal"]
-
 from .acoustic.rlpc import RLPC_formants
 __all__ += ["RLPC_formants"]
 
@@ -130,12 +127,16 @@ __all__ += ["df_to_tg",
             "srt_to_df", 
             "split_speaker_df"]
 
-from .utils.signal import loadsig
-__all__ += ["loadsig"]
+from .utils.signal import loadsig, channels_are_duplicates
+__all__ += ["loadsig",
+            "channels_are_duplicates"]
 
 from .utils.plot_tiers import plot_tier, make_figure
 __all__ += ["plot_tier", 
             "make_figure"]
+
+from .utils.test_sig import test_signal
+__all__ += ["test_signal"]
 
 from .third_party.robustsmoothing import smoothn
 __all__ += ["smoothn"]
