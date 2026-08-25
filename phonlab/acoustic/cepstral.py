@@ -5,7 +5,6 @@ from librosa import util, stft, amplitude_to_db, frames_to_time
 from scipy import fft
 from pandas import DataFrame
 from scipy.signal import windows,filtfilt
-from sklearn.linear_model import LinearRegression
 from scipy.ndimage import gaussian_filter
 
 def compute_cepstrogram(x,fs, dBscale=True, l= 0.04, s=0.005):
@@ -154,7 +153,7 @@ This example plots the cepstral peak prominence through the "I'm twelve" example
 
     if smooth: s = 0.002  # faster framerate if smoothed
 
-    sec, quef, Sxx = compute_cepstrogram(y, fs, dBscale, l, s)
+    quef, sec, Sxx = compute_cepstrogram(y, fs, dBscale, l, s)
     
     if smooth:
         Sxx = gaussian_filter(Sxx,sigma = smooth,truncate=3)
@@ -172,10 +171,18 @@ This example plots the cepstral peak prominence through the "I'm twelve" example
         # hard coding here the range for the linear regression CPP normalization
         sT = int(np.round(fs/500)) # was [300,60] in Hillenbrand & Houde
         lT = int(np.round(fs/50)) # was [300,60] in Hillenbrand & Houde
-        X = np.array(np.arange(sT,lT,1))  # line fitting in the f0 region
-        X = np.reshape(X,(len(X),1))
-        reg =LinearRegression().fit(X,y=Sxx[:,sT:lT].T)  # vectorized regressions
-        p = np.diag(reg.predict(np.reshape(cp,(-1,1))))
+        xr = np.arange(sT,lT)  # quefrency-index axis shared by every frame's regression line
+        yr = Sxx[:,sT:lT]      # one row per frame, fit against xr
+
+        # closed-form OLS, vectorized across frames since xr is shared:
+        # slope_i = cov(xr, yr[i]) / var(xr), intercept_i = mean(yr[i]) - slope_i * mean(xr)
+        xbar = xr.mean()
+        xc = xr - xbar
+        sxx = np.sum(xc**2)
+        slope = (yr @ xc) / sxx
+        intercept = yr.mean(axis=1) - slope * xbar
+
+        p = intercept + slope * cp  # each frame's own fit line evaluated at its own peak location (cp)
         cpp = cpp-p
             
     return DataFrame({'sec': sec, 'f0':f0, 'cpp':cpp})

@@ -1,7 +1,6 @@
 from scipy.signal import spectrogram
 from scipy.signal import windows
 import numpy as np
-import matplotlib.pyplot as plt
 from ..utils.prep_audio_ import prep_audio
 
 def compute_sgram(x,fs,w,s=0.001,order=13):
@@ -152,6 +151,8 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
        Showing the spectrogram of sine-wave synthesis.
 
     """
+    import matplotlib.pyplot as plt
+
     target_fs = tf*2    # top frequency is the Nyquist frequency for the analysis
 
     if band=='nb':

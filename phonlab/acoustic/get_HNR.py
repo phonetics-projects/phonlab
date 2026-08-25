@@ -4,7 +4,6 @@ import numpy as np
 from librosa import util
 from numpy.fft import rfft, irfft
 from pandas import DataFrame
-import matplotlib.pyplot as plt
 
 def HNR(x,fs, f0_range = [64,400], l= 0.06, s=0.005, target_time = None):
     '''Compute the Harmonics-to-Noise Ratio using the Cepstrum-Based method given by de Krom (1993).
@@ -134,6 +133,7 @@ at time 2.1 seconds in the file 'sf3_cln.wav'. In the top panel we see the log m
 
     # ------------- diagnostic plot ---------------
     if target_time != None:
+        import matplotlib.pyplot as plt
         fig,[ax1,ax2] = plt.subplots(nrows=2,ncols=1)
         quef = (np.array(range(1,NFFT//2+1))/fs *1000)  # the quefrecy axis of the cepstra (in ms)
         freqs = np.array(range(1,NFFT//2+1)) * (fs/NFFT)

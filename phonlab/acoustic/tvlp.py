@@ -9,7 +9,7 @@ from ..acoustic.choose_order_ import choose_order
 # This set of functions was written interactively with the AI model Claude, translating
 # and adapting Gowda's ftrack matlab code.  Keith Johnson, Feb 2026
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def _build_matrices(x, p, q, w):
     """Build the Ypu matrix and Yn vector using Numba for speed."""
     n_samples = len(x)
@@ -31,7 +31,7 @@ def _build_matrices(x, p, q, w):
     return Ypu, Yn
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def _solve_lstsq_numba(A, b):
     """Solve least squares using QR decomposition."""
     # Ensure arrays are contiguous for optimal performance
@@ -44,7 +44,7 @@ def _solve_lstsq_numba(A, b):
     return np.linalg.solve(R, Qt @ b)
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def _irls_iteration(Ypu, Yn, max_iter=10, tol=1e-4, epsilon=1e-8):
     """IRLS iterations - Numba compatible."""
     m, n = Ypu.shape
@@ -83,7 +83,7 @@ def _irls_iteration(Ypu, Yn, max_iter=10, tol=1e-4, epsilon=1e-8):
     return x
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def _compute_time_varying_coeffs(aki, frame_length):
     """
     Compute time-varying LP coefficients for each sample in a frame.
@@ -118,7 +118,7 @@ def _compute_time_varying_coeffs(aki, frame_length):
     return ak
 
 
-@jit(nopython=True, parallel=True)
+@jit(nopython=True, parallel=True, cache=True)
 def _process_frames_l2_parallel(frames, weights, p, q):
     """
     Process multiple frames in parallel using L2 norm.
@@ -156,7 +156,7 @@ def _process_frames_l2_parallel(frames, weights, p, q):
     return all_ak
 
 
-@jit(nopython=True, parallel=True)
+@jit(nopython=True, parallel=True, cache=True)
 def _process_frames_l1_parallel(frames, weights, p, q, max_iter=10):
     """
     Process multiple frames in parallel using L1 norm (IRLS).

@@ -5,7 +5,6 @@ from librosa import util
 from scipy.interpolate import interp1d
 from numpy.fft import rfft, rfftfreq
 from pandas import DataFrame
-import matplotlib.pyplot as plt
 
 def _maxarg(x,axis = -1):
     try:
@@ -177,6 +176,7 @@ This example shows diagnostic plots from the get_f0_shs() function. The top left
     ts = (np.array(range(nb)) * step + half_frame)/fs  # time axis for output
 
     if fn!=None:
+        import matplotlib.pyplot as plt
         fig,((ax1,ax2),(ax3,ax4)) = plt.subplots(nrows=2,ncols=2)
         ax1.plot(ilogf,logS[fn,:],color="orange")
         ax2.plot(ilogf[lowerbound:upperbound],Hxx[fn,lowerbound:upperbound],color='black')
@@ -362,6 +362,7 @@ This example shows diagnostic plots from the shr_pitch() function. The top left 
     ts = (np.array(range(nb)) * step + half_frame)/fs  # time axis for output
 
     if fn!=None:
+        import matplotlib.pyplot as plt
         fig,((ax1,ax2),(ax3,ax4)) = plt.subplots(nrows=2,ncols=2)
         ax1.plot(ilogf,logS[fn,:],color="orange")
         ax2.plot(ilogf,Har[fn,:],color='black')
