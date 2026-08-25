@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.signal import find_peaks
-import matplotlib.pyplot as plt
 import pandas as pd
 
 from ..utils.prep_audio_ import prep_audio
@@ -201,7 +200,8 @@ Example
         a1h1 = a1_minus_h1
 
     # -------- optionally show a plot of the acoustic and LPC spectra ---------
-    if slice_time > 0:  
+    if slice_time > 0:
+        import matplotlib.pyplot as plt
         idx = np.argmin(abs(t-slice_time))  # find the closest index
 
         fig3 = plt.figure(figsize=(5, 4),dpi=150)

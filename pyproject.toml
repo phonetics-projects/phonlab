@@ -22,7 +22,6 @@ dependencies = [
     'pandas',
     'librosa',
     'praat-parselmouth',
-    'scikit-learn',
     'numba'
 ]
 classifiers = [

@@ -9,7 +9,7 @@ from numba import jit
 from ..utils.prep_audio_ import prep_audio
 from ..acoustic.choose_order_ import choose_order
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def weighted_cov(x,weight,npoles):
     # weighted covariance matrix, down-weighting samples with high LPC error
     C1 = np.zeros((npoles+1,npoles+1))
@@ -19,7 +19,7 @@ def weighted_cov(x,weight,npoles):
                 C1[i][j] += x[n-i] * x[n-j] * weight[n]
     return C1[1:npoles+1,1:npoles+1]
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def weighted_cor(x,weight,npoles):
     # weighted correlation matrix, down-weighting samples with high LPC error
     c1 = np.zeros((npoles+1))

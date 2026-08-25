@@ -1,7 +1,6 @@
 import scipy.signal
 import scipy.io.wavfile
 import numpy as np
-import matplotlib.pyplot as plt
 from librosa.util import frame
 from librosa import frames_to_time
 from ..utils.prep_audio_ import prep_audio
