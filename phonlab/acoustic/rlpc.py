@@ -80,7 +80,11 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
     """
     target_fs = tf*2
     
-    x, fs = prep_audio(x, fs, target_fs = target_fs, pre = preemphasis, quiet = not verbose)
+    x, fs = prep_audio(x, fs,
+                       target_fs = target_fs,
+                       pre = preemphasis,
+                       quiet = not verbose,
+                       fix_polarity = True)
     
     frame_length = int(fs*l)
     step = int(fs*s)

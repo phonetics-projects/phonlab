@@ -74,7 +74,7 @@ at time 2.1 seconds in the file 'sf3_cln.wav'. In the top panel we see the log m
 
 
     '''
-    x,fs = prep_audio(x,fs,target_fs=16000,quiet=True)
+    x,fs = prep_audio(x,fs,target_fs=16000,fix_polarity=True)
     
     frame_length = int(l*fs)
     step = int(s*fs)

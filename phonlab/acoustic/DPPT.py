@@ -127,7 +127,7 @@ def DPPT_formants(x,fs, pre=0, l=0.03, s=0.01, deltaF=1100, n=6):
 
 
     '''
-    x,fs = prep_audio(x, fs, target_fs=16000, pre=pre, quiet=True)  # resample to 16kHz
+    x,fs = prep_audio(x, fs, target_fs=16000, pre=pre, fix_polarity=True)  # resample to 16kHz
 
     numFormants = 5
     fsLR = 2048
