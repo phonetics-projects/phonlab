@@ -1,4 +1,3 @@
-__all__=['prep_audio']
 
 import numpy as np
 from scipy.signal import resample_poly
@@ -6,7 +5,7 @@ from scipy.signal import resample_poly
 
 def prep_audio(x, fs, target_fs=32000, pre = 0, scale = True, 
                add_tiny_noise = True, outtype = "float", pad_to = 0.0,
-               quiet = False):
+               fix_polarity = False, quiet = True):
     """ Prepare an array of audio waveform samples for acoustic analysis. 
     
 Parameters
@@ -33,6 +32,9 @@ Parameters
     pad_to: float, default = 0.0
         add samples so duration is a multiple of `pad_to`. For example, if the duration is 1.99 seconds 
         and `pad_to` is 0.1 then the signal will be padded to 2.0 seconds
+
+    fix_polarity: boolean, default = False
+        Apply a heuristic to ensure that positive pressure in an acoustic waveform is represented as a positive value.
 
     outtype : string {"float", "int"), default = "float"
         The "int" waveform is 16 bit integers - in the range from [-32768, 32767].
@@ -85,22 +87,17 @@ Take the right channel, and resample to 16,000 Hz
             cd = np.gcd(fs,target_fs)   # common denominator   
             x2 = resample_poly(x,up=target_fs/cd, down=fs/cd)
         
-    
-        #resample_ratio = target_fs/fs
-        #new_size = int(len(x) * resample_ratio)  # size of the resampled version
-        #x2 = resample(x,new_size)  # now sampled at desired sampling freq
-        
-        
-    if (np.max(x2) + np.min(x2)) < 0:  x2 = -x2   #  set the polarity of the signal
+    if fix_polarity:
+        if (np.max(x2) + np.min(x2)) < 0:  x2 = -x2   #  set the polarity of the signal
     if (pre > 0): y = np.append(x2[0], x2[1:] - pre * x2[:-1])  # apply pre-emphasis
     else: y = x2
     if scale: y = y/np.max(y) * 0.9  # scale to about full range
-    if add_tiny_noise:  y = y + ((np.random.rand(len(y)) - 0.5) * 0.00001)
+    if add_tiny_noise:  y = y + (((np.random.rand(len(y)) - 0.5) * 0.00001).astype(y.dtype))
     if pad_to > 0: 
         # check whether any extra are needed
         extra_time = pad_to - ((len(y)/target_fs) % pad_to)
         extra_samples = int(extra_time * target_fs)
-        y = np.concatenate((y,(np.random.rand(extra_samples) - 0.5) * 0.00001))
+        y = np.concatenate((y,((np.random.rand(extra_samples) - 0.5) * 0.00001).astype(y.dtype))
         if not quiet:
             print(f"Prep Audio: Padding signal to {pad_to} sec, which involves adding {extra_samples} extra samples.")
     if outtype == "int":  y = np.rint(np.iinfo(np.int16).max * y).astype(np.int16)
