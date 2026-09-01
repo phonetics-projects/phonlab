@@ -141,7 +141,7 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
        
     '''
     
-    y,fs = prep_audio(x,fs,target_fs,pre=0,quiet=False)
+    y,fs = prep_audio(x,fs,target_fs,pre=0,add_tiny_noise=False,quiet=False)
 
     # ========================
     # 1. get the mean based signal and find peaks and valleys in it
@@ -169,7 +169,7 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
             
 
     resid,fs = lpcresidual(y,fs,target_fs, order = order)
-
+    
     # ========================
     # 3. set an expectation for the median relative postion of the GCI in the MBS
     
@@ -202,6 +202,7 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
         if start > len(resid): break
         stop = imin[k] + round((ratioGCI + 0.3)*t)  # forward a bit
         if stop > len(resid): stop = len(resid)
+        if stop <= start: continue  # degenerate window (e.g. a razor-thin peak/valley pair); leave gci[k]/soe[k] as NaN
         peak_resid = np.max(resid[start:stop])
         if peak_resid > cthresh:  # threshold to posit glottal closure
             i = np.argmax(resid[start:stop])
