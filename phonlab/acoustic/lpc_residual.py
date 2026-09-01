@@ -81,11 +81,7 @@ Returns
     """
         
     # 1. Resample and Pre-process
-<<<<<<< HEAD
-    x, fs = prep_audio(y, fs, target_fs=target_fs, pre=0, add_tiny_noise=False, quiet=True)
-=======
     x, fs = prep_audio(y, fs, target_fs=target_fs, pre=0, fix_polarity=True)
->>>>>>> 58b33dec638aaf038de01230232a1594cc0bf5b9
     x = x.astype(np.float32) # Use float32 for speed and memory efficiency
     
     frame_length = int(fs * l)

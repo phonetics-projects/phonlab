@@ -698,17 +698,12 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
     overall_start = time.time()
 
     target_fs = tf * 2
-<<<<<<< HEAD
-    x, fs = prep_audio(x, fs, target_fs = target_fs, pre = 0, pad_to=frame_duration_sec, add_tiny_noise=False, quiet = not verbose)
-    frame_length_samples = int(frame_duration_sec * fs)
-=======
     x, fs = prep_audio(x, fs, target_fs = target_fs,
                        pre = 0,
                        fix_polarity = True,
                        pad_to=frame_duration_sec,
                        quiet = not verbose)
     frame_length_samples = round(frame_duration_sec * fs)  # must match prep_audio()'s pad_to rounding, or the reshape in tvlp_batch() breaks
->>>>>>> 58b33dec638aaf038de01230232a1594cc0bf5b9
 
     p=order
     if p<0:  # guess the correct LPC order
