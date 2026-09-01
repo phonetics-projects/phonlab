@@ -141,7 +141,13 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
        
     '''
     
+<<<<<<< HEAD
     y,fs = prep_audio(x,fs,target_fs,pre=0,add_tiny_noise=False,quiet=False)
+=======
+    y,fs = prep_audio(x,fs,target_fs,pre=0,
+                      add_tiny_noise = False,
+                      fix_polarity=True)
+>>>>>>> 58b33dec638aaf038de01230232a1594cc0bf5b9
 
     # ========================
     # 1. get the mean based signal and find peaks and valleys in it
@@ -202,7 +208,11 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
         if start > len(resid): break
         stop = imin[k] + round((ratioGCI + 0.3)*t)  # forward a bit
         if stop > len(resid): stop = len(resid)
+<<<<<<< HEAD
         if stop <= start: continue  # degenerate window (e.g. a razor-thin peak/valley pair); leave gci[k]/soe[k] as NaN
+=======
+        if start >= stop: continue  # window is empty (can happen for the last GCI near the end of the signal)
+>>>>>>> 58b33dec638aaf038de01230232a1594cc0bf5b9
         peak_resid = np.max(resid[start:stop])
         if peak_resid > cthresh:  # threshold to posit glottal closure
             i = np.argmax(resid[start:stop])

@@ -1,4 +1,3 @@
-__all__=['prep_audio']
 
 import numpy as np
 from scipy.signal import resample_poly
@@ -6,7 +5,7 @@ from scipy.signal import resample_poly
 
 def prep_audio(x, fs, target_fs=32000, pre = 0, scale = True, 
                add_tiny_noise = True, outtype = "float", pad_to = 0.0,
-               quiet = False):
+               fix_polarity = False, quiet = True):
     """ Prepare an array of audio waveform samples for acoustic analysis. 
     
 Parameters
@@ -28,11 +27,17 @@ Parameters
         scale the samples to use the full range for audio samples (based on the peak amplitude in the signal)
 
     add_tiny_noise: boolean, default = True
-        add a tiny bit of noise to the audio to avoid problematic waveforms with many samples at zero amplitude.
+        replace any exact-zero samples (e.g. digital silence, or the samples added by `pad_to`) with a tiny
+        bit of random noise, to avoid problematic waveforms with runs of zero amplitude. Samples that are
+        already nonzero are left untouched, so real recordings are unaffected -- this only matters for
+        synthetic or padded silence.
 
     pad_to: float, default = 0.0
         add samples so duration is a multiple of `pad_to`. For example, if the duration is 1.99 seconds 
         and `pad_to` is 0.1 then the signal will be padded to 2.0 seconds
+
+    fix_polarity: boolean, default = False
+        Apply a heuristic to ensure that positive pressure in an acoustic waveform is represented as a positive value.
 
     outtype : string {"float", "int"), default = "float"
         The "int" waveform is 16 bit integers - in the range from [-32768, 32767].
@@ -75,34 +80,41 @@ Take the right channel, and resample to 16,000 Hz
     
     if target_fs == None:
         target_fs = fs
-        x2 = x
+        x2 = np.array(x, copy=True)  # always copy, so callers never get back a view of their input buffer
     else:  # resample to 'target_fs' samples per second
         if target_fs==fs:
-            x2 = x
+            x2 = np.array(x, copy=True)  # always copy, so callers never get back a view of their input buffer
         else:
             if not quiet: 
                 print(f'Prep Audio: Resampling from {fs} to {target_fs}')
             cd = np.gcd(fs,target_fs)   # common denominator   
             x2 = resample_poly(x,up=target_fs/cd, down=fs/cd)
         
-    
-        #resample_ratio = target_fs/fs
-        #new_size = int(len(x) * resample_ratio)  # size of the resampled version
-        #x2 = resample(x,new_size)  # now sampled at desired sampling freq
-        
-        
-    if (np.max(x2) + np.min(x2)) < 0:  x2 = -x2   #  set the polarity of the signal
+    if fix_polarity:
+        if (np.max(x2) + np.min(x2)) < 0:  x2 = -x2   #  set the polarity of the signal
     if (pre > 0): y = np.append(x2[0], x2[1:] - pre * x2[:-1])  # apply pre-emphasis
     else: y = x2
     if scale: y = y/np.max(y) * 0.9  # scale to about full range
-    if add_tiny_noise:  y = y + ((np.random.rand(len(y)) - 0.5) * 0.00001)
-    if pad_to > 0: 
-        # check whether any extra are needed
-        extra_time = pad_to - ((len(y)/target_fs) % pad_to)
-        extra_samples = int(extra_time * target_fs)
-        y = np.concatenate((y,(np.random.rand(extra_samples) - 0.5) * 0.00001))
+    if pad_to > 0:
+        # Pad to an exact multiple of the frame length in *samples*, not just in time -- when
+        # pad_to*target_fs isn't a whole number (e.g. 0.05 sec at 22050 Hz = 1102.5 samples),
+        # padding to a time boundary can still leave a sample-count remainder for anything that
+        # reshapes the output into frames of round(pad_to*target_fs) samples.
+        frame_len = max(1, round(pad_to * target_fs))
+        remainder = len(y) % frame_len
+        extra_samples = 0 if remainder == 0 else frame_len - remainder
+        if extra_samples > 0:
+            y = np.concatenate((y, np.zeros(extra_samples, dtype=y.dtype)))
         if not quiet:
-            print(f"Prep Audio: Padding signal to {pad_to} sec, which involves adding {extra_samples} extra samples.")
+            print(f"Prep Audio: Padding signal to a multiple of {pad_to} sec ({frame_len} samples), which involves adding {extra_samples} extra samples.")
+    if add_tiny_noise:
+        # only exact-zero samples get jittered (digital silence, or the padding above) -- real
+        # recordings essentially never contain literal zeros, so this leaves them bit-identical
+        # across repeated calls instead of dithering every sample.
+        zero_mask = (y == 0)
+        n_zero = int(np.count_nonzero(zero_mask))
+        if n_zero > 0:
+            y[zero_mask] = (((np.random.rand(n_zero) - 0.5) * 0.00001).astype(y.dtype))
     if outtype == "int":  y = np.rint(np.iinfo(np.int16).max * y).astype(np.int16)
     if outtype == "int16":  y = np.rint(np.iinfo(np.int16).max * y).astype(np.int16)
 
