@@ -444,7 +444,7 @@ def tvlptoformants(all_ak, frame_length_samples, step, fs,
     return all_fi, all_bw, sample_times
 
 
-def tvlp_batch(x, fs, frame_length, p, q, norm, qcp=True, f0median =200,max_iter=10, verbose=False):
+def tvlp_batch(x, fs, frame_length, p, q, norm, qcp=True, f0median=200, max_iter=10, verbose=False):
     """
     Process long audio files in parallel using Numba.
     Returns only time-varying coefficients (aki matrices are not stored).
@@ -698,13 +698,14 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
     overall_start = time.time()
 
     target_fs = tf * 2
-    x, fs = prep_audio(x, fs, target_fs = target_fs, pre = 0, pad_to=frame_duration_sec, quiet = not verbose)
+    x, fs = prep_audio(x, fs, target_fs = target_fs, pre = 0, pad_to=frame_duration_sec, add_tiny_noise=False, quiet = not verbose)
     frame_length_samples = int(frame_duration_sec * fs)
 
     p=order
     if p<0:  # guess the correct LPC order
         p,order_time = choose_order(x,fs,verbose=verbose)
-        print(f"in TVLP_formants(), order is {p}, taken at time {order_time:.3f}")
+        if verbose:
+            print(f"in TVLP_formants(), order is {p}, taken at time {order_time:.3f}")
 
     max_freq = fs / 2.0
     min_freq = f0median
