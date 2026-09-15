@@ -36,10 +36,11 @@ def get_rms(y, fs, s=0.005, l=0.04, scale=False):
     step = int(fs * s)  # number of samples between frames
 
     rms = feature.rms(y=y,frame_length=frame_length, hop_length=step,center=False)[0]
+    tiny = np.finfo(rms.dtype).tiny
     if scale:
-        rms = 20*np.log10(rms/np.max(rms),where=np.where(rms>0,True,False,out=np.zeros(rms.shape)))
+        rms = 20*np.log10(np.maximum(rms, tiny)/np.maximum(np.max(rms), tiny))
     else:
-        rms = 20*np.log10(rms,where=np.where(rms>0,True,False,out=np.zeros(rms.shape)))
+        rms = 20*np.log10(np.maximum(rms, tiny))
 
     nb = rms.shape[0]  # the number of frames
     sec = (np.array(range(nb)) * step + half_frame).astype(int)/fs
@@ -145,7 +146,9 @@ def get_f0(y, fs, f0_range = [63,400], s= 0.005):
     rms = 20 * np.log10(np.sqrt(np.sum(np.square(np.abs(Sxx)),axis=-1))) 
     c = np.array([np.abs(np.max(rx[i,s_lag:l_lag])) for i in range(nb)])
     c = np.where(c>=1,0.999,c)
-    HNR = 10 * np.log10(c/(1-c),where=np.where(c<1,True,False),out=np.zeros(c.shape))
+    tiny = np.finfo(c.dtype).tiny
+    ratio = np.where(c<1, c/np.maximum(1-c, tiny), 1.0)  # c>=1 maps to ratio=1.0 -> HNR=0
+    HNR = 10 * np.log10(np.maximum(ratio, tiny))
 
     # voicing decision
     odds = np.exp(-5.92 + (0.133*rms) + (3.324*c))  # logistic formula, trained on ASC corpus
@@ -332,8 +335,9 @@ def get_f0_ac(y, fs, f0_range = [60,400], l=0.05, s=0.005):
 
     step = int(fs * s)  # number of samples between frames
 
-    rms = feature.rms(y=x,frame_length=frame_length, hop_length=step,center=False)
-    rms = 20*np.log10(rms[0]/np.max(rms[0]))
+    rms = feature.rms(y=x,frame_length=frame_length, hop_length=step,center=False)[0]
+    tiny = np.finfo(rms.dtype).tiny
+    rms = 20*np.log10(np.maximum(rms, tiny)/np.maximum(np.max(rms), tiny))
 
     frames = util.frame(x, frame_length=frame_length, hop_length=step,axis=0)    
 

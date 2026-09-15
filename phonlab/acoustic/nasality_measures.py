@@ -151,7 +151,9 @@ Example
                                       preemphasis=0.0, order=order, verbose=verbose)
    
     gain = fmtdf.gain.to_numpy()
-    Lxx = 10 * np.log10((gain)/np.abs(np.fft.rfft(A, n=n)).T)
+    tiny = np.finfo(float).tiny
+    lpc_mag = np.abs(np.fft.rfft(A, n=n)).T
+    Lxx = 10 * np.log10(np.maximum(gain, tiny)/np.maximum(lpc_mag, tiny))
 
     # -------- measure the difference between the smoothed spectrum and the LPC spectrum -------
     if verbose:
