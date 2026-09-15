@@ -111,7 +111,7 @@ Example
         
     spec = np.abs(spec[:,0:int(fs/2)-1])
     spec = np.divide(spec.T,np.sqrt(np.sum(spec**2,axis=-1))).T
-    spec = 20 * np.log10(spec)
+    spec = 20 * np.log10(np.maximum(spec, np.finfo(spec.dtype).tiny))
     h2h1 = np.empty(F0.shape[0])
     #h2h1 = np.diagonal(spec[:,F0*2]) - np.diagonal(spec[:,F0])  
     for n in range(F0.shape[0]):
