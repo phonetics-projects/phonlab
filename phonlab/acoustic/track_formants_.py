@@ -444,6 +444,7 @@ def get_amplitude_ratios(x, fs, filterbank):
         y[idx] = signal.sosfiltfilt(coefs, x)  # mean square amp in each band
         rms[idx] = np.sqrt(np.sum(y[idx]**2)/len(y))
         
+    rms = np.maximum(rms, np.finfo(rms.dtype).tiny)
     r12 = 20*np.log10(rms[1]/rms[0])
     r23 = 20*np.log10(rms[2]/rms[1])
     r34 = 20*np.log10(rms[3]/rms[2])

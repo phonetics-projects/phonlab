@@ -53,10 +53,11 @@ References
     f = frames.shape[1]
     w = windows.hann(frame_length)
     
-    Sxx = 10 * np.log10(np.abs(fft.rfft(w*frames,NFFT)))
+    mag = np.abs(fft.rfft(w*frames,NFFT))
+    Sxx = 10 * np.log10(np.maximum(mag, np.finfo(mag.dtype).tiny))
     Sxx2 = np.abs(fft.rfft(Sxx,NFFT))   # spectrum of the spectrum -- cepstrum
     if (dBscale):
-        Ceps = 10 * np.log10(Sxx2[:,:-1])
+        Ceps = 10 * np.log10(np.maximum(Sxx2[:,:-1], np.finfo(Sxx2.dtype).tiny))
     else:
         Ceps = np.log(Sxx2[:,:-1])
         

@@ -127,7 +127,8 @@ This example shows diagnostic plots from the get_f0_shs() function. The top left
     w = np.blackman(frame_length)
     S = np.abs(rfft(w*frames,NFFT))  # spectrogram below topfreq
     Sxx = S[:,1:limit]
-    rms = 20 * np.log10(np.sqrt(np.sum(np.square(np.abs(Sxx)),axis=-1))) 
+    rms_mag = np.sqrt(np.sum(np.square(np.abs(Sxx)),axis=-1))
+    rms = 20 * np.log10(np.maximum(rms_mag, np.finfo(rms_mag.dtype).tiny))
     interp_function = interp1d(logf, Sxx) 
     logS = interp_function(ilogf)
     W = 0.5 + (1/np.pi)*np.arctan(5*(ilogf-np.log2(60)))  # W function (Hermes, 1988) to damp freqs below 60

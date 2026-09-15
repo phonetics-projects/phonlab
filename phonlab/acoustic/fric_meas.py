@@ -5,9 +5,9 @@ from collections import namedtuple
 
 def dB(x, out=None):
     if out is None:
-        return 10 * np.log10(x)
+        return 10 * np.log10(np.maximum(x, np.finfo(float).tiny))
     else:
-        np.log10(x, out)
+        np.log10(np.maximum(x, np.finfo(float).tiny), out)
         np.multiply(out, 10, out)
 
 def hz2bark(hz):

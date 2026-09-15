@@ -42,7 +42,7 @@ def compute_sgram(x,fs,w,s=0.001,order=13):
 
     f,ts,Sxx = spectrogram(x,fs=fs,noverlap = noverlap, window=window, nperseg = nperseg, 
                               nfft = nfft, scaling='spectrum', mode = 'magnitude')
-    Sxx = 10 * np.log10(Sxx)  # put spectrum on decibel scale
+    Sxx = 10 * np.log10(np.maximum(Sxx, np.finfo(Sxx.dtype).tiny))  # put spectrum on decibel scale
 
     return (ts, f, Sxx)
     
