@@ -27,7 +27,10 @@ interval tiers, so these differences arise only for hand-edited or
 machine-generated files.
 '''
 
-__all__ = ['read_textgrid', 'read_textgrid_praat', 'TextGridParseError']
+__all__ = [
+    'read_textgrid', 'read_textgrid_praat', 'tg_tiernames',
+    'TextGridParseError'
+]
 
 import codecs
 import re
@@ -209,12 +212,14 @@ def _add_label(tier, t1, t2, text):
         'text': text
     })
 
-def _read_praat_short(reader):
+def _read_praat_short(reader, collect=True):
     '''
     Parse a short format textgrid from `reader` and return a list of tiers.
 
     The interval/point counts in the file header are not trusted. Labels are
-    read until the tier changes or input is exhausted.
+    read until the tier changes or input is exhausted. When `collect` is
+    False the labels are still read, since that is the only way to find
+    where each tier ends, but they are not added to the tiers.
     '''
     tiers = []
     # Discard the header lines. Their content is not used.
@@ -264,7 +269,8 @@ def _read_praat_short(reader):
                             f'Parse error. Unterminated label "{labtext}" in '
                             f'tier "{tier["name"]}".'
                         )
-            _add_label(tier, line, t2, _clean_praat_string(labtext))
+            if collect:
+                _add_label(tier, line, t2, _clean_praat_string(labtext))
     if tier is not None:
         tiers.append(tier)
     return tiers
@@ -295,8 +301,13 @@ def _read_praat_long_tier_metadata(reader):
     tier = _new_tier(tclass, fields['tname'], fields['tstart'], fields['tend'])
     return (tier, int(fields['numintvl']))
 
-def _read_praat_long(reader):
-    '''Parse a long format textgrid from `reader` and return a list of tiers.'''
+def _read_praat_long(reader, collect=True):
+    '''
+    Parse a long format textgrid from `reader` and return a list of tiers.
+
+    When `collect` is False the labels are still read, since that is the only
+    way to find where each tier ends, but they are not added to the tiers.
+    '''
     tiers = []
     reader.readline()   # 'File type' line.
 
@@ -340,7 +351,8 @@ def _read_praat_long(reader):
             if not (_end_label_re.search(line) or line == ''):
                 text += line
                 continue
-            _add_label(tier, t1, t2, _clean_praat_string(text))
+            if collect:
+                _add_label(tier, t1, t2, _clean_praat_string(text))
             if _item_re.search(line):       # Start a new tier.
                 tiers.append(tier)
                 tier, numlabels = _read_praat_long_tier_metadata(reader)
@@ -384,20 +396,184 @@ Raises
 
     TextGridParseError: Raised if the file is not a readable Praat textgrid.
     '''
-    lines, codec = _read_lines(tgfile, codec)
-    reader = _LineReader(lines)
-    # Determine the format from the fourth line, which holds `xmin`.
-    for _ in range(3):
-        reader.readline()
-    xmin = reader.readline()
-    reader.seek(0)
+    return _read_tiers(tgfile, codec, collect=True)
+
+def _detect_format(lines, tgfile):
+    '''
+    Return 'long' or 'short' for a decoded textgrid, based on the fourth
+    line, which holds `xmin`.
+    '''
+    try:
+        xmin = lines[3]
+    except IndexError:
+        xmin = ''
     if re.match(r'\s*xmin\s*=\s*-?\d', xmin):
-        return _read_praat_long(reader)
+        return 'long'
     elif re.match(r'\s*-?\d', xmin):
-        return _read_praat_short(reader)
+        return 'short'
     raise TextGridParseError(
         f'"{tgfile}" does not appear to be in a Praat textgrid format.'
     )
+
+def _read_tiers(tgfile, codec=None, collect=True):
+    '''
+    Detect a textgrid's format and parse it. If `collect` is False the tiers
+    are returned with empty `labels` lists.
+    '''
+    lines, codec = _read_lines(tgfile, codec)
+    reader = _LineReader(lines)
+    if _detect_format(lines, tgfile) == 'long':
+        return _read_praat_long(reader, collect)
+    return _read_praat_short(reader, collect)
+
+def _tiernames_fast_short(lines):
+    '''
+    Read the tier names of a short format textgrid without examining its
+    labels, by skipping over them using the label counts the file declares.
+
+    Each label occupies a fixed number of lines unless its content spans
+    lines, so after each skip the next line must be a tier header or the end
+    of the file. Return `None` when it is not, or when anything else is
+    unexpected, so that the caller can fall back to parsing the structure.
+    '''
+    nlines = len(lines)
+    # The first tier header is the first line of its kind; nothing before it
+    # can be label content.
+    idx = None
+    for i, line in enumerate(lines):
+        if line.strip() in ('"IntervalTier"', '"TextTier"'):
+            idx = i
+            break
+    if idx is None:
+        return None
+    names = []
+    while idx < nlines:
+        if lines[idx].strip() == '':
+            idx += 1    # Tolerate blank lines at the end of the file.
+            continue
+        tclass = lines[idx].strip()
+        if tclass not in ('"IntervalTier"', '"TextTier"') or idx + 4 >= nlines:
+            return None
+        tname = lines[idx+1].strip()
+        if len(tname) < 2 or not (tname.startswith('"') and tname.endswith('"')):
+            return None
+        try:
+            count = int(lines[idx+4].strip())
+        except ValueError:
+            return None
+        names.append(re.sub('^"|"$', '', tname))
+        # t1/t2/text for an interval, t1/text for a point.
+        idx += 5 + (count * (3 if tclass == '"IntervalTier"' else 2))
+        if idx > nlines:
+            return None
+    return tuple(names)
+
+def _tiernames_fast_long(lines):
+    '''
+    Read the tier names of a long format textgrid without examining its
+    labels. As for `_tiernames_fast_short`, return `None` if the file does
+    not match expectations, so that the caller can fall back.
+    '''
+    nlines = len(lines)
+    idx = None
+    for i, line in enumerate(lines):
+        if _item_re.search(line):
+            idx = i
+            break
+    if idx is None:
+        return None
+    names = []
+    while idx < nlines:
+        if lines[idx].strip() == '':
+            idx += 1
+            continue
+        if not _item_re.search(lines[idx]) or idx + 5 >= nlines:
+            return None
+        clsm = _class_re.search(lines[idx+1])
+        namem = _name_re.search(lines[idx+2])
+        sizem = _size_re.search(lines[idx+5])
+        if clsm is None or namem is None or sizem is None:
+            return None
+        if clsm.group(1) == 'IntervalTier':
+            per = 4     # 'intervals [n]:', xmin, xmax, text
+        elif clsm.group(1) in _POINT_CLASSES:
+            per = 3     # 'points [n]:', number, mark
+        else:
+            return None
+        names.append(namem.group(1))
+        idx += 6 + (int(sizem.group(1)) * per)
+        if idx > nlines:
+            return None
+    return tuple(names)
+
+def tg_tiernames(tg, codec=None):
+    '''
+Return the names of the tiers in a Praat textgrid.
+
+The textgrid's labels are not returned, and no dataframes are constructed, so
+this is a good deal cheaper than reading the whole textgrid with
+`phon.tg_to_df()` when only the tier names are wanted, for example to find
+out which tiers a file has before selecting among them. The labels are
+skipped over using the counts the file declares, and each skip is checked
+against what follows it, so a textgrid whose counts are wrong is read by
+walking its structure instead and still gives the right names.
+
+Parameters
+----------
+
+tg : path-like
+    Filepath of the input textgrid.
+
+codec : str or None (default None)
+    The codec used to decode the textgrid, e.g. 'utf-8'. If the file has a
+    byte-order mark, the codec it indicates is used instead. If `None` and the
+    file has no byte-order mark, 'utf-8' is assumed.
+
+Returns
+-------
+
+names : tuple of str
+    The tier names, in the order the tiers appear in the textgrid. Tiers with
+    no name contribute an empty string, and a name used by more than one tier
+    appears once for each of them, so the length of `names` is always the
+    number of tiers.
+
+Raises
+------
+
+    TextGridParseError: Raised if the file is not a readable Praat textgrid.
+
+Example
+-------
+
+.. code-block:: Python
+
+    textgrid_name = importlib.resources.files('phonlab') / 'data' / 'example_audio' / 'im_twelve.TextGrid'
+
+    phon.tg_tiernames(textgrid_name)
+    # ('word', 'phone', 'pointph')
+
+    # Read only the tiers that are present.
+    names = phon.tg_tiernames(textgrid_name)
+    if 'phone' in names:
+        [phdf] = phon.tg_to_df(textgrid_name, tiersel=['phone'])
+    '''
+    lines, codec = _read_lines(tg, codec)
+    tgtype = _detect_format(lines, tg)
+    if tgtype == 'long':
+        names = _tiernames_fast_long(lines)
+    else:
+        names = _tiernames_fast_short(lines)
+    if names is not None:
+        return names
+    # The label counts the file declares could not be relied on. Walk the
+    # textgrid structure instead, still without collecting the labels.
+    reader = _LineReader(lines)
+    if tgtype == 'long':
+        tiers = _read_praat_long(reader, collect=False)
+    else:
+        tiers = _read_praat_short(reader, collect=False)
+    return tuple(t['name'] for t in tiers)
 
 def _praat_extent(tgobj, pcall, tiers):
     '''

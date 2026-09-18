@@ -16,7 +16,8 @@ import pandas as pd
 import pytest
 
 from phonlab.utils.textgrid import (
-    TextGridParseError, detect_encoding, read_textgrid, read_textgrid_praat
+    TextGridParseError, detect_encoding, read_textgrid, read_textgrid_praat,
+    tg_tiernames
 )
 from phonlab.utils.tidy import df_to_tg, tg_to_df
 
@@ -28,24 +29,20 @@ def label_at(df, t, col):
     assert len(hits) == 1
     return hits[col].iloc[0]
 
-def tiernames(tg):
-    """Return the tier names of a textgrid as a tuple."""
-    return tuple(t['name'] for t in read_textgrid(tg))
-
 #### Reading: format detection and tier structure ####
 
 def test_praat_long():
     """A long format textgrid is read, and its format detected."""
     tiers = read_textgrid(DATA / 'this_is_a_label_file.long.TextGrid')
     assert len(tiers) == 3
-    assert tiernames(DATA / 'this_is_a_label_file.long.TextGrid') == \
+    assert tg_tiernames(DATA / 'this_is_a_label_file.long.TextGrid') == \
         ('word', 'phone', 'stimulus')
 
 def test_praat_short():
     """A short format textgrid is read, and its format detected."""
     tiers = read_textgrid(DATA / 'this_is_a_label_file.short.TextGrid')
     assert len(tiers) == 3
-    assert tiernames(DATA / 'this_is_a_label_file.short.TextGrid') == \
+    assert tg_tiernames(DATA / 'this_is_a_label_file.short.TextGrid') == \
         ('word', 'phone', 'stimulus')
 
 @pytest.mark.parametrize('tgfile', [
@@ -61,7 +58,7 @@ def test_praat_empty_tier(tgfile):
     """
     dfs = tg_to_df(DATA / tgfile)
     assert len(dfs) == 5
-    assert tiernames(DATA / tgfile) == (
+    assert tg_tiernames(DATA / tgfile) == (
         'V1', 'empty_point_1', 'empty_interval', 'V2', 'empty_point_end'
     )
     assert [len(df) for df in dfs] == [3, 0, 0, 4, 0]
@@ -114,7 +111,7 @@ def test_praat_from_eaf():
 def test_praat_empty_tier_name():
     """Tiers with empty names are read, and name the label column ''."""
     dfs = tg_to_df(DATA / 'empty_name.TextGrid')
-    assert tiernames(DATA / 'empty_name.TextGrid') == ('word', '', '')
+    assert tg_tiernames(DATA / 'empty_name.TextGrid') == ('word', '', '')
     assert [df.columns[-1] for df in dfs] == ['word', '', '']
 
 #### Reading: encodings ####
@@ -351,7 +348,7 @@ def test_df_to_tg_tiercol_rename(tmp_path):
     [phdf] = tg_to_df(DATA / 'this_is_a_label_file.TextGrid', tiersel=['phone'])
     outfile = tmp_path / 'renamed.TextGrid'
     df_to_tg(phdf, tiercols={'phone': 'segment'}, outfile=outfile)
-    assert tiernames(outfile) == ('segment',)
+    assert tg_tiernames(outfile) == ('segment',)
 
 #### Writing: gap filling ####
 
@@ -517,7 +514,7 @@ def test_df_to_tg_empty_tier(tgtype, tmp_path):
     )
     dfs2 = tg_to_df(outfile)
     assert [len(df) for df in dfs2] == [3, 0, 0, 4, 0]
-    assert tiernames(outfile) == (
+    assert tg_tiernames(outfile) == (
         'V1', 'empty_point_1', 'empty_interval', 'V2', 'empty_point_end'
     )
     for df, df2 in zip(dfs, dfs2):
@@ -680,3 +677,140 @@ def test_tg_to_df_praat_rejects_bad_label_count():
     assert len(tg_to_df(DATA / 'ipa.TextGrid', tiersel=['phone'])[0]) == 9
     with pytest.raises(Exception):
         tg_to_df(DATA / 'ipa.TextGrid', parser='praat')
+
+
+#### tg_tiernames ####
+
+ALL_FIXTURES = [p.name for p in sorted(DATA.glob('*.TextGrid'))]
+
+@pytest.mark.parametrize('tgfile', ALL_FIXTURES)
+def test_tg_tiernames_matches_full_read(tgfile):
+    """`tg_tiernames` agrees with a full read of the same textgrid."""
+    assert tg_tiernames(DATA / tgfile) == \
+        tuple(t['name'] for t in read_textgrid(DATA / tgfile))
+
+def test_tg_tiernames_returns_tuple():
+    """Names are returned as a tuple, in textgrid order."""
+    names = tg_tiernames(DATA / 'this_is_a_label_file.short.TextGrid')
+    assert isinstance(names, tuple)
+    assert names == ('word', 'phone', 'stimulus')
+
+def test_tg_tiernames_point_and_interval_tiers():
+    """Point tiers are named alongside interval tiers."""
+    assert tg_tiernames(DATA / 'empty_tier.long.TextGrid') == (
+        'V1', 'empty_point_1', 'empty_interval', 'V2', 'empty_point_end'
+    )
+
+def test_tg_tiernames_empty_and_duplicate_names():
+    """Unnamed tiers give '', and one entry is returned per tier."""
+    names = tg_tiernames(DATA / 'empty_name.TextGrid')
+    assert names == ('word', '', '')
+    assert len(names) == len(read_textgrid(DATA / 'empty_name.TextGrid'))
+
+def test_tg_tiernames_utf_16():
+    """Tier names are decoded using the textgrid's byte-order mark."""
+    assert tg_tiernames(DATA / 'Turkmen_NA_20130919_G_3.TextGrid') == \
+        ('word', 'gloss')
+
+def test_tg_tiernames_multiline_labels():
+    """Label content spanning lines does not disturb the tier names."""
+    assert tg_tiernames(DATA / 'multiline.short.TextGrid') == ('multiline',)
+
+def test_tg_tiernames_label_that_looks_like_a_tier_header(tmp_path):
+    """A label whose text is 'IntervalTier' is written as a line identical to
+    a tier header. The tier structure is walked rather than scanned for such
+    lines, so the decoy is not mistaken for a tier."""
+    tgfile = tmp_path / 'decoy.TextGrid'
+    tgfile.write_text('''File type = "ooTextFile"
+Object class = "TextGrid"
+
+0
+1
+<exists>
+1
+"IntervalTier"
+"real"
+0
+1
+2
+0
+0.5
+"IntervalTier"
+0.5
+1
+"b"
+''', encoding='utf-8')
+    assert tg_tiernames(tgfile) == ('real',)
+    [df] = tg_to_df(tgfile)
+    assert df.columns.tolist() == ['t1', 't2', 'real']
+    assert df['real'].tolist() == ['IntervalTier', 'b']
+
+def test_tg_tiernames_usable_as_tiersel():
+    """The returned names select tiers in `tg_to_df`."""
+    tgfile = DATA / 'this_is_a_label_file.TextGrid'
+    names = tg_tiernames(tgfile)
+    dfs = tg_to_df(tgfile, tiersel=list(names))
+    assert [df.columns[-1] for df in dfs] == list(names)
+
+def test_tg_tiernames_bad_file(tmp_path):
+    """A file that is not a textgrid raises `TextGridParseError`."""
+    notatg = tmp_path / 'notatg.TextGrid'
+    notatg.write_text('this is not\na textgrid at all\n')
+    with pytest.raises(TextGridParseError):
+        tg_tiernames(notatg)
+
+
+@pytest.mark.parametrize('tgfile', ALL_FIXTURES)
+def test_tiernames_fast_path_agrees_or_declines(tgfile):
+    """The label-skipping shortcut either returns the right names or declines
+    by returning None, in which case `tg_tiernames` walks the structure. It
+    must never return names that differ from a full read."""
+    from phonlab.utils import textgrid as tgmod
+    lines, _ = tgmod._read_lines(DATA / tgfile, None)
+    if tgmod._detect_format(lines, tgfile) == 'long':
+        fast = tgmod._tiernames_fast_long(lines)
+    else:
+        fast = tgmod._tiernames_fast_short(lines)
+    expected = tuple(t['name'] for t in read_textgrid(DATA / tgfile))
+    assert fast is None or fast == expected
+    assert tg_tiernames(DATA / tgfile) == expected
+
+def test_tiernames_fast_path_declines_on_bad_counts():
+    """The shortcut declines on the fixtures whose declared counts are wrong,
+    so those go through the structural walk."""
+    from phonlab.utils import textgrid as tgmod
+    # 'multiline.short' declares 10 labels and holds 11.
+    lines, _ = tgmod._read_lines(DATA / 'multiline.short.TextGrid', None)
+    assert tgmod._tiernames_fast_short(lines) is None
+    assert tg_tiernames(DATA / 'multiline.short.TextGrid') == ('multiline',)
+    # 'ipa' declares 8 intervals on its phone tier and holds 9.
+    lines, _ = tgmod._read_lines(DATA / 'ipa.TextGrid', None)
+    assert tgmod._tiernames_fast_long(lines) is None
+    assert tg_tiernames(DATA / 'ipa.TextGrid') == ('word', 'phone', 'context')
+
+def test_tiernames_fast_path_used_for_praat_output(tmp_path):
+    """Textgrids written by `df_to_tg` declare correct counts, so the
+    shortcut handles them without falling back."""
+    from phonlab.utils import textgrid as tgmod
+    [wddf, phdf, stdf] = tg_to_df(
+        DATA / 'this_is_a_label_file.short.TextGrid',
+        tiersel=['word', 'phone', 'stimulus']
+    )
+    for tgtype, fast in (('short', tgmod._tiernames_fast_short),
+                         ('long', tgmod._tiernames_fast_long)):
+        outfile = tmp_path / f'counts.{tgtype}.TextGrid'
+        df_to_tg(
+            [wddf, phdf, stdf],
+            tiercols=['word', 'phone', 'stimulus'],
+            ts=[['t1', 't2'], ['t1', 't2'], ['t1', None]],
+            tgtype=tgtype, outfile=outfile
+        )
+        lines, _ = tgmod._read_lines(outfile, None)
+        assert fast(lines) == ('word', 'phone', 'stimulus')
+
+
+def test_tg_tiernames_exported_at_package_level():
+    """`tg_tiernames` is reachable as `phonlab.tg_tiernames`."""
+    import phonlab
+    assert phonlab.tg_tiernames is tg_tiernames
+    assert 'tg_tiernames' in phonlab.__all__
