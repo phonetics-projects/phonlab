@@ -1131,3 +1131,67 @@ def test_tg_tiernames_praat_falls_back_on_praat_refusal():
             ('word', 'phone', 'context')
     with pytest.raises(parselmouth.PraatError):
         tg_tiernames(DATA / 'ipa.TextGrid', parser='praat.only')
+
+
+#### Fast 'praat' path ####
+
+def _praat_like_textgrid(tmp_path, text, encoding, bom=b''):
+    """A one-tier long format textgrid with label `text`, written with the
+    given encoding, as Praat might write it."""
+    df = pd.DataFrame({'t1': [0.0, 0.5], 't2': [0.5, 1.0], 'lab': [text, 'b']})
+    tgstr = df_to_tg(df, 'lab', tgtype='long')
+    outfile = tmp_path / f'praat-{encoding}.TextGrid'
+    outfile.write_bytes(bom + tgstr.encode(encoding))
+    return outfile
+
+@pytest.mark.parametrize('encoding, bom', [
+    ('utf-8', b''),
+    ('latin-1', b''),
+    ('utf-16-le', b'\xff\xfe'),
+    ('utf-16-be', b'\xfe\xff'),
+])
+def test_read_praat_output_encodings(encoding, bom, tmp_path):
+    """Praat's output is decoded whichever encoding Praat chose: a byte-order
+    mark is trusted, and otherwise UTF-8 is tried before ISO Latin-1."""
+    outfile = _praat_like_textgrid(tmp_path, 'b\xedt na\xefve', encoding, bom)
+    [tier] = tgmodule._read_praat_output(outfile)
+    assert [lab['text'] for lab in tier['labels']] == ['b\xedt na\xefve', 'b']
+
+def test_read_praat_output_ascii(tmp_path):
+    """ASCII output, which is also valid UTF-8, is read as such."""
+    outfile = _praat_like_textgrid(tmp_path, 'plain', 'ascii')
+    [tier] = tgmodule._read_praat_output(outfile)
+    assert tier['labels'][0]['text'] == 'plain'
+
+# Textgrids that Praat reads. The empty tier fixtures are included here
+# because Praat's repair of the empty interval tier must survive the write.
+PRAAT_READS = PRAAT_READABLE + [
+    'empty_tier.short.TextGrid', 'empty_tier.long.TextGrid'
+]
+
+@pytest.mark.parametrize('tgfile', PRAAT_READS)
+def test_read_textgrid_praat_matches_per_label_calls(tgfile):
+    """Having Praat write the textgrid out gives exactly what retrieving each
+    label with its own call to Praat gives."""
+    pytest.importorskip('parselmouth')
+    fast = read_textgrid_praat(DATA / tgfile)
+    slow = tgmodule._read_textgrid_praat_calls(DATA / tgfile)
+    assert len(fast) == len(slow)
+    for f, s in zip(fast, slow):
+        assert (f['name'], f['class']) == (s['name'], s['class'])
+        assert f['labels'] == s['labels']
+
+def test_read_textgrid_praat_call_count(monkeypatch):
+    """The whole textgrid is retrieved in a few calls to Praat, however many
+    labels it has."""
+    pytest.importorskip('parselmouth')
+    real = tgmodule._import_pcall()
+    calls = []
+    def counting(*args):
+        calls.append(args[1] if len(args) > 1 and not isinstance(args[0], str)
+                     else args[0])
+        return real(*args)
+    monkeypatch.setattr(tgmodule, '_import_pcall', lambda: counting)
+    tiers = read_textgrid_praat(DATA / 'Turkmen_NA_20130919_G_3.TextGrid')
+    assert sum(len(t['labels']) for t in tiers) == 338
+    assert len(calls) <= 3, calls

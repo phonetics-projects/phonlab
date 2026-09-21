@@ -33,8 +33,10 @@ __all__ = [
 ]
 
 import codecs
+import os
 import re
 import sys
+import tempfile
 import warnings
 
 class TextGridParseError(Exception):
@@ -698,6 +700,12 @@ it trusts the label counts declared in the file's headers, and it repairs an
 interval tier that declares no intervals by supplying a single empty interval
 spanning the tier. See this module's documentation for details.
 
+Praat reads the textgrid and writes what it read back out, to a temporary
+file in its own text format, which is then parsed. Everything Praat does in
+reading the file is reflected in the result, but the whole textgrid is
+retrieved in a few calls to Praat rather than several calls per label,
+which is far slower for textgrids of any size.
+
 Parameters
 ----------
 
@@ -716,6 +724,40 @@ Raises
 
     ImportError: Raised if `parselmouth` is not installed.
     parselmouth.PraatError: Raised if Praat cannot read the file.
+    '''
+    pcall = _import_pcall()
+    tgobj = pcall('Read from file...', str(tgfile))[0]
+    with tempfile.TemporaryDirectory() as tmpdir:
+        praatfile = os.path.join(tmpdir, 'praat.TextGrid')
+        pcall(tgobj, 'Save as text file...', praatfile)
+        return _read_praat_output(praatfile)
+
+def _read_praat_output(praatfile):
+    '''
+    Parse a textgrid that Praat has written. Praat chooses its output
+    encoding according to its text writing preference: UTF-16 with a
+    byte-order mark, UTF-8, ASCII, or ISO Latin-1, the last two without a
+    byte-order mark. A file without a byte-order mark that is not valid UTF-8
+    is read as ISO Latin-1.
+    '''
+    codec = None
+    if not detect_encoding(praatfile)[1]:
+        with open(praatfile, 'rb') as fh:
+            content = fh.read()
+        try:
+            content.decode('utf-8')
+            codec = 'utf-8'
+        except UnicodeDecodeError:
+            codec = 'latin-1'
+    return read_textgrid(praatfile, codec=codec)
+
+def _read_textgrid_praat_calls(tgfile):
+    '''
+    Read a textgrid with Praat, retrieving each tier and label with its own
+    call to Praat. This was the implementation of `read_textgrid_praat()`
+    before it had Praat write the textgrid out instead. It is much slower,
+    and is kept as an independent reference against which the tests check
+    that faster approach.
     '''
     pcall = _import_pcall()
     tgobj = pcall('Read from file...', str(tgfile))[0]
