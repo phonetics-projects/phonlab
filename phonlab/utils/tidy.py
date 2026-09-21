@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import srt
 
-from .textgrid import read_textgrid, read_textgrid_praat
+from .textgrid import _textgrid_readers, _with_fallback
 
 def _df_to_praat_short_label_str(df, lblcol, t1col, t2col=None, fmt=None):
     """
@@ -433,16 +433,26 @@ names : None, str, or list of str (default None)
     Names of the label content columns in the output dataframes. If `None`, then the textgrid tier name is used as the column. If `str` then the same column name will be used for all dataframes. If list, then one name must be supplied for each tier selected by `tiersel`.
 
 parser : str (default 'python')
-    The textgrid parser to use. `'python'` selects the pure-Python parser in
-    `phonlab.utils.textgrid`, which has no external dependencies. `'praat'`
-    reads the textgrid with Praat itself by way of the `praat-parselmouth`
-    package, which is imported only when this value is used. The two parsers
-    return the same dataframes for textgrids written by Praat. They differ on
-    malformed textgrids: Praat trusts the label counts declared in the file's
-    headers and refuses files whose contents run past them, and it repairs an
-    interval tier that declares no intervals by supplying one empty interval
-    spanning the tier, where the `'python'` parser reads what the file
-    actually contains.
+    The textgrid parser to try first: `'python'` or `'praat'`. `'python'` is
+    the pure-Python parser in `phonlab.utils.textgrid`, which has no external
+    dependencies. `'praat'` reads the textgrid with Praat itself by way of the
+    `praat-parselmouth` package, which is imported only when it is needed.
+
+    If the named parser cannot read the textgrid, the other parser is tried,
+    and a `TextGridParserFallbackWarning` is issued if it succeeds. Add the
+    suffix `'.only'`, as in `'python.only'` or `'praat.only'`, to use the named
+    parser alone and raise its error if it fails. A file that cannot be opened
+    raises its `OSError` without a fallback, and if both parsers fail a
+    `TextGridParseError` naming both errors is raised.
+
+    The two parsers return the same dataframes for textgrids written by Praat.
+    They differ on malformed textgrids: Praat trusts the label counts declared
+    in the file's headers and refuses files whose contents run past them, and
+    it repairs an interval tier that declares no intervals by supplying one
+    empty interval spanning the tier, where the `'python'` parser reads what
+    the file actually contains. So with fallback enabled, a textgrid that
+    Praat refuses is still read when `parser='praat'`, by the `'python'`
+    parser.
 
 Returns
 -------
@@ -469,13 +479,7 @@ In this example we have the name of an existing Praat Textgrid file, and use **t
     The first few rows of the phones dataframe (phdf) given by `tg_to_df()`
 
     '''
-    if parser == 'python':
-        tgtiers = read_textgrid(tg)
-    elif parser == 'praat':
-        tgtiers = read_textgrid_praat(tg)
-    else:
-        msg = f"The `parser` parameter must be 'python' or 'praat', not {parser!r}."
-        raise ValueError(msg)
+    tgtiers = _with_fallback(tg, parser, _textgrid_readers())
     ntiers = len(tgtiers)
     tiers = []
     tiermap = {tgtier['name']: n for n, tgtier in enumerate(tgtiers)}

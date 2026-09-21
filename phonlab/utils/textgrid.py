@@ -28,16 +28,25 @@ machine-generated files.
 '''
 
 __all__ = [
-    'read_textgrid', 'read_textgrid_praat', 'tg_tiernames',
-    'TextGridParseError'
+    'read_textgrid', 'read_textgrid_praat', 'read_textgrid_with',
+    'tg_tiernames', 'TextGridParseError', 'TextGridParserFallbackWarning'
 ]
 
 import codecs
 import re
 import sys
+import warnings
 
 class TextGridParseError(Exception):
     '''Raised when a file cannot be parsed as a Praat TextGrid.'''
+    pass
+
+class TextGridParserFallbackWarning(UserWarning):
+    '''
+    Issued when the requested textgrid parser fails and the other parser is
+    used in its place. Filter it with the `warnings` module to silence it,
+    e.g. `warnings.simplefilter('ignore', TextGridParserFallbackWarning)`.
+    '''
     pass
 
 # Regex that indicates the end of a label for lines that include an opening
@@ -506,7 +515,7 @@ def _tiernames_fast_long(lines):
             return None
     return tuple(names)
 
-def tg_tiernames(tg, codec=None):
+def tg_tiernames(tg, codec=None, parser='python'):
     '''
 Return the names of the tiers in a Praat textgrid.
 
@@ -527,7 +536,15 @@ tg : path-like
 codec : str or None (default None)
     The codec used to decode the textgrid, e.g. 'utf-8'. If the file has a
     byte-order mark, the codec it indicates is used instead. If `None` and the
-    file has no byte-order mark, 'utf-8' is assumed.
+    file has no byte-order mark, 'utf-8' is assumed. This applies only to the
+    'python' parser; Praat determines the encoding itself.
+
+parser : str (default 'python')
+    The parser to try first, 'python' or 'praat', with fallback to the other
+    if it fails, or 'python.only' or 'praat.only' for no fallback. This
+    behaves as the `parser` parameter of `phon.tg_to_df()` does. The 'praat'
+    parser asks Praat for the tier names only, but Praat reads the whole file
+    to answer, so it does not share the 'python' parser's speed advantage.
 
 Returns
 -------
@@ -541,7 +558,9 @@ names : tuple of str
 Raises
 ------
 
-    TextGridParseError: Raised if the file is not a readable Praat textgrid.
+    As for `phon.tg_to_df()`: `ValueError` for an unrecognized `parser`, the
+    `OSError` of a file that cannot be opened, and `TextGridParseError` if
+    both parsers fail. With the '.only' suffix, the named parser's own error.
 
 Example
 -------
@@ -558,6 +577,10 @@ Example
     if 'phone' in names:
         [phdf] = phon.tg_to_df(textgrid_name, tiersel=['phone'])
     '''
+    return _with_fallback(tg, parser, _tiername_readers(codec))
+
+def _tiernames_python(tg, codec=None):
+    '''Return the tier names of a textgrid using the pure-Python parser.'''
     lines, codec = _read_lines(tg, codec)
     tgtype = _detect_format(lines, tg)
     if tgtype == 'long':
@@ -599,6 +622,27 @@ def _praat_extent(tgobj, pcall, tiers):
             max(t['end'] for t in tiers)
         )
 
+def _import_pcall():
+    '''Import and return parselmouth's `praat.call`.'''
+    try:
+        from parselmouth.praat import call as pcall
+    except ImportError:
+        raise ImportError(
+            'Reading a textgrid with Praat requires the `praat-parselmouth` '
+            'package. Install it, or use the default pure-Python parser.'
+        ) from None
+    return pcall
+
+def _tiernames_praat(tg):
+    '''
+    Return the tier names of a textgrid as Praat reads them, without asking
+    Praat for any labels.
+    '''
+    pcall = _import_pcall()
+    tgobj = pcall('Read from file...', str(tg))[0]
+    ntiers = int(pcall(tgobj, 'Get number of tiers'))
+    return tuple(pcall(tgobj, 'Get tier name...', n+1) for n in range(ntiers))
+
 def read_textgrid_praat(tgfile):
     '''
 Read a Praat textgrid with Praat itself, by way of `parselmouth`.
@@ -631,13 +675,7 @@ Raises
     ImportError: Raised if `parselmouth` is not installed.
     parselmouth.PraatError: Raised if Praat cannot read the file.
     '''
-    try:
-        from parselmouth.praat import call as pcall
-    except ImportError:
-        raise ImportError(
-            'Reading a textgrid with Praat requires the `praat-parselmouth` '
-            'package. Install it, or use the default pure-Python parser.'
-        ) from None
+    pcall = _import_pcall()
     tgobj = pcall('Read from file...', str(tgfile))[0]
     ntiers = int(pcall(tgobj, 'Get number of tiers'))
     tiers = []
@@ -672,3 +710,123 @@ Raises
     for tier in tiers:
         tier['start'], tier['end'] = start, end
     return tiers
+
+_PARSERS = ('python', 'praat')
+
+def _parse_parser_name(parser):
+    '''
+    Split a `parser` value into the parser name and whether it is to be used
+    alone, e.g. 'praat.only' -> ('praat', True). Raise `ValueError` for
+    anything else.
+    '''
+    name, sep, suffix = parser.partition('.') if isinstance(parser, str) \
+        else (None, '', '')
+    if name not in _PARSERS or (sep and suffix != 'only'):
+        choices = ', '.join(
+            repr(v) for p in _PARSERS for v in (p, f'{p}.only')
+        )
+        raise ValueError(
+            f'The `parser` parameter must be one of {choices}, not {parser!r}.'
+        )
+    return (name, sep == '.')
+
+def _textgrid_readers():
+    '''
+    The full textgrid readers, by parser name. Built at call time, so that
+    the module-level functions can be replaced, e.g. in tests.
+    '''
+    return {'python': read_textgrid, 'praat': read_textgrid_praat}
+
+def _tiername_readers(codec=None):
+    '''The tier name readers, by parser name. Built at call time.'''
+    return {
+        'python': lambda tg: _tiernames_python(tg, codec),
+        'praat': _tiernames_praat,
+    }
+
+def read_textgrid_with(tgfile, parser='python'):
+    '''
+Read a Praat textgrid with the named parser, falling back to the other parser
+if the named one fails.
+
+Parameters
+----------
+
+tgfile : path-like
+    Filepath of the input textgrid.
+
+parser : str (default 'python')
+    One of 'python', 'praat', 'python.only', or 'praat.only'. The named
+    parser is tried first. If it cannot read the textgrid, the other parser
+    is tried, and a `TextGridParserFallbackWarning` is issued if that one
+    succeeds. With the '.only' suffix the named parser is used alone, and its
+    error is raised if it fails. A failure of the 'praat' parser includes
+    `praat-parselmouth` not being installed.
+
+Returns
+-------
+
+tiers : list of dict
+    As documented for `read_textgrid()`.
+
+Raises
+------
+
+    ValueError: Raised for an unrecognized `parser` value, before the file is
+    opened.
+
+    OSError: Raised if the file cannot be opened, e.g. `FileNotFoundError`.
+    This is not treated as a parser failure, and no fallback is tried.
+
+    TextGridParseError: Raised if both parsers fail. It names both errors, and
+    the named parser's error is its `__cause__`. If the fallback parser is
+    unavailable because `parselmouth` is not installed, the named parser's
+    own error is raised instead.
+
+    With the '.only' suffix, the named parser's own error is raised, e.g.
+    `TextGridParseError` for 'python.only', or `parselmouth.PraatError` or
+    `ImportError` for 'praat.only'.
+    '''
+    return _with_fallback(tgfile, parser, _textgrid_readers())
+
+def _with_fallback(tgfile, parser, readers, stacklevel=3):
+    '''
+    Read `tgfile` with `readers[name]` for the parser named by `parser`,
+    falling back to the other reader as documented for
+    `read_textgrid_with()`. `stacklevel` is passed to `warnings.warn`; the
+    default attributes the warning to whoever called the function that
+    called this one, so it points at the user's own line.
+    '''
+    name, only = _parse_parser_name(parser)
+    try:
+        return readers[name](tgfile)
+    except OSError:
+        raise
+    except Exception as e:
+        if only:
+            raise
+        first_err = e
+    other = 'praat' if name == 'python' else 'python'
+    try:
+        result = readers[other](tgfile)
+    except OSError:
+        raise
+    except ImportError:
+        # The fallback is unavailable, so there is nothing to add to the named
+        # parser's own error.
+        raise first_err from None
+    except Exception as second_err:
+        raise TextGridParseError(
+            f'Neither parser could read "{tgfile}". The {name!r} parser '
+            f'raised {type(first_err).__name__}: {first_err} The {other!r} '
+            f'parser raised {type(second_err).__name__}: {second_err}'
+        ) from first_err
+    warnings.warn(
+        f'The {name!r} parser could not read "{tgfile}" '
+        f'({type(first_err).__name__}: {first_err}). It was read with the '
+        f'{other!r} parser instead. Use parser={name + ".only"!r} to prevent '
+        f'this.',
+        TextGridParserFallbackWarning,
+        stacklevel=stacklevel
+    )
+    return result

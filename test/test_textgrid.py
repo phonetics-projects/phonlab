@@ -12,12 +12,15 @@ The TextGrid files in `test/data` are copied from the `audiolabel` test suite.
 
 from pathlib import Path
 
+import warnings
+
 import pandas as pd
 import pytest
 
+from phonlab.utils import textgrid as tgmodule
 from phonlab.utils.textgrid import (
-    TextGridParseError, detect_encoding, read_textgrid, read_textgrid_praat,
-    tg_tiernames
+    TextGridParseError, TextGridParserFallbackWarning, detect_encoding,
+    read_textgrid, read_textgrid_praat, read_textgrid_with, tg_tiernames
 )
 from phonlab.utils.tidy import df_to_tg, tg_to_df
 
@@ -600,15 +603,18 @@ def test_tg_to_df_parser_default_is_python():
     for ddf, edf in zip(default, explicit):
         pd.testing.assert_frame_equal(ddf, edf)
 
-@pytest.mark.parametrize('parser', ['praat_short', 'Python', '', None])
+@pytest.mark.parametrize('parser', [
+    'praat_short', 'Python', '', None, 'only', '.only', 'python.', 'praat.Only',
+    'python.only.only', 'python-only', 'python_only'
+])
 def test_tg_to_df_parser_invalid(parser):
     """An unrecognized `parser` value raises a `ValueError`."""
-    with pytest.raises(ValueError, match="must be 'python' or 'praat'"):
+    with pytest.raises(ValueError, match="must be one of"):
         tg_to_df(DATA / 'this_is_a_label_file.TextGrid', parser=parser)
 
 def test_tg_to_df_parser_invalid_checked_before_reading(tmp_path):
     """The `parser` value is validated before the file is opened."""
-    with pytest.raises(ValueError, match="must be 'python' or 'praat'"):
+    with pytest.raises(ValueError, match="must be one of"):
         tg_to_df(tmp_path / 'does_not_exist.TextGrid', parser='nosuchparser')
 
 @pytest.mark.parametrize('tgfile', PRAAT_READABLE)
@@ -673,10 +679,10 @@ def test_tg_to_df_praat_empty_interval_tier():
 def test_tg_to_df_praat_rejects_bad_label_count():
     """Praat refuses a textgrid whose contents run past its declared counts,
     where the pure-Python parser reads it."""
-    pytest.importorskip('parselmouth')
+    parselmouth = pytest.importorskip('parselmouth')
     assert len(tg_to_df(DATA / 'ipa.TextGrid', tiersel=['phone'])[0]) == 9
-    with pytest.raises(Exception):
-        tg_to_df(DATA / 'ipa.TextGrid', parser='praat')
+    with pytest.raises(parselmouth.PraatError):
+        tg_to_df(DATA / 'ipa.TextGrid', parser='praat.only')
 
 
 #### tg_tiernames ####
@@ -814,3 +820,288 @@ def test_tg_tiernames_exported_at_package_level():
     import phonlab
     assert phonlab.tg_tiernames is tg_tiernames
     assert 'tg_tiernames' in phonlab.__all__
+
+
+#### Parser fallback ####
+
+class _ReaderCalls:
+    """Fake readers standing in for the two parsers, so the fallback logic is
+    tested without depending on what either real parser can read."""
+    def __init__(self, monkeypatch, python=None, praat=None):
+        self.calls = []
+        for name, attr, outcome in (
+            ('python', 'read_textgrid', python),
+            ('praat', 'read_textgrid_praat', praat),
+        ):
+            monkeypatch.setattr(tgmodule, attr, self._reader(name, outcome))
+
+    def _reader(self, name, outcome):
+        def reader(tgfile):
+            self.calls.append(name)
+            if isinstance(outcome, BaseException):
+                raise outcome
+            return outcome
+        return reader
+
+def _tiers(name):
+    """A one-tier result whose tier name identifies the reader."""
+    return [{'class': 'IntervalTier', 'name': name, 'start': 0.0, 'end': 1.0,
+             'labels': [{'t1': 0.0, 't2': 1.0, 'text': name}]}]
+
+def _no_warnings():
+    """A context in which any warning is an error."""
+    ctx = warnings.catch_warnings()
+    ctx.__enter__()
+    warnings.simplefilter('error')
+    return ctx
+
+@pytest.mark.parametrize('parser', ['python', 'praat', 'python.only', 'praat.only'])
+def test_fallback_named_parser_succeeds(parser, monkeypatch):
+    """When the named parser succeeds, the other is not tried and nothing
+    is warned about."""
+    calls = _ReaderCalls(monkeypatch, python=_tiers('python'), praat=_tiers('praat'))
+    name = parser.split('.')[0]
+    ctx = _no_warnings()
+    try:
+        tiers = read_textgrid_with('x.TextGrid', parser)
+    finally:
+        ctx.__exit__(None, None, None)
+    assert calls.calls == [name]
+    assert tiers[0]['name'] == name
+
+@pytest.mark.parametrize('name, other', [('python', 'praat'), ('praat', 'python')])
+def test_fallback_to_other_parser(name, other, monkeypatch):
+    """When the named parser fails, the other is used, with a warning."""
+    outcomes = {name: TextGridParseError('named failed'), other: _tiers(other)}
+    calls = _ReaderCalls(monkeypatch, **outcomes)
+    with pytest.warns(TextGridParserFallbackWarning, match=f"'{name}' parser could not read"):
+        tiers = read_textgrid_with('x.TextGrid', name)
+    assert calls.calls == [name, other]
+    assert tiers[0]['name'] == other
+
+@pytest.mark.parametrize('name', ['python', 'praat'])
+def test_fallback_only_suffix_raises_named_error(name, monkeypatch):
+    """With '.only', the named parser's own error is raised and the other
+    parser is never tried."""
+    err = TextGridParseError('named failed')
+    other = 'praat' if name == 'python' else 'python'
+    calls = _ReaderCalls(monkeypatch, **{name: err, other: _tiers(other)})
+    with pytest.raises(TextGridParseError) as excinfo:
+        read_textgrid_with('x.TextGrid', f'{name}.only')
+    assert excinfo.value is err
+    assert calls.calls == [name]
+
+def test_fallback_both_fail(monkeypatch):
+    """When both parsers fail, a `TextGridParseError` names both errors and
+    has the named parser's error as its cause."""
+    first = ValueError('python trouble')
+    calls = _ReaderCalls(monkeypatch, python=first, praat=RuntimeError('praat trouble'))
+    with pytest.raises(TextGridParseError, match='Neither parser') as excinfo:
+        read_textgrid_with('x.TextGrid', 'python')
+    msg = str(excinfo.value)
+    assert 'ValueError: python trouble' in msg
+    assert 'RuntimeError: praat trouble' in msg
+    assert excinfo.value.__cause__ is first
+    assert calls.calls == ['python', 'praat']
+
+def test_fallback_unavailable_raises_named_error(monkeypatch):
+    """If the fallback parser cannot be imported, the named parser's own error
+    is raised, as if there had been no fallback."""
+    err = TextGridParseError('python failed')
+    _ReaderCalls(monkeypatch, python=err, praat=ImportError('no parselmouth'))
+    with pytest.raises(TextGridParseError) as excinfo:
+        read_textgrid_with('x.TextGrid', 'python')
+    assert excinfo.value is err
+
+def test_fallback_when_praat_not_installed(monkeypatch):
+    """'praat' falls back to 'python' when parselmouth is missing, while
+    'praat.only' raises the `ImportError`."""
+    _ReaderCalls(monkeypatch, python=_tiers('python'), praat=ImportError('no parselmouth'))
+    with pytest.warns(TextGridParserFallbackWarning):
+        assert read_textgrid_with('x.TextGrid', 'praat')[0]['name'] == 'python'
+    with pytest.raises(ImportError):
+        read_textgrid_with('x.TextGrid', 'praat.only')
+
+@pytest.mark.parametrize('name', ['python', 'praat'])
+def test_fallback_not_used_for_oserror(name, monkeypatch):
+    """A file that cannot be opened is not a parser failure: its `OSError` is
+    raised and the other parser is not tried."""
+    other = 'praat' if name == 'python' else 'python'
+    calls = _ReaderCalls(monkeypatch, **{name: FileNotFoundError('gone'), other: _tiers(other)})
+    with pytest.raises(FileNotFoundError):
+        read_textgrid_with('x.TextGrid', name)
+    assert calls.calls == [name]
+
+def test_fallback_oserror_from_fallback_parser(monkeypatch):
+    """An `OSError` from the fallback parser is raised as it is. (Praat reports
+    a missing file as a `PraatError`, so this is how a missing file surfaces
+    under parser='praat'.)"""
+    _ReaderCalls(monkeypatch, praat=RuntimeError('praat trouble'),
+                 python=FileNotFoundError('gone'))
+    with pytest.raises(FileNotFoundError):
+        read_textgrid_with('x.TextGrid', 'praat')
+
+def test_fallback_tg_to_df_passes_parser_through(monkeypatch):
+    """`tg_to_df` builds its dataframes from whichever parser succeeded."""
+    _ReaderCalls(monkeypatch, python=TextGridParseError('no'), praat=_tiers('praat'))
+    with pytest.warns(TextGridParserFallbackWarning):
+        [df] = tg_to_df('x.TextGrid')
+    assert df.columns.tolist() == ['t1', 't2', 'praat']
+    assert df['praat'].tolist() == ['praat']
+
+def test_tg_to_df_missing_file_default_parser(tmp_path):
+    """A missing file raises `FileNotFoundError` under the default parser."""
+    with pytest.raises(FileNotFoundError):
+        tg_to_df(tmp_path / 'does_not_exist.TextGrid')
+
+def test_tg_to_df_python_only_on_bad_file(tmp_path):
+    """'python.only' raises the pure-Python parser's own error."""
+    notatg = tmp_path / 'notatg.TextGrid'
+    notatg.write_text('this is not\na textgrid at all\n')
+    with pytest.raises(TextGridParseError, match='does not appear to be'):
+        tg_to_df(notatg, parser='python.only')
+
+def test_tg_to_df_python_only_matches_python():
+    """'python.only' gives the same result as 'python' on a readable file."""
+    tgfile = DATA / 'this_is_a_label_file.TextGrid'
+    for a, b in zip(tg_to_df(tgfile, parser='python'),
+                    tg_to_df(tgfile, parser='python.only')):
+        pd.testing.assert_frame_equal(a, b)
+
+def test_tg_to_df_praat_falls_back_on_praat_refusal():
+    """Praat refuses 'ipa.TextGrid', so parser='praat' reads it with the
+    pure-Python parser instead, and warns."""
+    pytest.importorskip('parselmouth')
+    with pytest.warns(TextGridParserFallbackWarning, match="'praat' parser could not read"):
+        [phdf] = tg_to_df(DATA / 'ipa.TextGrid', tiersel=['phone'], parser='praat')
+    assert len(phdf) == 9
+
+def test_tg_to_df_praat_only_no_warning_on_success():
+    """A successful 'praat.only' read issues no warning."""
+    pytest.importorskip('parselmouth')
+    ctx = _no_warnings()
+    try:
+        dfs = tg_to_df(DATA / 'this_is_a_label_file.TextGrid', parser='praat.only')
+    finally:
+        ctx.__exit__(None, None, None)
+    assert len(dfs) == 3
+
+
+#### tg_tiernames parser ####
+
+class _NameReaderCalls:
+    """Fake tier name readers standing in for the two parsers."""
+    def __init__(self, monkeypatch, python=None, praat=None):
+        self.calls = []
+        self.codecs = []
+        def pyreader(tg, codec=None):
+            self.calls.append('python')
+            self.codecs.append(codec)
+            if isinstance(python, BaseException):
+                raise python
+            return python
+        def prreader(tg):
+            self.calls.append('praat')
+            if isinstance(praat, BaseException):
+                raise praat
+            return praat
+        monkeypatch.setattr(tgmodule, '_tiernames_python', pyreader)
+        monkeypatch.setattr(tgmodule, '_tiernames_praat', prreader)
+
+@pytest.mark.parametrize('parser', [
+    'praat_short', 'Python', '', None, '.only', 'python.', 'praat.Only'
+])
+def test_tg_tiernames_parser_invalid(parser, tmp_path):
+    """An unrecognized `parser` raises `ValueError` before the file is read."""
+    with pytest.raises(ValueError, match="must be one of"):
+        tg_tiernames(tmp_path / 'does_not_exist.TextGrid', parser=parser)
+
+@pytest.mark.parametrize('parser', ['python', 'python.only'])
+def test_tg_tiernames_python_parsers(parser):
+    """'python' and 'python.only' give the pure-Python result."""
+    assert tg_tiernames(DATA / 'this_is_a_label_file.TextGrid', parser=parser) \
+        == ('phone', 'word', 'context')
+
+@pytest.mark.parametrize('name, other', [('python', 'praat'), ('praat', 'python')])
+def test_tg_tiernames_fallback(name, other, monkeypatch):
+    """When the named parser fails, the other is used, with a warning."""
+    calls = _NameReaderCalls(
+        monkeypatch, **{name: TextGridParseError('named failed'), other: (other,)}
+    )
+    with pytest.warns(TextGridParserFallbackWarning, match=f"'{name}' parser could not read"):
+        assert tg_tiernames('x.TextGrid', parser=name) == (other,)
+    assert calls.calls == [name, other]
+
+@pytest.mark.parametrize('name', ['python', 'praat'])
+def test_tg_tiernames_only_suffix(name, monkeypatch):
+    """With '.only', the named parser's error is raised and the other parser
+    is never tried."""
+    err = TextGridParseError('named failed')
+    other = 'praat' if name == 'python' else 'python'
+    calls = _NameReaderCalls(monkeypatch, **{name: err, other: (other,)})
+    with pytest.raises(TextGridParseError) as excinfo:
+        tg_tiernames('x.TextGrid', parser=f'{name}.only')
+    assert excinfo.value is err
+    assert calls.calls == [name]
+
+def test_tg_tiernames_both_fail(monkeypatch):
+    """When both parsers fail, a `TextGridParseError` names both errors."""
+    first = TextGridParseError('python trouble')
+    _NameReaderCalls(monkeypatch, python=first, praat=RuntimeError('praat trouble'))
+    with pytest.raises(TextGridParseError, match='Neither parser') as excinfo:
+        tg_tiernames('x.TextGrid')
+    assert excinfo.value.__cause__ is first
+
+def test_tg_tiernames_codec_reaches_python_parser(monkeypatch):
+    """`codec` is passed to the pure-Python parser, and is not needed by the
+    Praat parser."""
+    calls = _NameReaderCalls(monkeypatch, python=('a',), praat=('b',))
+    assert tg_tiernames('x.TextGrid', codec='latin-1') == ('a',)
+    assert calls.codecs == ['latin-1']
+    assert tg_tiernames('x.TextGrid', codec='latin-1', parser='praat.only') == ('b',)
+
+def test_tg_tiernames_codec_real_file(capsys):
+    """The codec is honored by the real parser: a conflicting BOM warns."""
+    assert tg_tiernames(DATA / 'Turkmen_NA_20130919_G_3.TextGrid', codec='utf-8') \
+        == ('word', 'gloss')
+    assert 'overriding user-specified encoding utf-8' in capsys.readouterr().err
+
+def test_tg_tiernames_missing_file(tmp_path):
+    """A missing file raises `FileNotFoundError`, with no fallback."""
+    with pytest.raises(FileNotFoundError):
+        tg_tiernames(tmp_path / 'does_not_exist.TextGrid')
+
+def test_fallback_warning_points_at_caller(monkeypatch):
+    """The fallback warning is attributed to the line that called
+    `tg_to_df` or `tg_tiernames`, not to a line inside phonlab."""
+    _ReaderCalls(monkeypatch, python=TextGridParseError('no'), praat=_tiers('praat'))
+    _NameReaderCalls(monkeypatch, python=TextGridParseError('no'), praat=('praat',))
+    for call in (
+        lambda: tg_to_df('x.TextGrid'),
+        lambda: tg_tiernames('x.TextGrid'),
+        lambda: read_textgrid_with('x.TextGrid'),
+    ):
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter('always')
+            call()
+        fallback = [r for r in record
+                    if issubclass(r.category, TextGridParserFallbackWarning)]
+        assert len(fallback) == 1
+        assert fallback[0].filename == __file__
+
+@pytest.mark.parametrize('tgfile', PRAAT_READABLE)
+def test_tg_tiernames_parsers_agree(tgfile):
+    """Both parsers give the same tier names for well-formed textgrids."""
+    pytest.importorskip('parselmouth')
+    assert tg_tiernames(DATA / tgfile, parser='praat.only') == \
+        tg_tiernames(DATA / tgfile, parser='python.only')
+
+def test_tg_tiernames_praat_falls_back_on_praat_refusal():
+    """Praat refuses 'ipa.TextGrid', so parser='praat' reads its names with the
+    pure-Python parser instead, and warns; 'praat.only' raises."""
+    parselmouth = pytest.importorskip('parselmouth')
+    with pytest.warns(TextGridParserFallbackWarning):
+        assert tg_tiernames(DATA / 'ipa.TextGrid', parser='praat') == \
+            ('word', 'phone', 'context')
+    with pytest.raises(parselmouth.PraatError):
+        tg_tiernames(DATA / 'ipa.TextGrid', parser='praat.only')
