@@ -766,44 +766,38 @@ def test_tg_tiernames_bad_file(tmp_path):
         tg_tiernames(notatg)
 
 
+def _scan(tgfile):
+    """Return (names, walked) from the per-tier tier name scan."""
+    lines, _ = tgmodule._read_lines(tgfile, None)
+    if tgmodule._detect_format(lines, tgfile) == 'long':
+        return tgmodule._scan_tiernames_long(lines)
+    return tgmodule._scan_tiernames_short(lines)
+
 @pytest.mark.parametrize('tgfile', ALL_FIXTURES)
-def test_tiernames_fast_path_agrees_or_declines(tgfile):
-    """The label-skipping shortcut either returns the right names or declines
-    by returning None, in which case `tg_tiernames` walks the structure. It
-    must never return names that differ from a full read."""
-    from phonlab.utils import textgrid as tgmod
-    lines, _ = tgmod._read_lines(DATA / tgfile, None)
-    if tgmod._detect_format(lines, tgfile) == 'long':
-        fast = tgmod._tiernames_fast_long(lines)
-    else:
-        fast = tgmod._tiernames_fast_short(lines)
-    expected = tuple(t['name'] for t in read_textgrid(DATA / tgfile))
-    assert fast is None or fast == expected
-    assert tg_tiernames(DATA / tgfile) == expected
+def test_tiernames_scan_matches_full_read(tgfile):
+    """The per-tier scan gives the same names as a full read, whichever
+    tiers it skips and whichever it walks."""
+    names, walked = _scan(DATA / tgfile)
+    assert names == tuple(t['name'] for t in read_textgrid(DATA / tgfile))
+    assert all(0 <= i < len(names) for i in walked)
+    assert tg_tiernames(DATA / tgfile) == names
 
-def test_tiernames_fast_path_declines_on_bad_counts():
-    """The shortcut declines on the fixtures whose declared counts are wrong,
-    so those go through the structural walk."""
-    from phonlab.utils import textgrid as tgmod
-    # 'multiline.short' declares 10 labels and holds 11.
-    lines, _ = tgmod._read_lines(DATA / 'multiline.short.TextGrid', None)
-    assert tgmod._tiernames_fast_short(lines) is None
-    assert tg_tiernames(DATA / 'multiline.short.TextGrid') == ('multiline',)
-    # 'ipa' declares 8 intervals on its phone tier and holds 9.
-    lines, _ = tgmod._read_lines(DATA / 'ipa.TextGrid', None)
-    assert tgmod._tiernames_fast_long(lines) is None
-    assert tg_tiernames(DATA / 'ipa.TextGrid') == ('word', 'phone', 'context')
+def test_tiernames_scan_walks_only_bad_tiers():
+    """Only the tiers whose declared counts do not hold are walked."""
+    # 'multiline.short' has one tier, which declares 10 labels and holds 11.
+    assert _scan(DATA / 'multiline.short.TextGrid') == (('multiline',), (0,))
+    # 'ipa' declares 8 intervals on its phone tier (index 1) and holds 9;
+    # the word and context tiers are skipped.
+    assert _scan(DATA / 'ipa.TextGrid') == (('word', 'phone', 'context'), (1,))
 
-def test_tiernames_fast_path_used_for_praat_output(tmp_path):
-    """Textgrids written by `df_to_tg` declare correct counts, so the
-    shortcut handles them without falling back."""
-    from phonlab.utils import textgrid as tgmod
+def test_tiernames_scan_skips_df_to_tg_output(tmp_path):
+    """Textgrids written by `df_to_tg` declare correct counts, so no tier is
+    walked."""
     [wddf, phdf, stdf] = tg_to_df(
         DATA / 'this_is_a_label_file.short.TextGrid',
         tiersel=['word', 'phone', 'stimulus']
     )
-    for tgtype, fast in (('short', tgmod._tiernames_fast_short),
-                         ('long', tgmod._tiernames_fast_long)):
+    for tgtype in ('short', 'long'):
         outfile = tmp_path / f'counts.{tgtype}.TextGrid'
         df_to_tg(
             [wddf, phdf, stdf],
@@ -811,9 +805,41 @@ def test_tiernames_fast_path_used_for_praat_output(tmp_path):
             ts=[['t1', 't2'], ['t1', 't2'], ['t1', None]],
             tgtype=tgtype, outfile=outfile
         )
-        lines, _ = tgmod._read_lines(outfile, None)
-        assert fast(lines) == ('word', 'phone', 'stimulus')
+        assert _scan(outfile) == (('word', 'phone', 'stimulus'), ())
 
+def _tiers_with_multiline(position):
+    """Three interval tiers and a point tier, with multiline label content in
+    the tier at `position` only."""
+    def tier(name, multiline):
+        n = 6
+        return pd.DataFrame({
+            't1': [i / 10 for i in range(n)],
+            't2': [(i + 1) / 10 for i in range(n)],
+            name: [f'{name} {i}\nline two' if multiline and i % 2 else f'{name}{i}'
+                   for i in range(n)],
+        })
+    names = ['a', 'b', 'c']
+    dfs = [tier(nm, i == position) for i, nm in enumerate(names)]
+    ptdf = pd.DataFrame({'t1': [0.05, 0.25], 'pt': ['p', 'q']})
+    return dfs + [ptdf], names + ['pt']
+
+@pytest.mark.parametrize('tgtype', ['short', 'long'])
+@pytest.mark.parametrize('position', [0, 1, 2])
+def test_tiernames_scan_walks_multiline_tier_only(tgtype, position, tmp_path):
+    """A tier with multiline labels is walked wherever it falls, and the
+    tiers before and after it are still skipped."""
+    dfs, names = _tiers_with_multiline(position)
+    outfile = tmp_path / f'ml{position}.{tgtype}.TextGrid'
+    df_to_tg(
+        dfs, tiercols=names,
+        ts=[['t1', 't2']] * 3 + [['t1', None]],
+        tgtype=tgtype, outfile=outfile
+    )
+    assert _scan(outfile) == (tuple(names), (position,))
+    assert tg_tiernames(outfile) == tuple(names)
+    # The walked tier is read exactly as a full read reads it.
+    full = tg_to_df(outfile)
+    assert full[position][names[position]].str.contains('\n').sum() == 3
 
 def test_tg_tiernames_exported_at_package_level():
     """`tg_tiernames` is reachable as `phonlab.tg_tiernames`."""
