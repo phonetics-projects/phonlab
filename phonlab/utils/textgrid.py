@@ -200,10 +200,15 @@ def _read_lines(tgfile, codec=None):
         content = content[1:]
     content = content.replace('\r\n', '\n').replace('\r', '\n')
     lines = content.split('\n')
+    del content     # The lines hold all that is needed from here on.
     # Trailing newline in the file does not make a final empty line.
     if lines and lines[-1] == '':
-        lines = lines[:-1]
-    return ([line + '\n' for line in lines], codec)
+        lines.pop()
+    # Restore the terminators in place rather than building a second list,
+    # which would briefly hold two copies of every line.
+    for i, line in enumerate(lines):
+        lines[i] = line + '\n'
+    return (lines, codec)
 
 def _new_tier(tclass, name, start, end):
     '''Return an empty tier dict.'''

@@ -1232,3 +1232,25 @@ def test_read_textgrid_praat_call_count(monkeypatch):
     tiers = read_textgrid_praat(DATA / 'Turkmen_NA_20130919_G_3.TextGrid')
     assert sum(len(t['labels']) for t in tiers) == 338
     assert len(calls) <= 3, calls
+
+
+#### Line splitting ####
+
+@pytest.mark.parametrize('raw, expected', [
+    (b'a\nb\n', ['a\n', 'b\n']),
+    (b'a\nb', ['a\n', 'b\n']),                  # no final newline
+    (b'a\r\nb\r\n', ['a\n', 'b\n']),             # CRLF
+    (b'a\rb\r', ['a\n', 'b\n']),                 # CR only
+    (b'a\r\nb\rc\n', ['a\n', 'b\n', 'c\n']),      # mixed
+    (b'a\n\n', ['a\n', '\n']),                  # blank last line kept once
+    (b'\xef\xbb\xbfa\nb\n', ['a\n', 'b\n']),     # UTF-8 BOM dropped
+    (b'a\x0bb\x0cc\n', ['a\x0bb\x0cc\n']),        # only CR and LF split lines
+    (b'', []),
+])
+def test_read_lines(raw, expected, tmp_path):
+    """Files are split into lines that each end with a single newline."""
+    tgfile = tmp_path / 'lines.txt'
+    tgfile.write_bytes(raw)
+    lines, codec = tgmodule._read_lines(tgfile, None)
+    assert lines == expected
+    assert codec == 'utf-8'
