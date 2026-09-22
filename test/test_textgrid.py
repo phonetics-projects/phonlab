@@ -1157,6 +1157,43 @@ def test_read_praat_output_encodings(encoding, bom, tmp_path):
     [tier] = tgmodule._read_praat_output(outfile)
     assert [lab['text'] for lab in tier['labels']] == ['b\xedt na\xefve', 'b']
 
+@pytest.mark.parametrize('encoding, bom', [
+    ('utf-8', b''),
+    ('latin-1', b''),
+    ('utf-16-le', b'\xff\xfe'),
+    ('utf-16-be', b'\xfe\xff'),
+])
+def test_read_praat_output_encodings_short(encoding, bom, tmp_path):
+    """Praat's output is short format, which is decoded as the long format is."""
+    df = pd.DataFrame({'t1': [0.0, 0.5], 't2': [0.5, 1.0],
+                       'lab': ['b\xedt na\xefve', 'b']})
+    outfile = tmp_path / f'praat-short-{encoding}.TextGrid'
+    outfile.write_bytes(bom + df_to_tg(df, 'lab', tgtype='short').encode(encoding))
+    [tier] = tgmodule._read_praat_output(outfile)
+    assert [lab['text'] for lab in tier['labels']] == ['b\xedt na\xefve', 'b']
+
+def test_read_textgrid_praat_saves_short_format(monkeypatch):
+    """Praat is asked for its short text format, whatever the input format."""
+    pytest.importorskip('parselmouth')
+    real = tgmodule._import_pcall()
+    commands = []
+    def recording(*args):
+        commands.extend(a for a in args if isinstance(a, str) and a.endswith('...'))
+        return real(*args)
+    monkeypatch.setattr(tgmodule, '_import_pcall', lambda: recording)
+    formats = []
+    real_output = tgmodule._read_praat_output
+    def check_format(praatfile):
+        lines, _ = tgmodule._read_lines(praatfile, None)
+        formats.append(tgmodule._detect_format(lines, praatfile))
+        return real_output(praatfile)
+    monkeypatch.setattr(tgmodule, '_read_praat_output', check_format)
+    for tgfile in ('this_is_a_label_file.long.TextGrid',
+                   'this_is_a_label_file.short.TextGrid'):
+        read_textgrid_praat(DATA / tgfile)
+    assert 'Save as short text file...' in commands
+    assert formats == ['short', 'short']
+
 def test_read_praat_output_ascii(tmp_path):
     """ASCII output, which is also valid UTF-8, is read as such."""
     outfile = _praat_like_textgrid(tmp_path, 'plain', 'ascii')

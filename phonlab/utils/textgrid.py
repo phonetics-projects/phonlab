@@ -701,7 +701,9 @@ interval tier that declares no intervals by supplying a single empty interval
 spanning the tier. See this module's documentation for details.
 
 Praat reads the textgrid and writes what it read back out, to a temporary
-file in its own text format, which is then parsed. Everything Praat does in
+file in its short text format, which is then parsed. The short format is used
+whatever the format of the input, since it is several times smaller than the
+long format and so quicker to parse and lighter on memory. Everything Praat does in
 reading the file is reflected in the result, but the whole textgrid is
 retrieved in a few calls to Praat rather than several calls per label,
 which is far slower for textgrids of any size.
@@ -729,7 +731,7 @@ Raises
     tgobj = pcall('Read from file...', str(tgfile))[0]
     with tempfile.TemporaryDirectory() as tmpdir:
         praatfile = os.path.join(tmpdir, 'praat.TextGrid')
-        pcall(tgobj, 'Save as text file...', praatfile)
+        pcall(tgobj, 'Save as short text file...', praatfile)
         return _read_praat_output(praatfile)
 
 def _read_praat_output(praatfile):
