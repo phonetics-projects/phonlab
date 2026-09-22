@@ -872,7 +872,7 @@ class _ReaderCalls:
 def _tiers(name):
     """A one-tier result whose tier name identifies the reader."""
     return [{'class': 'IntervalTier', 'name': name, 'start': 0.0, 'end': 1.0,
-             'labels': [{'t1': 0.0, 't2': 1.0, 'text': name}]}]
+             'labels': [(0.0, 1.0, name)]}]
 
 def _no_warnings():
     """A context in which any warning is an error."""
@@ -1155,7 +1155,7 @@ def test_read_praat_output_encodings(encoding, bom, tmp_path):
     mark is trusted, and otherwise UTF-8 is tried before ISO Latin-1."""
     outfile = _praat_like_textgrid(tmp_path, 'b\xedt na\xefve', encoding, bom)
     [tier] = tgmodule._read_praat_output(outfile)
-    assert [lab['text'] for lab in tier['labels']] == ['b\xedt na\xefve', 'b']
+    assert [text for _, _, text in tier['labels']] == ['b\xedt na\xefve', 'b']
 
 @pytest.mark.parametrize('encoding, bom', [
     ('utf-8', b''),
@@ -1170,7 +1170,7 @@ def test_read_praat_output_encodings_short(encoding, bom, tmp_path):
     outfile = tmp_path / f'praat-short-{encoding}.TextGrid'
     outfile.write_bytes(bom + df_to_tg(df, 'lab', tgtype='short').encode(encoding))
     [tier] = tgmodule._read_praat_output(outfile)
-    assert [lab['text'] for lab in tier['labels']] == ['b\xedt na\xefve', 'b']
+    assert [text for _, _, text in tier['labels']] == ['b\xedt na\xefve', 'b']
 
 def test_read_textgrid_praat_saves_short_format(monkeypatch):
     """Praat is asked for its short text format, whatever the input format."""
@@ -1198,7 +1198,7 @@ def test_read_praat_output_ascii(tmp_path):
     """ASCII output, which is also valid UTF-8, is read as such."""
     outfile = _praat_like_textgrid(tmp_path, 'plain', 'ascii')
     [tier] = tgmodule._read_praat_output(outfile)
-    assert tier['labels'][0]['text'] == 'plain'
+    assert tier['labels'][0][2] == 'plain'
 
 # Textgrids that Praat reads. The empty tier fixtures are included here
 # because Praat's repair of the empty interval tier must survive the write.
@@ -1254,3 +1254,25 @@ def test_read_lines(raw, expected, tmp_path):
     lines, codec = tgmodule._read_lines(tgfile, None)
     assert lines == expected
     assert codec == 'utf-8'
+
+
+#### Label structure ####
+
+@pytest.mark.parametrize('tgfile', [
+    'this_is_a_label_file.short.TextGrid', 'this_is_a_label_file.long.TextGrid'
+])
+def test_labels_are_tuples(tgfile):
+    """Labels are (t1, t2, text) tuples, with t2 None for point tiers."""
+    tiers = _read_textgrid(DATA / tgfile)
+    for tier in tiers:
+        for label in tier['labels']:
+            assert type(label) is tuple and len(label) == 3
+            t1, t2, text = label
+            assert type(t1) is float and type(text) is str
+            if tier['class'] == 'IntervalTier':
+                assert type(t2) is float and t2 > t1
+            else:
+                assert t2 is None
+    word, phone, stim = tiers
+    assert word['labels'][1] == (0.04531977534891905, 0.4207853308004855, 'This')
+    assert stim['labels'][0] == (0.020579796888932116, None, '1')

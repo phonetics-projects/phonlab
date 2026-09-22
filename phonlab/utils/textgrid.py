@@ -220,12 +220,15 @@ def _new_tier(tclass, name, start, end):
     }
 
 def _add_label(tier, t1, t2, text):
-    '''Append a label to `tier`, casting times from str as needed.'''
-    tier['labels'].append({
-        't1': float(t1),
-        't2': None if t2 is None else float(t2),
-        'text': text
-    })
+    '''
+    Append a label to `tier` as a (t1, t2, text) tuple, casting times from str
+    as needed. Tuples are used rather than dicts because a textgrid can hold
+    many thousands of labels, and a tuple takes a third of the memory of a
+    dict and can be passed to `pd.DataFrame` directly.
+    '''
+    tier['labels'].append(
+        (float(t1), None if t2 is None else float(t2), text)
+    )
 
 _TIER_CLASS_LINES = ('"IntervalTier"', '"TextTier"')
 
@@ -441,8 +444,8 @@ Returns
 tiers : list of dict
     One `dict` per textgrid tier, in the order they appear in the textgrid.
     Each has the keys `class` ('IntervalTier' or 'TextTier'), `name`, `start`,
-    `end`, and `labels`. The `labels` value is a list of `dict`, each with the
-    keys `t1`, `t2`, and `text`. For a point tier, `t2` is `None`.
+    `end`, and `labels`. The `labels` value is a list of `(t1, t2, text)`
+    tuples. For a point tier, `t2` is `None`.
 
 Raises
 ------
@@ -775,19 +778,19 @@ def _read_textgrid_praat_calls(tgfile):
         if isintvl is True or isintvl == 1 or isintvl == '1':
             tclass = 'IntervalTier'
             for i in range(int(pcall(tgobj, 'Get number of intervals...', n+1))):
-                labels.append({
-                    't1': pcall(tgobj, 'Get start time of interval...', n+1, i+1),
-                    't2': pcall(tgobj, 'Get end time of interval...', n+1, i+1),
-                    'text': pcall(tgobj, 'Get label of interval...', n+1, i+1)
-                })
+                labels.append((
+                    pcall(tgobj, 'Get start time of interval...', n+1, i+1),
+                    pcall(tgobj, 'Get end time of interval...', n+1, i+1),
+                    pcall(tgobj, 'Get label of interval...', n+1, i+1)
+                ))
         else:
             tclass = 'TextTier'
             for i in range(int(pcall(tgobj, 'Get number of points...', n+1))):
-                labels.append({
-                    't1': pcall(tgobj, 'Get time of point...', n+1, i+1),
-                    't2': None,
-                    'text': pcall(tgobj, 'Get label of point...', n+1, i+1)
-                })
+                labels.append((
+                    pcall(tgobj, 'Get time of point...', n+1, i+1),
+                    None,
+                    pcall(tgobj, 'Get label of point...', n+1, i+1)
+                ))
         tiers.append({
             'class': tclass,
             'name': pcall(tgobj, 'Get tier name...', n+1),

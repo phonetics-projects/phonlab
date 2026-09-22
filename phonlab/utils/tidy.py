@@ -496,18 +496,14 @@ In this example we have the name of an existing Praat Textgrid file, and use **t
         except IndexError:
             msg = f'Not enough names listed in `names`. There are {len(names)} names for {ntiers} selected tiers.'
             raise ValueError(msg) from None
+        # Labels are (t1, t2, text) tuples, which interval tiers pass to
+        # pandas as they are. Point tiers have no t2 to keep.
         if tgtier['class'] == 'IntervalTier':
             cols = ['t1', 't2', tiername]
-            recs = [
-                {'t1': lab['t1'], 't2': lab['t2'], tiername: lab['text']} \
-                    for lab in tgtier['labels']
-            ]
+            recs = tgtier['labels']
         else:
             cols = ['t1', tiername]
-            recs = [
-                {'t1': lab['t1'], tiername: lab['text']} \
-                    for lab in tgtier['labels']
-            ]
+            recs = [(t1, text) for t1, _, text in tgtier['labels']]
         tiers.append(pd.DataFrame(recs, columns=cols))
     return tiers
 
