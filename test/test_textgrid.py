@@ -20,7 +20,7 @@ import pytest
 from phonlab.utils import textgrid as tgmodule
 from phonlab.utils.textgrid import (
     TextGridParseError, TextGridParserFallbackWarning, detect_encoding,
-    read_textgrid, read_textgrid_praat, read_textgrid_with, tg_tiernames
+    _read_textgrid, _read_textgrid_praat, _read_textgrid_with, tg_tiernames
 )
 from phonlab.utils.tidy import df_to_tg, tg_to_df
 
@@ -36,14 +36,14 @@ def label_at(df, t, col):
 
 def test_praat_long():
     """A long format textgrid is read, and its format detected."""
-    tiers = read_textgrid(DATA / 'this_is_a_label_file.long.TextGrid')
+    tiers = _read_textgrid(DATA / 'this_is_a_label_file.long.TextGrid')
     assert len(tiers) == 3
     assert tg_tiernames(DATA / 'this_is_a_label_file.long.TextGrid') == \
         ('word', 'phone', 'stimulus')
 
 def test_praat_short():
     """A short format textgrid is read, and its format detected."""
-    tiers = read_textgrid(DATA / 'this_is_a_label_file.short.TextGrid')
+    tiers = _read_textgrid(DATA / 'this_is_a_label_file.short.TextGrid')
     assert len(tiers) == 3
     assert tg_tiernames(DATA / 'this_is_a_label_file.short.TextGrid') == \
         ('word', 'phone', 'stimulus')
@@ -89,7 +89,7 @@ def test_praat_long_label_count_not_trusted():
     """The declared label count is not trusted in long format either. Praat
     itself refuses this file, whose 'phone' tier declares 8 intervals but
     holds 9; all 9 are read."""
-    tiers = read_textgrid(DATA / 'ipa.TextGrid')
+    tiers = _read_textgrid(DATA / 'ipa.TextGrid')
     assert [len(t['labels']) for t in tiers] == [6, 9, 3]
     phdf = tg_to_df(DATA / 'ipa.TextGrid', tiersel=['phone'])[0]
     assert len(phdf) == 9
@@ -147,14 +147,14 @@ def test_praat_utf_16_be():
 
 def test_praat_utf_16_be_warn(capsys):
     """A byte-order mark overrides a user-specified codec, with a warning."""
-    read_textgrid(DATA / 'Turkmen_NA_20130919_G_3.TextGrid', codec='utf-8')
+    _read_textgrid(DATA / 'Turkmen_NA_20130919_G_3.TextGrid', codec='utf-8')
     err = capsys.readouterr().err
     assert 'overriding user-specified encoding utf-8' in err
     assert 'utf_16_be' in err
 
 def test_praat_no_warn_without_bom(capsys):
     """No warning is issued when there is no byte-order mark to conflict with."""
-    read_textgrid(DATA / 'utf8_no_BOM.TextGrid', codec='utf-8')
+    _read_textgrid(DATA / 'utf8_no_BOM.TextGrid', codec='utf-8')
     assert capsys.readouterr().err == ''
 
 #### Reading: the tg_to_df interface ####
@@ -650,11 +650,11 @@ def test_tg_to_df_praat_point_tier():
     assert stdf['stimulus'].tolist() == ['1', '2', '3']
 
 def test_read_textgrid_praat_structure():
-    """`read_textgrid_praat` returns the same structure as `read_textgrid`."""
+    """`_read_textgrid_praat` returns the same structure as `_read_textgrid`."""
     pytest.importorskip('parselmouth')
     tgfile = DATA / 'this_is_a_label_file.short.TextGrid'
-    pytiers = read_textgrid(tgfile)
-    prtiers = read_textgrid_praat(tgfile)
+    pytiers = _read_textgrid(tgfile)
+    prtiers = _read_textgrid_praat(tgfile)
     assert len(pytiers) == len(prtiers)
     for pyt, prt in zip(pytiers, prtiers):
         assert pyt.keys() == prt.keys()
@@ -693,7 +693,7 @@ ALL_FIXTURES = [p.name for p in sorted(DATA.glob('*.TextGrid'))]
 def test_tg_tiernames_matches_full_read(tgfile):
     """`tg_tiernames` agrees with a full read of the same textgrid."""
     assert tg_tiernames(DATA / tgfile) == \
-        tuple(t['name'] for t in read_textgrid(DATA / tgfile))
+        tuple(t['name'] for t in _read_textgrid(DATA / tgfile))
 
 def test_tg_tiernames_returns_tuple():
     """Names are returned as a tuple, in textgrid order."""
@@ -711,7 +711,7 @@ def test_tg_tiernames_empty_and_duplicate_names():
     """Unnamed tiers give '', and one entry is returned per tier."""
     names = tg_tiernames(DATA / 'empty_name.TextGrid')
     assert names == ('word', '', '')
-    assert len(names) == len(read_textgrid(DATA / 'empty_name.TextGrid'))
+    assert len(names) == len(_read_textgrid(DATA / 'empty_name.TextGrid'))
 
 def test_tg_tiernames_utf_16():
     """Tier names are decoded using the textgrid's byte-order mark."""
@@ -778,7 +778,7 @@ def test_tiernames_scan_matches_full_read(tgfile):
     """The per-tier scan gives the same names as a full read, whichever
     tiers it skips and whichever it walks."""
     names, walked = _scan(DATA / tgfile)
-    assert names == tuple(t['name'] for t in read_textgrid(DATA / tgfile))
+    assert names == tuple(t['name'] for t in _read_textgrid(DATA / tgfile))
     assert all(0 <= i < len(names) for i in walked)
     assert tg_tiernames(DATA / tgfile) == names
 
@@ -856,8 +856,8 @@ class _ReaderCalls:
     def __init__(self, monkeypatch, python=None, praat=None):
         self.calls = []
         for name, attr, outcome in (
-            ('python', 'read_textgrid', python),
-            ('praat', 'read_textgrid_praat', praat),
+            ('python', '_read_textgrid', python),
+            ('praat', '_read_textgrid_praat', praat),
         ):
             monkeypatch.setattr(tgmodule, attr, self._reader(name, outcome))
 
@@ -889,7 +889,7 @@ def test_fallback_named_parser_succeeds(parser, monkeypatch):
     name = parser.split('.')[0]
     ctx = _no_warnings()
     try:
-        tiers = read_textgrid_with('x.TextGrid', parser)
+        tiers = _read_textgrid_with('x.TextGrid', parser)
     finally:
         ctx.__exit__(None, None, None)
     assert calls.calls == [name]
@@ -901,7 +901,7 @@ def test_fallback_to_other_parser(name, other, monkeypatch):
     outcomes = {name: TextGridParseError('named failed'), other: _tiers(other)}
     calls = _ReaderCalls(monkeypatch, **outcomes)
     with pytest.warns(TextGridParserFallbackWarning, match=f"'{name}' parser could not read"):
-        tiers = read_textgrid_with('x.TextGrid', name)
+        tiers = _read_textgrid_with('x.TextGrid', name)
     assert calls.calls == [name, other]
     assert tiers[0]['name'] == other
 
@@ -913,7 +913,7 @@ def test_fallback_only_suffix_raises_named_error(name, monkeypatch):
     other = 'praat' if name == 'python' else 'python'
     calls = _ReaderCalls(monkeypatch, **{name: err, other: _tiers(other)})
     with pytest.raises(TextGridParseError) as excinfo:
-        read_textgrid_with('x.TextGrid', f'{name}.only')
+        _read_textgrid_with('x.TextGrid', f'{name}.only')
     assert excinfo.value is err
     assert calls.calls == [name]
 
@@ -923,7 +923,7 @@ def test_fallback_both_fail(monkeypatch):
     first = ValueError('python trouble')
     calls = _ReaderCalls(monkeypatch, python=first, praat=RuntimeError('praat trouble'))
     with pytest.raises(TextGridParseError, match='Neither parser') as excinfo:
-        read_textgrid_with('x.TextGrid', 'python')
+        _read_textgrid_with('x.TextGrid', 'python')
     msg = str(excinfo.value)
     assert 'ValueError: python trouble' in msg
     assert 'RuntimeError: praat trouble' in msg
@@ -936,7 +936,7 @@ def test_fallback_unavailable_raises_named_error(monkeypatch):
     err = TextGridParseError('python failed')
     _ReaderCalls(monkeypatch, python=err, praat=ImportError('no parselmouth'))
     with pytest.raises(TextGridParseError) as excinfo:
-        read_textgrid_with('x.TextGrid', 'python')
+        _read_textgrid_with('x.TextGrid', 'python')
     assert excinfo.value is err
 
 def test_fallback_when_praat_not_installed(monkeypatch):
@@ -944,9 +944,9 @@ def test_fallback_when_praat_not_installed(monkeypatch):
     'praat.only' raises the `ImportError`."""
     _ReaderCalls(monkeypatch, python=_tiers('python'), praat=ImportError('no parselmouth'))
     with pytest.warns(TextGridParserFallbackWarning):
-        assert read_textgrid_with('x.TextGrid', 'praat')[0]['name'] == 'python'
+        assert _read_textgrid_with('x.TextGrid', 'praat')[0]['name'] == 'python'
     with pytest.raises(ImportError):
-        read_textgrid_with('x.TextGrid', 'praat.only')
+        _read_textgrid_with('x.TextGrid', 'praat.only')
 
 @pytest.mark.parametrize('name', ['python', 'praat'])
 def test_fallback_not_used_for_oserror(name, monkeypatch):
@@ -955,7 +955,7 @@ def test_fallback_not_used_for_oserror(name, monkeypatch):
     other = 'praat' if name == 'python' else 'python'
     calls = _ReaderCalls(monkeypatch, **{name: FileNotFoundError('gone'), other: _tiers(other)})
     with pytest.raises(FileNotFoundError):
-        read_textgrid_with('x.TextGrid', name)
+        _read_textgrid_with('x.TextGrid', name)
     assert calls.calls == [name]
 
 def test_fallback_oserror_from_fallback_parser(monkeypatch):
@@ -965,7 +965,7 @@ def test_fallback_oserror_from_fallback_parser(monkeypatch):
     _ReaderCalls(monkeypatch, praat=RuntimeError('praat trouble'),
                  python=FileNotFoundError('gone'))
     with pytest.raises(FileNotFoundError):
-        read_textgrid_with('x.TextGrid', 'praat')
+        _read_textgrid_with('x.TextGrid', 'praat')
 
 def test_fallback_tg_to_df_passes_parser_through(monkeypatch):
     """`tg_to_df` builds its dataframes from whichever parser succeeded."""
@@ -1105,7 +1105,7 @@ def test_fallback_warning_points_at_caller(monkeypatch):
     for call in (
         lambda: tg_to_df('x.TextGrid'),
         lambda: tg_tiernames('x.TextGrid'),
-        lambda: read_textgrid_with('x.TextGrid'),
+        lambda: _read_textgrid_with('x.TextGrid'),
     ):
         with warnings.catch_warnings(record=True) as record:
             warnings.simplefilter('always')
@@ -1190,7 +1190,7 @@ def test_read_textgrid_praat_saves_short_format(monkeypatch):
     monkeypatch.setattr(tgmodule, '_read_praat_output', check_format)
     for tgfile in ('this_is_a_label_file.long.TextGrid',
                    'this_is_a_label_file.short.TextGrid'):
-        read_textgrid_praat(DATA / tgfile)
+        _read_textgrid_praat(DATA / tgfile)
     assert 'Save as short text file...' in commands
     assert formats == ['short', 'short']
 
@@ -1211,7 +1211,7 @@ def test_read_textgrid_praat_matches_per_label_calls(tgfile):
     """Having Praat write the textgrid out gives exactly what retrieving each
     label with its own call to Praat gives."""
     pytest.importorskip('parselmouth')
-    fast = read_textgrid_praat(DATA / tgfile)
+    fast = _read_textgrid_praat(DATA / tgfile)
     slow = tgmodule._read_textgrid_praat_calls(DATA / tgfile)
     assert len(fast) == len(slow)
     for f, s in zip(fast, slow):
@@ -1229,7 +1229,7 @@ def test_read_textgrid_praat_call_count(monkeypatch):
                      else args[0])
         return real(*args)
     monkeypatch.setattr(tgmodule, '_import_pcall', lambda: counting)
-    tiers = read_textgrid_praat(DATA / 'Turkmen_NA_20130919_G_3.TextGrid')
+    tiers = _read_textgrid_praat(DATA / 'Turkmen_NA_20130919_G_3.TextGrid')
     assert sum(len(t['labels']) for t in tiers) == 338
     assert len(calls) <= 3, calls
 

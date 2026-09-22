@@ -28,7 +28,6 @@ machine-generated files.
 '''
 
 __all__ = [
-    'read_textgrid', 'read_textgrid_praat', 'read_textgrid_with',
     'tg_tiernames', 'TextGridParseError', 'TextGridParserFallbackWarning'
 ]
 
@@ -418,7 +417,7 @@ def _read_praat_long(reader, collect=True):
         tier, numlabels = _read_praat_long_tier_metadata(reader)
     return tiers
 
-def read_textgrid(tgfile, codec=None):
+def _read_textgrid(tgfile, codec=None):
     '''
 Read a Praat textgrid and return its tiers.
 
@@ -692,15 +691,15 @@ def _tiernames_praat(tg):
     ntiers = int(pcall(tgobj, 'Get number of tiers'))
     return tuple(pcall(tgobj, 'Get tier name...', n+1) for n in range(ntiers))
 
-def read_textgrid_praat(tgfile):
+def _read_textgrid_praat(tgfile):
     '''
 Read a Praat textgrid with Praat itself, by way of `parselmouth`.
 
-This is an alternative to `read_textgrid()` that returns the same structure,
+This is an alternative to `_read_textgrid()` that returns the same structure,
 so the two can be used interchangeably. It requires the `praat-parselmouth`
 package, which is imported only when this function is called.
 
-Praat differs from `read_textgrid()` in its handling of malformed textgrids:
+Praat differs from `_read_textgrid()` in its handling of malformed textgrids:
 it trusts the label counts declared in the file's headers, and it repairs an
 interval tier that declares no intervals by supplying a single empty interval
 spanning the tier. See this module's documentation for details.
@@ -723,7 +722,7 @@ Returns
 -------
 
 tiers : list of dict
-    As documented for `read_textgrid()`. Note that Praat determines the
+    As documented for `_read_textgrid()`. Note that Praat determines the
     encoding of the file itself, so there is no `codec` parameter.
 
 Raises
@@ -756,12 +755,12 @@ def _read_praat_output(praatfile):
             codec = 'utf-8'
         except UnicodeDecodeError:
             codec = 'latin-1'
-    return read_textgrid(praatfile, codec=codec)
+    return _read_textgrid(praatfile, codec=codec)
 
 def _read_textgrid_praat_calls(tgfile):
     '''
     Read a textgrid with Praat, retrieving each tier and label with its own
-    call to Praat. This was the implementation of `read_textgrid_praat()`
+    call to Praat. This was the implementation of `_read_textgrid_praat()`
     before it had Praat write the textgrid out instead. It is much slower,
     and is kept as an independent reference against which the tests check
     that faster approach.
@@ -826,7 +825,7 @@ def _textgrid_readers():
     The full textgrid readers, by parser name. Built at call time, so that
     the module-level functions can be replaced, e.g. in tests.
     '''
-    return {'python': read_textgrid, 'praat': read_textgrid_praat}
+    return {'python': _read_textgrid, 'praat': _read_textgrid_praat}
 
 def _tiername_readers(codec=None):
     '''The tier name readers, by parser name. Built at call time.'''
@@ -835,7 +834,7 @@ def _tiername_readers(codec=None):
         'praat': _tiernames_praat,
     }
 
-def read_textgrid_with(tgfile, parser='python'):
+def _read_textgrid_with(tgfile, parser='python'):
     '''
 Read a Praat textgrid with the named parser, falling back to the other parser
 if the named one fails.
@@ -858,7 +857,7 @@ Returns
 -------
 
 tiers : list of dict
-    As documented for `read_textgrid()`.
+    As documented for `_read_textgrid()`.
 
 Raises
 ------
@@ -884,7 +883,7 @@ def _with_fallback(tgfile, parser, readers, stacklevel=3):
     '''
     Read `tgfile` with `readers[name]` for the parser named by `parser`,
     falling back to the other reader as documented for
-    `read_textgrid_with()`. `stacklevel` is passed to `warnings.warn`; the
+    `_read_textgrid_with()`. `stacklevel` is passed to `warnings.warn`; the
     default attributes the warning to whoever called the function that
     called this one, so it points at the user's own line.
     '''
