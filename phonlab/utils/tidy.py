@@ -2,7 +2,8 @@ import sys
 import pandas as pd
 import numpy as np
 import srt
-from parselmouth.praat import call as pcall
+
+from .textgrid import _textgrid_readers, _with_fallback
 
 def _df_to_praat_short_label_str(df, lblcol, t1col, t2col=None, fmt=None):
     """
@@ -22,12 +23,14 @@ def _df_to_praat_short_label_str(df, lblcol, t1col, t2col=None, fmt=None):
         ts.str.cat(
             df[lblcol].fillna('').astype(str) \
                 .str.replace('"', '""', regex=False) \
-                # ^|$ alone does not match twice on empty strings
+                # ^|\Z alone does not match twice on empty strings.
                 # Also, .str.replace doesn't seem to work with
                 # beginning/end of string unless you capture, e.g. (^)
-                # and we just use .replace instead.
+                # and we just use .replace instead. \Z is used rather than $
+                # so that the closing quote is not inserted before a trailing
+                # newline in multiline label content.
                 .replace('^', '"', regex=True) \
-                .replace('$', '"', regex=True),
+                .replace(r'\Z', '"', regex=True),
             sep='\n'
         )
     )
@@ -38,7 +41,9 @@ def _df_to_praat_long_label_str(df, lblcol, t1col, t2col=None, fmt=None):
     from a dataframe.
     """
 
-    intvl = 'intervals [{}]:\n            '
+    intvl = '{} [{{}}]:\n            '.format(
+        'intervals' if t2col is not None else 'points'
+    )
     ts = pd.Series(np.arange(1, len(df)+1)).map(intvl.format)
 
     t1lbl = '{} = '.format('number' if t2col is None else 'xmin')
@@ -61,12 +66,14 @@ def _df_to_praat_long_label_str(df, lblcol, t1col, t2col=None, fmt=None):
         ts.str.cat(
             df[lblcol].fillna('').astype(str) \
                 .str.replace('"', '""', regex=False) \
-                # ^|$ alone does not match twice on empty strings
+                # ^|\Z alone does not match twice on empty strings.
                 # Also, .str.replace doesn't seem to work with
                 # beginning/end of string unless you capture, e.g. (^)
-                # and we just use .replace instead.
+                # and we just use .replace instead. \Z is used rather than $
+                # so that the closing quote is not inserted before a trailing
+                # newline in multiline label content.
                 .replace('^', lbl, regex=True) \
-                .replace('$', '"', regex=True),
+                .replace(r'\Z', '"', regex=True),
             sep='\n'
         )
     )
@@ -78,16 +85,18 @@ def _df_to_praat_short_tier(df, xmin, xmax, tname, lblcol, t1col,
     praat_short format.
     """
 
-    return '\n'.join(
-        [
-            '"IntervalTier"' if t2col is not None else '"TextTier"',
-            '"' + tname + '"',
-            xmin,
-            xmax,
-            str(len(df)),
+    lines = [
+        '"IntervalTier"' if t2col is not None else '"TextTier"',
+        '"' + tname + '"',
+        xmin,
+        xmax,
+        str(len(df))
+    ]
+    if len(df) > 0:
+        lines.append(
             _df_to_praat_short_label_str(df, lblcol, t1col, t2col, fmt)
-        ]
-)
+        )
+    return '\n'.join(lines)
 
 def _df_to_praat_long_tier(idx, df, xmin, xmax, tname, lblcol, t1col,
     t2col=None, fmt=None):
@@ -97,16 +106,19 @@ def _df_to_praat_long_tier(idx, df, xmin, xmax, tname, lblcol, t1col,
     """
 
     tclass = '"IntervalTier"' if t2col is not None else '"TextTier"'
+    sizelbl = 'intervals' if t2col is not None else 'points'
     tier = '''    item [{}]:
         class = {}
         name = "{}"
         xmin = {}
         xmax = {}
-        intervals: size = {}
-        {}'''.format(
-        idx, tclass, tname, xmin, xmax, str(len(df)),
-        _df_to_praat_long_label_str(df, lblcol, t1col, t2col, fmt)
+        {}: size = {}'''.format(
+        idx, tclass, tname, xmin, xmax, sizelbl, str(len(df))
     )
+    if len(df) > 0:
+        tier += '\n        ' + _df_to_praat_long_label_str(
+            df, lblcol, t1col, t2col, fmt
+        )
     return tier
 
 def _praat_short_preamble(xmin, xmax, tiercnt):
@@ -328,15 +340,13 @@ Example
     else:
         xmax = max([df[col].max() for df, col in zip(dfs, maxcols)])
 
-    # Create TextGrid preamble.
-    if tgtype != 'long':
-        tg = _praat_short_preamble(xmin, xmax, len(dfs))
-    else:
-        tg = _praat_long_preamble(xmin, xmax, len(dfs))
-
     # Prep the `fmt` string, if needed.
     if fmt is not None and not fmt.startswith('{:'):
         fmt = '{:' + fmt + '}'
+
+    # Keep the unrounded start/end times for gap filling. Filling gaps with
+    # the rounded values can produce zero-duration labels at the tier edges.
+    tmin, tmax = xmin, xmax
 
     # Convert xmin and xmax to (formatted) strings.
     if fmt is None:
@@ -346,7 +356,15 @@ Example
         xmin = fmt.format(xmin)
         xmax = fmt.format(xmax)
 
-    for df, colmap, (t1col, t2col) in zip(dfs, tiercols, ts):
+    # Create TextGrid preamble.
+    if tgtype != 'long':
+        tg = _praat_short_preamble(xmin, xmax, len(dfs))
+    else:
+        tg = _praat_long_preamble(xmin, xmax, len(dfs))
+
+    for tieridx, (df, colmap, (t1col, t2col)) in enumerate(
+        zip(dfs, tiercols, ts), start=1
+    ):
         tiercol, tiername = list(colmap.items())[0]
         try:
             if t2col is not None:
@@ -382,14 +400,14 @@ Example
                 t1fld=t1col,
                 t2fld=t2col,
                 lblfld=tiercol,
-                start=xmin,
-                end=xmax,
+                start=tmin,
+                end=tmax,
                 fill=fill_gaps
             )
         if tgtype != 'long':
             tiertext = _df_to_praat_short_tier(df, xmin, xmax, tiername, tiercol, t1col, t2col, fmt)
         else:
-            tiertext = _df_to_praat_long_tier(df, xmin, xmax, tiername, tiercol, t1col, t2col, fmt)
+            tiertext = _df_to_praat_long_tier(tieridx, df, xmin, xmax, tiername, tiercol, t1col, t2col, fmt)
         tg += f'\n{tiertext}'
     if outfile is not None:
         with open(outfile, 'w', encoding=codec) as out:
@@ -398,7 +416,7 @@ Example
     else:
         return tg
 
-def tg_to_df(tg, tiersel=[], names=None):
+def tg_to_df(tg, tiersel=[], names=None, parser='python'):
     '''
 Read a Praat textgrid and return its tiers as a list of dataframes.
 
@@ -413,6 +431,28 @@ tiersel : list of str or int
 
 names : None, str, or list of str (default None)
     Names of the label content columns in the output dataframes. If `None`, then the textgrid tier name is used as the column. If `str` then the same column name will be used for all dataframes. If list, then one name must be supplied for each tier selected by `tiersel`.
+
+parser : str (default 'python')
+    The textgrid parser to try first: `'python'` or `'praat'`. `'python'` is
+    the pure-Python parser in `phonlab.utils.textgrid`, which has no external
+    dependencies. `'praat'` reads the textgrid with Praat itself by way of the
+    `praat-parselmouth` package, which is imported only when it is needed.
+
+    If the named parser cannot read the textgrid, the other parser is tried,
+    and a `TextGridParserFallbackWarning` is issued if it succeeds. Add the
+    suffix `'.only'`, as in `'python.only'` or `'praat.only'`, to use the named
+    parser alone and raise its error if it fails. A file that cannot be opened
+    raises its `OSError` without a fallback, and if both parsers fail a
+    `TextGridParseError` naming both errors is raised.
+
+    The two parsers return the same dataframes for textgrids written by Praat.
+    They differ on malformed textgrids: Praat trusts the label counts declared
+    in the file's headers and refuses files whose contents run past them, and
+    it repairs an interval tier that declares no intervals by supplying one
+    empty interval spanning the tier, where the `'python'` parser reads what
+    the file actually contains. So with fallback enabled, a textgrid that
+    Praat refuses is still read when `parser='praat'`, by the `'python'`
+    parser.
 
 Returns
 -------
@@ -439,42 +479,32 @@ In this example we have the name of an existing Praat Textgrid file, and use **t
     The first few rows of the phones dataframe (phdf) given by `tg_to_df()`
 
     '''
-    tg = pcall('Read from file...', str(tg))[0]
-    ntiers = int(pcall(tg, 'Get number of tiers'))
+    tgtiers = _with_fallback(tg, parser, _textgrid_readers())
+    ntiers = len(tgtiers)
     tiers = []
-    tiermap = {pcall(tg, 'Get tier name...', n+1): n for n in range(ntiers)}
+    tiermap = {tgtier['name']: n for n, tgtier in enumerate(tgtiers)}
     if tiersel == []:
         tiersel = range(ntiers)
     else:
-        for n in range(len(tiersel)):
-            if not isinstance(tiersel[n], int):
-                tiersel[n] = tiermap[tiersel[n]]
+        tiersel = [n if isinstance(n, int) else tiermap[n] for n in tiersel]
     if isinstance(names, str):
         names = [names] * ntiers
     for i, n in enumerate(tiersel):
+        tgtier = tgtiers[n]
         try:
-            tiername = names[i] if names is not None else pcall(tg, 'Get tier name...', n+1)
+            tiername = names[i] if names is not None else tgtier['name']
         except IndexError:
             msg = f'Not enough names listed in `names`. There are {len(names)} names for {ntiers} selected tiers.'
             raise ValueError(msg) from None
-        recs = []
-        isintvl = pcall(tg, 'Is interval tier...', n+1)
-        if isintvl is True or isintvl == 1 or isintvl == '1':
-            nlabels = int(pcall(tg, 'Get number of intervals...', n+1))
-            for i in range(nlabels):
-                recs.append({
-                    't1': pcall(tg, 'Get start time of interval...', n+1, i+1),
-                    't2': pcall(tg, 'Get end time of interval...', n+1, i+1),
-                    tiername: pcall(tg, 'Get label of interval...', n+1, i+1)
-                })
+        # Labels are (t1, t2, text) tuples, which interval tiers pass to
+        # pandas as they are. Point tiers have no t2 to keep.
+        if tgtier['class'] == 'IntervalTier':
+            cols = ['t1', 't2', tiername]
+            recs = tgtier['labels']
         else:
-            nlabels = int(pcall(tg, 'Get number of points...', n+1))
-            for i in range(nlabels):
-                recs.append({
-                    't1': pcall(tg, 'Get time of point...', n+1, i+1),
-                    tiername: pcall(tg, 'Get label of point...', n+1, i+1)
-                })
-        tiers.append(pd.DataFrame(recs))
+            cols = ['t1', tiername]
+            recs = [(t1, text) for t1, _, text in tgtier['labels']]
+        tiers.append(pd.DataFrame(recs, columns=cols))
     return tiers
 
 def add_context(df, col, nprev, nnext, prefixes=['prev_', 'next_'], fillna='', ctxcol=None, sep=' '):

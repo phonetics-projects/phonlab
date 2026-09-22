@@ -2,6 +2,7 @@ Working with TextGrids
 ======================
 
 .. autofunction:: phonlab.tg_to_df
+.. autofunction:: phonlab.tg_tiernames
 .. autofunction:: phonlab.df_to_tg
 .. autofunction:: phonlab.add_context
 .. autofunction:: phonlab.merge_tiers
