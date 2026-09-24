@@ -108,19 +108,19 @@ Take the right channel, and resample to 16,000 Hz
         if not quiet:
             print(f"Prep Audio: Padding signal to a multiple of {pad_to} sec ({frame_len} samples), which involves adding {extra_samples} extra samples.")
 
-    if add_tiny_noise:
-        # only exact-zero samples get jittered (digital silence, or the padding above) -- real
-        # recordings essentially never contain literal zeros, so this leaves them bit-identical
-        # across repeated calls instead of dithering every sample.
-        zero_mask = (x2 == 0)
-        n_zero = int(np.count_nonzero(zero_mask))
-        if n_zero > 0:
-            x2[zero_mask] = (((np.random.rand(n_zero) - 0.5) * 0.00001).astype(x2.dtype))
-
     if (pre > 0):
         y = np.append(x2[0], x2[1:] - pre * x2[:-1])  # apply pre-emphasis
     else:
         y = x2
+
+    if add_tiny_noise:
+        # only exact-zero samples get jittered (digital silence, or the padding above) -- real
+        # recordings essentially never contain literal zeros, so this leaves them bit-identical
+        # across repeated calls instead of dithering every sample.
+        zero_mask = (y == 0)
+        n_zero = int(np.count_nonzero(zero_mask))
+        if n_zero > 0:
+            y[zero_mask] = (((np.random.rand(n_zero) - 0.5) * 0.00001).astype(y.dtype))
     
     if outtype == "int" or outtype == "int16":
         y = np.rint(np.iinfo(np.int16).max * y).astype(np.int16)
