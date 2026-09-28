@@ -2,6 +2,7 @@ import numpy as np
 from scipy import signal
 from scipy import fft
 import librosa
+from numba import njit
 from pandas import DataFrame
 from ..utils.prep_audio_ import prep_audio
 from ..acoustic.choose_order_ import choose_order
@@ -67,6 +68,26 @@ def abc_coefs(f,b,fs):
     c = 1.0/(1.0+a+b)
     return (a,b,c)
 
+@njit(cache=True, fastmath=True)
+def _fir_apply(kernel, x):
+    ''' _fir_apply() applies a (short, causal) FIR kernel to x. A hand-rolled,
+    numba-compiled loop instead of scipy.signal.lfilter() because inv_filter() is called
+    on very short (240-sample) frames tens of thousands of times per file, where
+    lfilter()'s per-call dispatch/validation overhead dominates its actual work; the
+    compiled loop removes that overhead (see inv_filter()).
+    '''
+
+    n = len(x)
+    k = len(kernel)
+    y = np.zeros(n)
+    for i in range(n):
+        s = 0.0
+        for j in range(k):
+            if i - j >= 0:
+                s += kernel[j] * x[i-j]
+        y[i] = s
+    return y
+
 def inv_filter(x, fs, fr, bw):
     ''' inv_filter()  inverse filter x using a list of frequencies and bandwidths for the filters
     Input
@@ -77,27 +98,21 @@ def inv_filter(x, fs, fr, bw):
 
     Return
         y - a one-dimensinal numpy array: the inverse filtered verion of x
+
+    Each (f,b) pair contributes a 3-tap FIR stage [c, c*b, c*a] (despite the in-place,
+    recursive-looking loop this replaces: the loop shifts values into local variables
+    before overwriting the array, so it never actually feeds back its own output -
+    each stage is a plain FIR of the previous stage's output). Cascaded FIR stages are
+    equivalent to one FIR whose taps are the convolution of the stage taps, so we build
+    that combined kernel once and apply it with _fir_apply() instead of one Python-level
+    call (and inner sample loop) per formant.
     '''
-    
-    y = np.empty_like(x)
 
-    # First inverse filter
-    a,b,c = abc_coefs(fr[0],bw[0],fs)
-    y[0] = c * x[0]
-    y[1] = c * (b * x[0] + x[1])
-    for n in range(2,len(y)):
-        y[n] = c*(a*x[n-2] + b*x[n-1] + x[n])
-
-    # Remaining inverse filters
-    for nn in range(1,len(fr)):
-        a,b,c = abc_coefs(fr[nn],bw[nn],fs)
-        ay2 = ay3 = 0
-        for n in range(0,len(y)):
-            ay1 = ay2
-            ay2 = ay3
-            ay3 = y[n]
-            y[n] = c*(a*ay1 + b*ay2 + ay3)
-    return y
+    kernel = np.array([1.0])
+    for f, b in zip(fr, bw):
+        a, bcoef, c = abc_coefs(f, b, fs)
+        kernel = np.convolve(kernel, [c, c*bcoef, c*a])
+    return _fir_apply(kernel, x)
 
 def order(n1, n2, n3, n4):
     ''' order() takes four numbers (say formant frequencies), and return them in order from lowest to highest.
@@ -153,61 +168,72 @@ def zc_frequency2(y, fs, loop, f_no, in_freq, spkr):
     '''
 
     par = params[spkr]  # use the global params[] buffer.
+    return _zc_frequency2_core(y, fs, loop, f_no, in_freq, par["du1"], par["du2"])
+
+@njit(cache=True, fastmath=True)
+def _zc_frequency2_core(y, fs, loop, f_no, in_freq, du1, du2):
+    ''' _zc_frequency2_core() is the numeric body of zc_frequency2(), numba-compiled since
+    this is called tens of thousands of times per file on tiny (240-sample) arrays, where
+    the dispatch overhead of each individual numpy operation (sum, clip, where, ...) costs
+    more than the actual arithmetic. du1/du2 (from params[spkr]) are passed in as plain
+    floats rather than looked up here because numba's nopython mode can't index a Python
+    dict of mixed value types.
+    '''
 
     if loop==0:  # first loop in IFCBLOCK, we calculate mean freq as a spectral parameter
         ca=0.2
-        dd1 = 400
-        dd2 = 4000
+        dd1 = 400.0
+        dd2 = 4000.0
 
         wv = np.sum(y[1:] * y[:-1])  # product of successive samples
         sv = np.sum(y * y)            # squares of samples
-        
+
         ww = wv/sv
-        if ww > 1: ww = 1
-        if ww < -1: ww = -1
-            
+        if ww > 1: ww = 1.0
+        if ww < -1: ww = -1.0
+
         freq = np.arccos(ww) * (1/(2*np.pi/fs))
-       
+
         in_freq = freq
 
     freq = in_freq  # loops 2 and 3 we are passed freq
     if loop > 0:
-        ca=0.3 
-        dd1 = 300 
-        dd2 = 3000
-    if loop > 1: 
+        ca=0.3
+        dd1 = 300.0
+        dd2 = 3000.0
+    if loop > 1:
         ca = 0.4
-        
+
     aa = 0.5 * (0.3+ca)
 
     y = y - np.mean(y)
-    wv = np.clip(y[:-1] * y[1:], a_min=-1, a_max=1)  # detect zero crossings
+    wv = np.clip(y[:-1] * y[1:], -1, 1)  # detect zero crossings
     ab = np.abs(y)
     rrr = ab[:-1]/(ab[:-1]+ab[1:])  # fine tune by amplitude ratio
     zci = np.where(wv<=0)[0]  # indeces of zero crossings
-    zcp = (zci[1:-1] - zci[:-2]) - rrr[zci[:-2]] + rrr[zci[1:-1]]
+    zcp = (zci[1:-1] - zci[:-2]).astype(np.float64) - rrr[zci[:-2]] + rrr[zci[1:-1]]
     z2 = fs/(zcp[:-1]+zcp[1:])  # frequency of each zero crossing period
-    
+
     if f_no<=1: # F1
-        al1 =(par["du2"]-par["du1"])/1000 # these variables are different for different vocal tract lengths
-        b1 = par["du1"] - al1*200  
+        al1 =(du2-du1)/1000 # these variables are different for different vocal tract lengths
+        b1 = du1 - al1*200
     if f_no==2 or f_no==3:  # F2 and F3
         al1 = (dd2-dd1)/4300
         b1 = dd1 - al1*200
     if f_no>=4:   # F4
         al1 = 0.83721  # (4000 - 400) / 4300
         b1 = 400 - al1 * 200     # 400 - al1*200
-    
+
     dep = freq * al1 + b1
     for i in range(3):
         deviation = np.fabs(z2-freq)
-        dep = dep - (i * aa * dep) 
-        w = np.clip(1-deviation/dep,a_min=0,a_max=1)
+        dep = dep - (i * aa * dep)
+        w = np.clip(1-deviation/dep, 0, 1)
         freq = np.sum(z2*w)/(np.sum(w) + 0.001)
-    
+
     if freq < FMIN: freq=FMIN
     if freq > FMAX: freq=FMAX
-        
+
     return freq
 
 def zc_frequency(x, fs, loop, f_no, in_freq, spkr):
@@ -404,7 +430,48 @@ def design_filter(bounds, fs, order=4):
     '''
     
     return signal.butter(order, bounds, fs=fs, btype='bandpass', output='sos')
-    
+
+def _sosfiltfilt_setup(sos):
+    ''' _sosfiltfilt_setup() precomputes the pieces of scipy.signal.sosfiltfilt() that
+    depend only on the filter (sos) and not on the data: the edge/padding length and the
+    steady-state initial-condition vector (sosfilt_zi). sosfilt_zi() solves a small linear
+    system and dominates the cost of sosfiltfilt() on short frames, so when the same filter
+    is reused across many frames (as in get_amplitude_ratios()) we compute it once here and
+    reuse it with _sosfiltfilt_apply() instead of paying for it on every frame.
+
+    Input
+        sos - second-order-section filter coefficients, as returned by design_filter()
+    Result
+        edge - the odd-extension padding length sosfiltfilt() would use (padlen=None default)
+        zi - the (n_sections,2) steady-state initial-condition vector from sosfilt_zi(sos)
+    '''
+
+    n_sections = sos.shape[0]
+    ntaps = 2*n_sections + 1 - min((sos[:,2]==0).sum(), (sos[:,5]==0).sum())
+    edge = ntaps * 3
+    zi = signal.sosfilt_zi(sos).reshape(n_sections, 2)
+    return edge, zi
+
+def _sosfiltfilt_apply(sos, edge, zi, x):
+    ''' _sosfiltfilt_apply() applies zero-phase filtering equivalent to
+    scipy.signal.sosfiltfilt(sos, x) (odd-extension padding, forward-backward filtering),
+    but reusing the (edge, zi) precomputed once by _sosfiltfilt_setup() instead of
+    recomputing them from sos on every call. See _sosfiltfilt_setup() for why.
+
+    Input
+        sos - second-order-section filter coefficients
+        edge, zi - precomputed by _sosfiltfilt_setup(sos)
+        x - a one-dimensional numpy array to filter
+    Result
+        y - the zero-phase filtered version of x
+    '''
+
+    ext = np.concatenate((2*x[0] - x[edge:0:-1], x, 2*x[-1] - x[-2:-(edge+2):-1]))
+    y, _ = signal.sosfilt(sos, ext, zi=zi * ext[0])
+    y, _ = signal.sosfilt(sos, y[::-1], zi=zi * y[-1])
+    y = y[::-1]
+    return y[edge:-edge]
+
 def band_limit(x, fs, bounds):
     '''band_limit(x,bounds,fs) -- bandpass the input array by the upper and lower
     frequency bounts.
@@ -421,27 +488,29 @@ def band_limit(x, fs, bounds):
     return signal.sosfiltfilt(coefs,x)
 
 def get_amplitude_ratios(x, fs, filterbank):
-    '''get_amplitude_ratios() - returns the relative amplitude ratios in 
-    formant spectral regions.  If we wanted to keep multiple copies of the 
+    '''get_amplitude_ratios() - returns the relative amplitude ratios in
+    formant spectral regions.  If we wanted to keep multiple copies of the
     waveform, we could do this step once for the entire file.
 
     Input
         x - a one-dimensional numpy array with audio waveform samples
         fs - sampling frequency
-        filterbank - a two dimensional array - upper and lower bounds for each formant
+        filterbank - a list of (sos, edge, zi) tuples, one per formant band, as built by
+            IFC_tracking() -- edge/zi are precomputed by _sosfiltfilt_setup() so the
+            per-frame filtering here can reuse them (see _sosfiltfilt_setup() docstring)
     Result
         r12 - ratio of engery in F2 and F1 in dB:  20*log10(a2/a1)
         r23 - ratio of energy in F3 and F2 regions
         r34 - the same for F4 versus F3
     '''
-        
+
     n_channels = len(filterbank)   # must be 4 - one for each formant
     rms = np.zeros(n_channels)
     n_samples = len(x)
-    
+
     y = np.zeros((n_channels, n_samples))
-    for idx, coefs in enumerate(filterbank):
-        y[idx] = signal.sosfiltfilt(coefs, x)  # mean square amp in each band
+    for idx, (sos, edge, zi) in enumerate(filterbank):
+        y[idx] = _sosfiltfilt_apply(sos, edge, zi, x)  # mean square amp in each band
         rms[idx] = np.sqrt(np.sum(y[idx]**2)/len(y))
         
     rms = np.maximum(rms, np.finfo(rms.dtype).tiny)
@@ -798,23 +867,25 @@ def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, quie
     # apply preemphasis
     y, fs = prep_audio(x,fs,pre=preemphasis,target_fs=fs,quiet=True) 
     
-    filterbank = [design_filter(b, fs,order=12) for b in params[speaker]["bands"]]  
+    sos_bank = [design_filter(b, fs,order=12) for b in params[speaker]["bands"]]
+    filterbank = [(sos,) + _sosfiltfilt_setup(sos) for sos in sos_bank]
     time_axis = np.arange(len(y))/fs
 
-    formants = np.empty((0,8))
+    frame_starts = range(half_frame,len(y)-frame_length,step)
+    formants = np.empty((len(frame_starts),8))
     frame_count = 0
-    for index in range(half_frame,len(y)-frame_length,step):
+    for index in frame_starts:
         t = index/fs
         x_win = y[index-half_frame:index+half_frame+1]
 
         row = IFC_process_frame(x_win,fs,speaker,f0_range, filterbank)
-        formants = np.append(formants,[np.concatenate(([t],[rms[frame_count]],row))],axis=0)
+        formants[frame_count] = np.concatenate(([t],[rms[frame_count]],row))
         if not quiet:   # count time though the file
             if (t % 0.02) < 0.001:  print(f"\r {t:.2f} sec.", end='')
         frame_count += 1
-        
+
     if not quiet: print(f"\r done         ")
-        
+
     df = DataFrame(formants,columns=("sec","rms","F1","F2","F3","F4","f0","c"))
 
     return df
