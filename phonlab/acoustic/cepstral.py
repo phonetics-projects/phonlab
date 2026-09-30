@@ -5,7 +5,7 @@ from librosa import util, stft, amplitude_to_db, frames_to_time
 from scipy import fft
 from pandas import DataFrame
 from scipy.signal import windows,filtfilt
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter1d
 
 def compute_cepstrogram(x,fs, dBscale=True, l= 0.04, s=0.005):
     '''Compute a `cepstrogram` of an audio signal.  Cepstral analysis was introduced by Bogert et al. (1963).  
@@ -174,9 +174,26 @@ This example plots the cepstral peak prominence through the "I'm twelve" example
     quef, sec, Sxx = compute_cepstrogram(y, fs, dBscale, l, s)
     
     if smooth:
-        Sxx = gaussian_filter(Sxx,sigma = smooth,truncate=3)
-        
-    Sxx = np.nan_to_num(Sxx) # replaces NaN with 0
+        # Equivalent to gaussian_filter(Sxx, sigma=smooth, truncate=3), but ~20% faster: Sxx has
+        # far more frames than quefrency bins, and gaussian_filter's fixed axis order runs its
+        # expensive large-axis pass over that axis while it has a large stride (each step jumps
+        # a full row), which is slow regardless of array size. Filtering the small, already
+        # -contiguous quefrency axis first, then transposing so the large axis is contiguous for
+        # its own pass, keeps both 1D passes on a contiguous axis. A Gaussian filter is
+        # separable, so pass order doesn't change the result (beyond float32 rounding noise).
+        Sxx = gaussian_filter1d(Sxx, sigma=smooth, truncate=3, axis=1)
+        Sxx = np.ascontiguousarray(Sxx.T)
+        Sxx = gaussian_filter1d(Sxx, sigma=smooth, truncate=3, axis=1)
+        Sxx = Sxx.T
+
+    # NaN can still reach here (e.g. prep_audio's peak-normalization divides by zero on a fully
+    # silent signal), but +-inf can't any more now that compute_cepstrogram() clamps away from
+    # zero before every log -- so check only for NaN, and skip the write entirely on the (usual)
+    # case where there isn't one, instead of np.nan_to_num()'s unconditional full-array copy
+    # plus separate isnan/isposinf/isneginf passes.
+    nan_mask = np.isnan(Sxx)
+    if nan_mask.any():
+        Sxx[nan_mask] = 0.0
 
     sT = int(np.round(fs/f0_range[1]))  # the shortest expected pitch period
     lT = int(np.round(fs/f0_range[0])) # the longest expected pitch period

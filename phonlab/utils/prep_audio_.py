@@ -93,8 +93,13 @@ Take the right channel, and resample to 16,000 Hz
         if (np.max(x2) + np.min(x2)) < 0:  x2 = -x2   #  set the polarity of the signal
         
     if scale:
-        x2 = x2/np.max(x2) * 0.95  # scale to about full range
-        
+        peak = np.max(x2)
+        if peak > 0:
+            x2 = x2/peak * 0.95  # scale to about full range
+        # else: x2 has no positive peak (e.g. a fully silent signal) -- dividing by peak here
+        # would be a divide by zero (or by a negative number), producing nan/inf that then
+        # propagates through everything downstream. Leave x2 as is.
+
     if pad_to > 0:
         # Pad to an exact multiple of the frame length in *samples*, not just in time -- when
         # pad_to*target_fs isn't a whole number (e.g. 0.05 sec at 22050 Hz = 1102.5 samples),
