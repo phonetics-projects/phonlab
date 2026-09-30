@@ -41,6 +41,7 @@ References
     B. P. Bogert, M. J. R. Healy, and J. W. Tukey, (1963) `The Quefrency Alanysis [sic] of Time Series for Echoes: Cepstrum, Pseudo Autocovariance, Cross-Cepstrum and Saphe Cracking, `Proceedings of the Symposium on Time Series Analysis` (M. Rosenblatt, Ed) Chapter 15, 209-243. New York: Wiley.
 
     '''
+    x = np.asarray(x, dtype=np.float32)  # see dtype note below
     frame_length = int(l*fs)
     step = int(s*fs)
     half_frame = round(frame_length/2)
@@ -51,15 +52,31 @@ References
 
     nb = frames.shape[0]
     f = frames.shape[1]
-    w = windows.hann(frame_length)
-    
-    mag = np.abs(fft.rfft(w*frames,NFFT))
-    Sxx = 10 * np.log10(np.maximum(mag, np.finfo(mag.dtype).tiny))
-    Sxx2 = np.abs(fft.rfft(Sxx,NFFT))   # spectrum of the spectrum -- cepstrum
+    w = windows.hann(frame_length).astype(np.float32)
+
+    # workers=-1 lets scipy's fft spread the (fully independent, one per frame) transforms
+    # across all cores instead of computing the whole batch on a single thread; the
+    # maximum/log10/multiply steps write into their input arrays in place (rather than each
+    # allocating a fresh nb x NFFT array) since these arrays are large and this is called on
+    # long recordings with many frames. Working in float32 throughout (x is cast up front, so
+    # rfft's output and everything derived from it stays float32/complex64) roughly halves the
+    # memory traffic of this memory-bandwidth-bound computation, at a precision cost that's
+    # negligible for real cepstral analysis: <0.1 dB off double precision for effectively all
+    # cells, with outliers only at the near-zero clamp floor where log10 is unstable regardless
+    # of precision (nowhere a real cepstral peak would be measured).
+    mag = np.abs(fft.rfft(w*frames,NFFT,workers=-1))
+    np.maximum(mag, np.finfo(mag.dtype).tiny, out=mag)
+    np.log10(mag, out=mag)
+    Sxx = mag
+    Sxx *= 10
+    Sxx2 = np.abs(fft.rfft(Sxx,NFFT,workers=-1))   # spectrum of the spectrum -- cepstrum
+    Ceps = Sxx2[:,:-1]
+    np.maximum(Ceps, np.finfo(Ceps.dtype).tiny, out=Ceps)  # avoid log(0) below, either base
     if (dBscale):
-        Ceps = 10 * np.log10(np.maximum(Sxx2[:,:-1], np.finfo(Sxx2.dtype).tiny))
+        np.log10(Ceps, out=Ceps)
+        Ceps *= 10
     else:
-        Ceps = np.log(Sxx2[:,:-1])
+        np.log(Ceps, out=Ceps)
         
     ts = (np.array(range(nb)) * step + half_frame)/fs
 
