@@ -10,8 +10,8 @@ __all__ = []
 from .acoustic.nasality_measures import nasality
 __all__ += ['nasality']
 
-from .acoustic.choose_order_ import choose_order, choose_order_A
-__all__ += ["choose_order", "choose_order_A"]
+from .acoustic.choose_order_ import choose_order
+__all__ += ["choose_order"]
 
 from .acoustic.rlpc import RLPC_formants
 __all__ += ["RLPC_formants"]
