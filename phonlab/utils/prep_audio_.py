@@ -1,6 +1,11 @@
 
+import warnings
+
 import numpy as np
 from scipy.signal import resample_poly
+
+# peak amplitude (as a fraction of full scale, 1.0) that scale=True normalizes to: -1 dBFS
+DEFAULT_PEAK = 0.89125
 
 
 def prep_audio(x, fs, target_fs=32000, pre = 0, scale = True, 
@@ -23,8 +28,15 @@ Parameters
     pre : float, default = 0
         how much high frequency preemphasis to apply (between 0 and 1).
 
-    scale: boolean, default = True
-        scale the samples to use the full range for audio samples (based on the peak amplitude in the signal)
+    scale: boolean or float, default = True
+        normalize the signal based on its absolute peak amplitude.
+        **True** scales the peak to 0.89125 (-1 dBFS).
+        **False** (or None) leaves the amplitude as it is.
+        A number scales the peak to that many dB relative to full scale (dBFS), like sox's `gain -n`.
+        For example, **scale = 0** puts the peak at full scale (amplitude 1.0) and **scale = -3** puts
+        it at about 0.71. Full scale is an amplitude of 1.0 for float samples, and 32767 for 16 bit integers.
+        Values above 0 produce samples outside of [-1, 1], which will be clipped (with a warning) if
+        **outtype** is "int".
 
     add_tiny_noise: boolean, default = True
         replace any exact-zero samples (e.g. digital silence, or the samples added by `pad_to`) with a tiny
@@ -42,6 +54,7 @@ Parameters
     outtype : string {"float", "int"), default = "float"
         The "int" waveform is 16 bit integers - in the range from [-32768, 32767].
         The "float" waveform is 32 bit floating point numbers - in the range from [-1, 1].
+        When converting to integers, samples outside of [-1, 1] are clipped and a warning is issued.
 
 
 Returns
@@ -54,7 +67,7 @@ Returns
 
 Note
 ====
-By default, this function will return audio with a sampling rate of 32 kHz and scaled to be in the range from [1,-1]
+By default, this function will return audio with a sampling rate of 32 kHz and scaled so that the peak amplitude is -1 dBFS (0.89125).
 
 Example
 =======
@@ -92,13 +105,17 @@ Take the right channel, and resample to 16,000 Hz
     if fix_polarity:
         if (np.max(x2) + np.min(x2)) < 0:  x2 = -x2   #  set the polarity of the signal
         
-    if scale:
-        peak = np.max(x2)
+    if scale is not None and scale is not False:
+        if isinstance(scale, (bool, np.bool_)):   # scale=True
+            target_peak = DEFAULT_PEAK
+        else:                                     # scale is a number of dBFS
+            target_peak = 10 ** (float(scale) / 20)
+        peak = np.max(np.abs(x2))
         if peak > 0:
-            x2 = x2/peak * 0.95  # scale to about full range
-        # else: x2 has no positive peak (e.g. a fully silent signal) -- dividing by peak here
-        # would be a divide by zero (or by a negative number), producing nan/inf that then
-        # propagates through everything downstream. Leave x2 as is.
+            x2 = x2 / peak * target_peak
+        # else: x2 is all zeros (a fully silent signal) -- dividing by peak here would be a
+        # divide by zero, producing nan/inf that then propagates through everything downstream.
+        # Leave x2 as is.
 
     if pad_to > 0:
         # Pad to an exact multiple of the frame length in *samples*, not just in time -- when
@@ -128,6 +145,15 @@ Take the right channel, and resample to 16,000 Hz
             y[zero_mask] = (((np.random.rand(n_zero) - 0.5) * 0.00001).astype(y.dtype))
     
     if outtype == "int" or outtype == "int16":
+        peak_out = np.max(np.abs(y)) if len(y) > 0 else 0.0
+        if peak_out > 1.0:
+            n_clipped = int(np.count_nonzero(np.abs(y) > 1.0))
+            warnings.warn(
+                f"prep_audio: {n_clipped} samples ({100 * n_clipped / len(y):.3g}%) exceed full scale "
+                f"(peak = {20 * np.log10(peak_out):.2f} dBFS) and will be clipped when converting to "
+                f"integers. Use a lower scale value or reduce the pre-emphasis to avoid clipping.",
+                UserWarning, stacklevel=2)
+            y = np.clip(y, -1.0, 1.0)
         y = np.rint(np.iinfo(np.int16).max * y).astype(np.int16)
 
     return y,target_fs
