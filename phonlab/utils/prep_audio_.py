@@ -105,17 +105,18 @@ Take the right channel, and resample to 16,000 Hz
     if fix_polarity:
         if (np.max(x2) + np.min(x2)) < 0:  x2 = -x2   #  set the polarity of the signal
         
-    if scale is not None and scale is not False:
-        if isinstance(scale, (bool, np.bool_)):   # scale=True
-            target_peak = DEFAULT_PEAK
+    if scale is not None:
+        if isinstance(scale, (bool, np.bool_)):   # scale=True or scale=False
+            target_peak = DEFAULT_PEAK if scale else None
         else:                                     # scale is a number of dBFS
             target_peak = 10 ** (float(scale) / 20)
-        peak = np.max(np.abs(x2))
-        if peak > 0:
-            x2 = x2 / peak * target_peak
-        # else: x2 is all zeros (a fully silent signal) -- dividing by peak here would be a
-        # divide by zero, producing nan/inf that then propagates through everything downstream.
-        # Leave x2 as is.
+        if target_peak is not None:
+            peak = np.max(np.abs(x2))
+            if peak > 0:
+                x2 = x2 / peak * target_peak
+            # else: x2 is all zeros (a fully silent signal) -- dividing by peak here would be a
+            # divide by zero, producing nan/inf that then propagates through everything downstream.
+            # Leave x2 as is.
 
     if pad_to > 0:
         # Pad to an exact multiple of the frame length in *samples*, not just in time -- when

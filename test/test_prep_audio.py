@@ -73,6 +73,12 @@ def test_scale_numpy_bool(x):
     np.testing.assert_array_equal(y1, y2)
 
 
+def test_scale_numpy_false(x):
+    """np.False_ is treated like False, not as True."""
+    y, _ = prep_audio(x, FS, target_fs=None, scale=np.False_)
+    np.testing.assert_array_equal(y, x)
+
+
 @pytest.mark.parametrize("off", [False, None])
 def test_scale_off(x, off):
     """scale=False or None leaves the amplitude alone."""
