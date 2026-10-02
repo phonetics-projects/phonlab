@@ -229,3 +229,137 @@ def test_errors():
         smooth1d(y, W=np.ones(len(y) - 1))
     with pytest.raises(ValueError, match="weights"):
         smooth1d(y, W=-np.ones(len(y)))
+
+
+#### s_start: a starting guess that GCV refines ####
+
+def _noisy(n=400, seed=0, missing=False):
+    t = np.linspace(0, 6, n)
+    y = np.sin(t) + np.random.RandomState(seed).randn(n) * 0.15
+    if missing:
+        y[100:110] = np.nan
+    return y
+
+
+@pytest.mark.parametrize("missing", [False, True])
+@pytest.mark.parametrize("factor", [1, 0.1, 10, 1e-3, 1e3])
+def test_s_start_converges_to_automatic_s(factor, missing):
+    """Starting guesses near or far from the optimum end up at the same s as the full search."""
+    y = _noisy(missing=missing)
+    z0, s0, _ = smooth1d(y)
+    z, s, exitflag = smooth1d(y, s_start=s0 * factor)
+    assert exitflag
+    assert s == pytest.approx(s0, rel=0.02)
+    assert np.max(np.abs(z - z0)) < 0.01 * np.ptp(z0)
+
+
+def test_s_start_robust():
+    y = _noisy()
+    y[[50, 200]] += 3
+    z0, s0, _ = smooth1d(y, isrobust=True)
+    z, s, _ = smooth1d(y, isrobust=True, s_start=s0 * 3)
+    assert s == pytest.approx(s0, rel=0.05)
+
+
+def test_s_start_is_not_used_as_is():
+    y = _noisy()
+    _, s, _ = smooth1d(y, s_start=1e-3)
+    assert s != 1e-3
+
+
+def test_s_start_validation():
+    y = _noisy()
+    with pytest.raises(ValueError):
+        smooth1d(y, s=1.0, s_start=1.0)
+    with pytest.raises(ValueError):
+        smooth1d(y, s_start=-1.0)
+
+
+#### s_min and s_max: limits on the automatic s ####
+
+PITCH_SEL = [0, 1, 2, 32, 33, 34, 35, 36]
+
+
+def _pitch_with_doubling(seed=0):
+    rs = np.random.RandomState(seed)
+    x = np.linspace(0, 100, 100)
+    y = 100 + np.cos(x / 10) * 10 + (x / 13) ** 2 + rs.random_sample(100) * 5
+    y[PITCH_SEL] *= 2
+    return y
+
+
+def test_s_min_enforced_and_helps_with_doubling():
+    y = _pitch_with_doubling()
+    z0, s0, _ = smooth1d(y)
+    assert s0 < 2                        # GCV tracks the doubled points
+    z, s, _ = smooth1d(y, s_min=4)
+    assert s == pytest.approx(4, rel=0.01)   # the limit is what is binding
+    assert np.ptp(z) < np.ptp(z0)
+
+
+def test_s_max_enforced():
+    y = _noisy()
+    _, s0, _ = smooth1d(y)
+    _, s, _ = smooth1d(y, s_max=s0 / 10)
+    assert s == pytest.approx(s0 / 10, rel=0.01)
+
+
+def test_limits_not_binding_give_same_answer():
+    y = _noisy()
+    _, s0, _ = smooth1d(y)
+    _, s, _ = smooth1d(y, s_min=s0 / 5, s_max=s0 * 5)
+    assert s == pytest.approx(s0, rel=0.01)
+
+
+def test_limits_with_s_start_and_missing_and_robust():
+    y = _noisy(missing=True)
+    y[[50, 200]] += 3
+    for kw in (dict(s_min=50), dict(s_max=1e-1), dict(s_min=5, s_max=6, s_start=1e4)):
+        _, s, _ = smooth1d(y, isrobust=True, **kw)
+        lo, hi = kw.get("s_min", 0), kw.get("s_max", np.inf)
+        assert lo * 0.99 <= s <= hi * 1.01
+
+
+def test_limits_no_warning_when_user_limit_binds():
+    y = _noisy()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        smooth1d(y, s_min=1e3)
+
+
+def test_limit_validation():
+    y = _noisy()
+    for kw in (dict(s_min=-1), dict(s_max=0), dict(s_min=5, s_max=1),
+               dict(s=1, s_min=1), dict(s=1, s_max=1), dict(s_min=1e12)):
+        with pytest.raises(ValueError):
+            smooth1d(y, **kw)
+
+
+#### the documented meaning of s ####
+
+@pytest.mark.parametrize("n", [200, 2000])
+@pytest.mark.parametrize("s", [1, 4, 25])
+def test_documented_cutoff(s, n):
+    """Gain is about 0.71 at fc = 0.128 * fs / sqrt(s), 0.97 at fc/2 and about 0.15 at 2 fc."""
+    fs = 200
+    t = np.arange(n) / fs
+    fc = 0.128 * fs / np.sqrt(s)
+    mid = slice(n // 4, 3 * n // 4)
+
+    def gain(f):
+        y = np.sin(2 * np.pi * f * t)
+        z, _, _ = smooth1d(y, s=s)
+        return np.sqrt(np.mean(z[mid] ** 2) / np.mean(y[mid] ** 2))
+
+    assert gain(fc) == pytest.approx(0.71, abs=0.04)
+    assert gain(fc / 2) == pytest.approx(0.97, abs=0.03)
+    assert gain(2 * fc) == pytest.approx(0.15, abs=0.05)
+
+
+@pytest.mark.parametrize("s", [4, 25, 100])
+def test_documented_step_rise_time(s):
+    """10-90% rise time is about 2.8 * sqrt(s) samples."""
+    n = 2000
+    z = smooth1d(np.r_[np.zeros(n // 2), np.ones(n // 2)], s=s)[0]
+    rise = np.argmax(z > 0.9) - np.argmax(z > 0.1)
+    assert rise == pytest.approx(2.8 * np.sqrt(s), rel=0.15)

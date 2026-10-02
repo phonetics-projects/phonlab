@@ -11,7 +11,7 @@ DEFAULT_PEAK = 0.89125
 def prep_audio(x, fs, target_fs=32000, pre = 0, scale = True, 
                add_tiny_noise = True, outtype = "float", pad_to = 0.0,
                fix_polarity = False, quiet = True):
-    """ Prepare an array of audio waveform samples for acoustic analysis. 
+    """Prepare an array of audio waveform samples for acoustic analysis. 
     
 Parameters
 ==========
@@ -30,13 +30,11 @@ Parameters
 
     scale: boolean or float, default = True
         normalize the signal based on its absolute peak amplitude.
-        **True** scales the peak to 0.89125 (-1 dBFS).
-        **False** (or None) leaves the amplitude as it is.
-        A number scales the peak to that many dB relative to full scale (dBFS), like sox's `gain -n`.
-        For example, **scale = 0** puts the peak at full scale (amplitude 1.0) and **scale = -3** puts
-        it at about 0.71. Full scale is an amplitude of 1.0 for float samples, and 32767 for 16 bit integers.
-        Values above 0 produce samples outside of [-1, 1], which will be clipped (with a warning) if
-        **outtype** is "int".
+
+        - **True** is the same as -1 dBFS, scales the peak to 0.89125 of full scale
+        - **False** (or None) leaves the amplitude as it is.
+        - A **number** scales the peak to that many dB relative to full scale (dBFS), like sox's `gain -n`.  For example, **scale = 0** puts the peak at full scale (amplitude 1.0) and **scale = -3** puts it at about 0.71. Full scale is an amplitude of 1.0 for float samples, and 32767 for 16 bit integers.
+        - Values above 0 produce samples outside of **[-1, 1]**, which will be clipped (with a warning) if **outtype** is "int".
 
     add_tiny_noise: boolean, default = True
         replace any exact-zero samples (e.g. digital silence, or the samples added by `pad_to`) with a tiny

@@ -22,11 +22,14 @@ _LOGS_MIN, _LOGS_MAX = np.log10(_S_MIN), np.log10(_S_MAX)
 _MAX_REFITS = 8       # most times s is re-estimated while the filled-in data are being refined
 _REFIT_TOL = 0.05     # stop refining when log10(s) changes by less than this
 _REFIT_WINDOW = 1.0   # after the first estimate, only search this far (in log10 units) around it
+_MAX_SHIFTS = 20      # most times the search window is moved when the best value is at its edge
+_EDGE_TOL = 0.01      # the best log10(s) is 'at the edge' of the window if this close to it
 _S_DIRECT_MAX = 1e6   # above this the banded system is too ill-conditioned to solve directly
 _BOUND_WARN = 0.1     # warn if the best log10(s) is this close to either bound
 
 
-def smooth1d(y, s=None, isrobust=False, W=None, sd=None, weightstr='bisquare', nS0=10, verbose=False):
+def smooth1d(y, s=None, isrobust=False, W=None, sd=None, weightstr='bisquare', nS0=10, verbose=False,
+             s_start=None, s_min=None, s_max=None):
     '''Robust spline smoothing of one-dimensional data.  After Damien Garcia's smoothn.
 
 **smooth1d** is a fast, automatic, and robust discretized smoothing spline for a one-dimensional
@@ -45,7 +48,7 @@ y : array
 s : float, default = None
     The larger **s** is, the smoother the output will be. If **s** is omitted it is automatically
     determined using the generalized cross-validation (GCV) method. If given it must be a positive
-    number.
+    number, and it is used as is (see **s_start** to give a starting guess instead).
 
 isrobust : boolean, default = False
     Use the robust algorithm to minimize the influence of outlying data. The data are smoothed,
@@ -70,6 +73,28 @@ nS0 : int, default = 10
 verbose : boolean, default = False
     Print some information about the search for **s**.
 
+s_start : float, default = None
+    A suggested starting value for **s**. Rather than using it as is (like **s**), GCV is used to
+    refine it: the search starts with a local minimization of the GCV score around **s_start**,
+    and moves outward only if the best value is at the edge of the region searched. This skips
+    the coarse search over the whole range of **s**, which saves time when a good guess is
+    known (for example the **s** from a similar signal), and it picks the nearby GCV minimum if
+    there are several. Cannot be combined with **s**. Interpretation: see the table in the Note
+    on the meaning of **s**. For example at 200 Hz sampling (5 ms steps), ``s_start=4`` says to start
+    looking at a smoothness that passes changes slower than about 13 Hz and takes about 30 ms to
+    follow a step.
+
+s_min, s_max : float, default = None
+    Limits on the **s** that is found automatically (the search is confined to s_min <= s <= s_max),
+    for when the unconstrained optimum is not as smooth (or not as responsive) as you need. A
+    larger **s_min** guarantees at least that much smoothing, so that the curve cannot follow
+    changes faster than the corresponding rate in the table below, for example it will not fit
+    brief pitch-doubled stretches. A smaller **s_max** guarantees that the curve can still
+    follow changes at least that fast, which prevents flattening real, rapid movements such as a
+    voice break. Either may be given alone. They cannot be combined with **s**, which is
+    used as is. If the best **s** is at one of these limits no warning is given, because that
+    is what the limit is for.
+
 
 Returns
 -------
@@ -88,6 +113,30 @@ exitflag : boolean
 
 Note
 ----
+
+**What s means in terms of speech data.** The smoother acts as a low-pass filter whose gain at
+frequency *f* is about 1/(1 + (f/fc)^4), with a -3 dB cutoff frequency of
+fc = 0.128 * fs / sqrt(s), where fs is the sampling rate of **y**. A step takes about
+2.8 * sqrt(s) samples to rise from 10% to 90% of its final value. (These are accurate for s larger
+than about 0.3 and are the same whatever the amount of data.) For data sampled every 5 ms
+(fs = 200 Hz, as for pitch and formant tracks) this works out to:
+
+======  ===============  ===================  =========================================
+ s      cutoff (Hz)      step rise 10-90%     in practice
+======  ===============  ===================  =========================================
+ 0.1    (near Nyquist)   about 5 ms           almost no smoothing
+ 0.6    33               10 ms                follows nearly every wiggle
+ 1      26               15 ms                light smoothing
+ 4      13               30 ms                changes shorter than about 40 ms are removed
+ 10     8                45 ms                moderate
+ 25     5                70 ms                only gradual contours remain
+ 100    2.5              140 ms               very smooth: only contours slower than a few Hz
+ 1000   0.8              450 ms               nearly a straight line over a few hundred ms
+======  ===============  ===================  =========================================
+
+A modulation at the cutoff frequency keeps 70% of its amplitude, one at half the cutoff keeps
+about 97%, and one at twice the cutoff keeps about 15%. For other sampling rates scale the
+frequencies and times: cutoff = 0.128 * fs / sqrt(s), rise time = 2.8 * sqrt(s) / fs.
 
 When the weights are not all equal (because of missing data, weights, or robust weighting), the
 smooth is found by solving a banded system of equations, which gives the exact answer in one step.
@@ -119,6 +168,23 @@ Examples
     finite = np.isfinite(y)
     if s is not None and not s > 0:
         raise ValueError(f"s must be a positive number, not {s}")
+    for name, v in (('s_min', s_min), ('s_max', s_max)):
+        if v is not None and not v > 0:
+            raise ValueError(f"{name} must be a positive number, not {v}")
+        if v is not None and s is not None:
+            raise ValueError(f"give either s (used as is) or {name} (a limit on the automatic s), not both")
+    if s_min is not None and s_max is not None and s_min > s_max:
+        raise ValueError(f"s_min ({s_min}) must not be greater than s_max ({s_max})")
+    lims = (max(_LOGS_MIN, np.log10(s_min)) if s_min is not None else _LOGS_MIN,
+            min(_LOGS_MAX, np.log10(s_max)) if s_max is not None else _LOGS_MAX)
+    if lims[0] > lims[1]:
+        raise ValueError("s_min and s_max must overlap the usable range of s "
+                         f"({_S_MIN:.3g} to {_S_MAX:.3g})")
+    if s_start is not None:
+        if s is not None:
+            raise ValueError("give either s (used as is) or s_start (a starting guess to refine), not both")
+        if not s_start > 0:
+            raise ValueError(f"s_start must be a positive number, not {s_start}")
     if n < 2:
         return y.copy(), s, True
 
@@ -136,20 +202,21 @@ Examples
     z = np.interp(idx, idx[ok], y0[ok])
 
     s_fixed = s    # None means that s is found automatically
-    z, s, exitflag = _smooth(y0, w, nof, s_fixed, z, nS0, verbose)
+    near = None if s_start is None else np.log10(s_start)
+    z, s, exitflag = _smooth(y0, w, nof, s_fixed, z, nS0, verbose, near=near, lims=lims)
 
     if isrobust:
         h = np.sqrt(1 + 16. * s)         # average leverage
         h = np.sqrt(1 + h) / np.sqrt(2) / h
         w = w * _robust_weights(y0 - z, finite, h, weightstr)
         if np.any(w > 0):
-            z, s, exitflag = _smooth(y0, w, nof, s_fixed, z, nS0, verbose, near=np.log10(s))
+            z, s, exitflag = _smooth(y0, w, nof, s_fixed, z, nS0, verbose, near=np.log10(s), lims=lims)
 
     if s_fixed is None:
-        if abs(np.log10(s) - _LOGS_MIN) < _BOUND_WARN:
+        if abs(np.log10(s) - _LOGS_MIN) < _BOUND_WARN and lims[0] == _LOGS_MIN:
             warnings.warn(f"smooth1d: s = {s:.3g}: the lower bound for s has been reached. "
                           "Pass s as an argument if required.", stacklevel=2)
-        elif abs(np.log10(s) - _LOGS_MAX) < _BOUND_WARN:
+        elif abs(np.log10(s) - _LOGS_MAX) < _BOUND_WARN and lims[1] == _LOGS_MAX:
             warnings.warn(f"smooth1d: s = {s:.3g}: the upper bound for s has been reached. "
                           "Pass s as an argument if required.", stacklevel=2)
     return z, float(s), exitflag
@@ -213,10 +280,11 @@ def _penalty_bands(n):
     return ab
 
 
-def _smooth(y, w, nof, s, z, nS0, verbose, near=None):
+def _smooth(y, w, nof, s, z, nS0, verbose, near=None, lims=(_LOGS_MIN, _LOGS_MAX)):
     """Smooth y with weights w. If s is None it is found by GCV. z is a starting guess for the
     smooth, which is used to fill in the places where w < 1 when choosing s. near is an earlier
-    estimate of log10(s) to search around, instead of searching the whole range."""
+    estimate of log10(s) to search around, instead of searching the whole range. lims are the
+    lowest and highest log10(s) allowed."""
     uniform = bool(np.all(w == 1))
     if s is not None:
         return _solve(y, w, s, uniform, z), s, True
@@ -227,7 +295,7 @@ def _smooth(y, w, nof, s, z, nS0, verbose, near=None):
         # Garcia's approach: with weights, GCV is evaluated on the data with the points that are
         # down-weighted replaced by the current smooth.
         filled = w * (y - z) + z
-        logs_new = _best_logs(dct(filled, norm='ortho'), y, w, nof, nS0, near=logs)
+        logs_new = _best_logs(dct(filled, norm='ortho'), y, w, nof, nS0, near=logs, lims=lims)
         converged = uniform or (logs is not None and abs(logs_new - logs) < _REFIT_TOL)
         logs = logs_new
         s = 10 ** logs
@@ -283,17 +351,30 @@ def _gcv(logs, dcty, y, w, nof):
     return rss / nof / (1. - tr_h / n) ** 2
 
 
-def _best_logs(dcty, y, w, nof, nS0, near=None):
+def _best_logs(dcty, y, w, nof, nS0, near=None, lims=(_LOGS_MIN, _LOGS_MAX)):
     """Find the log10(s) that minimizes the GCV score. Unless there is a previous estimate (near),
     a coarse grid search finds the right neighborhood. Then a bounded 1-D minimization refines it."""
     if near is None:
-        grid = np.linspace(_LOGS_MIN, _LOGS_MAX, nS0)
+        grid = np.linspace(lims[0], lims[1], nS0)
         best = int(np.argmin(_gcv(grid, dcty, y, w, nof)))
         lo, hi = grid[max(best - 1, 0)], grid[min(best + 1, nS0 - 1)]
-    else:
-        lo, hi = max(near - _REFIT_WINDOW, _LOGS_MIN), min(near + _REFIT_WINDOW, _LOGS_MAX)
-    res = minimize_scalar(lambda p: _gcv(p, dcty, y, w, nof)[0], bounds=(lo, hi),
-                          method='bounded', options={'xatol': 1e-4})
+        if lo == hi:     # the limits coincide
+            return lo
+        res = minimize_scalar(lambda p: _gcv(p, dcty, y, w, nof)[0], bounds=(lo, hi),
+                              method='bounded', options={'xatol': 1e-4})
+        return res.x
+    center = float(np.clip(near, *lims))
+    for _ in range(_MAX_SHIFTS):
+        lo, hi = max(center - _REFIT_WINDOW, lims[0]), min(center + _REFIT_WINDOW, lims[1])
+        if lo == hi:
+            return lo
+        res = minimize_scalar(lambda p: _gcv(p, dcty, y, w, nof)[0], bounds=(lo, hi),
+                              method='bounded', options={'xatol': 1e-4})
+        at_edge = ((res.x - lo < _EDGE_TOL and lo > lims[0]) or
+                   (hi - res.x < _EDGE_TOL and hi < lims[1]))
+        if not at_edge:
+            break
+        center = res.x     # the minimum may lie beyond the window: search again around the best so far
     return res.x
 
 

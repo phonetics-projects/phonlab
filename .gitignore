@@ -108,6 +108,7 @@ venv.bak/
 
 # Files generated as notebook output
 resource/mirrorexp/cache
+test/sf3_cln.csv
 
 # Vim
 *~
