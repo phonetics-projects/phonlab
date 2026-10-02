@@ -144,4 +144,7 @@ __all__ += ["test_signal"]
 from .third_party.robustsmoothing import smoothn
 __all__ += ["smoothn"]
 
+from .utils.smooth1d_ import smooth1d
+__all__ += ["smooth1d"]
+
 
