@@ -1,4 +1,4 @@
-"""Regenerate test/data/prep_audio_golden.npz, the golden output used by test_prep_audio.py.
+"""Regenerate test/golden/prep_audio_golden.npz, the golden output used by test_prep_audio.py.
 
 Run this only when prep_audio()'s output is meant to change, and review the diff of
 the resulting npz before committing it.
@@ -46,7 +46,7 @@ def main():
         y, fs = prep_audio(x, FS, add_tiny_noise=False, **kwargs)
         out[name] = y
         out[name + "_fs"] = np.array(fs)
-    path = Path(__file__).parent / "data" / "prep_audio_golden.npz"
+    path = Path(__file__).parent / "golden" / "prep_audio_golden.npz"
     np.savez_compressed(path, **out)
     print(f"wrote {path}")
 

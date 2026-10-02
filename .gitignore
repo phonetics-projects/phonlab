@@ -112,3 +112,6 @@ resource/mirrorexp/cache
 # Vim
 *~
 *.swp
+
+# JupyterLab LSP scratch
+.virtual_documents/

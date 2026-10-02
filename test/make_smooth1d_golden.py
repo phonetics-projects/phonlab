@@ -1,4 +1,4 @@
-"""Regenerate test/data/smooth1d_golden.npz, the golden output used by test_smooth1d.py.
+"""Regenerate test/golden/smooth1d_golden.npz, the golden output used by test_smooth1d.py.
 
 The golden output comes from phonlab.smoothn (Garcia's original N-D implementation), so
 test_smooth1d.py checks that smooth1d gives the same smooths. Only regenerate this if the test
@@ -79,7 +79,7 @@ def main():
             z, s, _ = smoothn(y.copy(), **extra, **kwargs)
             out[f"z_{name}"] = z
             out[f"s_{name}"] = np.array(s)
-    path = Path(__file__).parent / "data" / "smooth1d_golden.npz"
+    path = Path(__file__).parent / "golden" / "smooth1d_golden.npz"
     np.savez_compressed(path, **out)
     print(f"wrote {path}")
 

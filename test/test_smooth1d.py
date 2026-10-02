@@ -1,6 +1,6 @@
 """Tests for phonlab.utils.smooth1d_.smooth1d.
 
-The golden data in test/data/smooth1d_golden.npz were made with phonlab.smoothn (see
+The golden data in test/golden/smooth1d_golden.npz were made with phonlab.smoothn (see
 make_smooth1d_golden.py). smoothn iterates until its smooth changes by less than TolZ = 1e-3,
 whereas smooth1d solves for the smooth directly, so they agree to about that tolerance.
 """
@@ -18,7 +18,7 @@ from phonlab.utils.smooth1d_ import smooth1d, _solve, _solve_iterative
 sys.path.insert(0, str(Path(__file__).parent))
 from make_smooth1d_golden import CASES, make_inputs  # noqa: E402
 
-GOLDEN = np.load(Path(__file__).parent / "data" / "smooth1d_golden.npz")
+GOLDEN = np.load(Path(__file__).parent / "golden" / "smooth1d_golden.npz")
 INPUTS = make_inputs()
 
 
@@ -36,9 +36,9 @@ TOLERANCES = {"curve_robust": dict(s=0.15, z=8e-2)}
 def test_golden_inputs_unchanged():
     """The generator still produces the signals the golden data were made from."""
     for name, (y, extra) in INPUTS.items():
-        np.testing.assert_array_equal(y, GOLDEN[f"in_{name}"])
+        np.testing.assert_allclose(y, GOLDEN[f"in_{name}"], rtol=0, atol=1e-12, equal_nan=True)
         for k, v in extra.items():
-            np.testing.assert_array_equal(v, GOLDEN[f"in_{name}_{k}"])
+            np.testing.assert_allclose(v, GOLDEN[f"in_{name}_{k}"], rtol=0, atol=1e-12, equal_nan=True)
 
 
 @pytest.mark.parametrize("name", list(CASES))

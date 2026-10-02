@@ -12,7 +12,7 @@ from phonlab.utils.prep_audio_ import prep_audio
 sys.path.insert(0, str(Path(__file__).parent))
 from make_prep_audio_golden import CASES, FS, make_input  # noqa: E402
 
-GOLDEN = np.load(Path(__file__).parent / "data" / "prep_audio_golden.npz")
+GOLDEN = np.load(Path(__file__).parent / "golden" / "prep_audio_golden.npz")
 
 
 def dbfs(y):
@@ -28,7 +28,7 @@ def x():
 
 def test_golden_input_unchanged(x):
     """The generator still produces the signal the golden data was made from."""
-    np.testing.assert_array_equal(x, GOLDEN["input"])
+    np.testing.assert_allclose(x, GOLDEN["input"], rtol=0, atol=1e-12)  # tolerate float noise across numpy/scipy versions
 
 
 @pytest.mark.parametrize("name", list(CASES))
