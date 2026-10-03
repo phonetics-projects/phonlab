@@ -133,6 +133,9 @@ __all__ += ["df_to_tg",
             "srt_to_df", 
             "split_speaker_df"]
 
+from .utils.align_series import align_timeseries
+__all__ += ["align_timeseries"]
+
 from .utils.signal import loadsig, channels_are_duplicates
 __all__ += ["loadsig",
             "channels_are_duplicates"]
