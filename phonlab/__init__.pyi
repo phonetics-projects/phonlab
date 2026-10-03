@@ -53,6 +53,9 @@ __all__ += ["get_rms",
             "get_f0_srh", 
             "get_f0_acd"]
 
+from .acoustic.vad import VAD
+__all__ += ["VAD"]
+
 from .acoustic.shs import get_f0_shs
 __all__ += ["get_f0_shs"]
 

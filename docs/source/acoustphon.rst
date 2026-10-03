@@ -30,6 +30,7 @@ Formant Tracking
 Pitch Tracking
 --------------
 .. autofunction:: phonlab.get_f0
+.. autofunction:: phonlab.VAD
 .. autofunction:: phonlab.get_f0_shs
 .. autofunction:: phonlab.get_f0_acd
 .. autofunction:: phonlab.get_f0_srh
