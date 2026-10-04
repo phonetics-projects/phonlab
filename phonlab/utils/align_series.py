@@ -16,7 +16,7 @@ def _unique_name(name, taken):
     return new
 
 def align_timeseries(base_df, other_df, ts='sec', other_ts=None, other_columns=None,
-                     ignore_duplicate_names=True):
+                     ignore_duplicates=True):
     '''
     Add the columns of one time-indexed dataframe to another, aligned in time. The rows
     and values of `base_df` are not changed, so the output has the same time axis as
@@ -28,7 +28,7 @@ def align_timeseries(base_df, other_df, ts='sec', other_ts=None, other_columns=N
     (which may be NaN) at the time in `other_df` that is nearest to the target time.
 
     If a column of `other_df` has the same name as a column of `base_df`, it is skipped
-    (the default) or renamed with a numeric suffix (`ignore_duplicate_names=False`).
+    (the default) or renamed with a numeric suffix (`ignore_duplicates=False`).
 
 Parameters
 ----------
@@ -49,7 +49,7 @@ other_columns : list of str (default None)
     Names of the columns of `other_df` to add. If None, all columns except the time
     column are added. A KeyError is raised if a name is not a column of `other_df`.
 
-ignore_duplicate_names : bool (default True)
+ignore_duplicates : bool (default True)
     What to do with a column of `other_df` whose name is already a column of `base_df`.
     If True, the column is skipped and the `base_df` column is kept. If False, the column
     is added with a numeric suffix: `f0` becomes `f0_2`, or `f0_3` if `f0_2` is also
@@ -75,7 +75,7 @@ Example
 
     # only some columns, keeping (and renaming) any that duplicate column names
     merged = phon.align_timeseries(IFCdf, Voicingdf, other_columns=['f0', 'amp'],
-                                   ignore_duplicate_names=False)
+                                   ignore_duplicates=False)
     '''
     other_ts = ts if other_ts is None else other_ts
     if other_columns is None:
@@ -90,7 +90,7 @@ Example
     taken = set(base_df.columns)
     names = {}
     for c in other_columns:
-        if c in base_df.columns and ignore_duplicate_names:
+        if c in base_df.columns and ignore_duplicates:
             continue
         names[c] = _unique_name(c, taken)
         taken.add(names[c])
