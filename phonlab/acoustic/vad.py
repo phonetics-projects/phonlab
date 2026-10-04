@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 
 from .amp_env import amplitude_envelope
 from .cepstral import CPP
@@ -22,27 +21,17 @@ def band_db(x, fs, sec, bounds, target_fs=12000):
     return db[np.minimum((np.asarray(sec) * fs_env).astype(int), len(db) - 1)]
 
 
-def vad_features(y, fs, sec=None, f0_range=[63, 400], s=0.005):
-    """Measure the predictors used by `VAD()`: `amp` and `cpp`.
+def vad_features(y, fs, f0_range=[63, 400], s=0.005):
+    """Measure the predictors used by `VAD()`: `cpp` (from `CPP()`) and `amp` (from `band_db()`).
 
-    `CPP()` supplies `cpp` and `f0` at its own frame times, `s` seconds apart.  It is called without
-    smoothing (smooth=0), which costs about a quarter as much as the default and predicts voicing as well
-    (see examples/compare_cpp_smooth.py).  They are put on the times in `sec` (by linear interpolation for
-    `cpp` and the nearest frame for `f0`), which by default are those of the `CPP()` frames.  Passing `sec`
-    is how the training script measures the predictors at exactly the times of the EGG measurements.
+    The dataframe from `CPP()` (columns `sec`, `f0` and `cpp`) gets an `amp` column measured at the same
+    times.  `CPP()` is called without smoothing (smooth=0), which costs about a quarter as much as the
+    default and predicts voicing as well (see examples/compare_cpp_smooth.py).  Its frames are `s`
+    seconds apart, rather than the 2 ms that smoothing would give.
     """
-    c = CPP(y, fs, norm=False, smooth=0, s=s, f0_range=list(f0_range))
-    t = c['sec'].to_numpy()
-    if sec is None:
-        sec = np.arange(t[0], t[-1], s)
-    sec = np.asarray(sec)
-
-    nearest = np.clip(np.searchsorted(t, sec), 1, len(t) - 1)
-    nearest = np.where(np.abs(t[nearest - 1] - sec) <= np.abs(t[nearest] - sec), nearest - 1, nearest)
-    df = {'sec': sec, 'f0': c['f0'].to_numpy()[nearest],
-          'cpp': np.interp(sec, t, c['cpp'].to_numpy()),
-          'amp': band_db(y, fs, sec, AMP_BAND)}
-    return pd.DataFrame(df)
+    df = CPP(y, fs, norm=False, smooth=0, s=s, f0_range=list(f0_range))
+    df['amp'] = band_db(y, fs, df['sec'], AMP_BAND)
+    return df
 
 
 def VAD(y, fs, f0_range=[63, 400], s=0.005):

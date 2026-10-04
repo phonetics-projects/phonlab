@@ -24,7 +24,7 @@ def im12():
 def test_columns_and_grid(im12):
     df = phon.VAD(*im12, s=0.005)
     assert list(df.columns) == ['sec', 'f0', 'cpp', 'amp', 'probv', 'voiced']
-    assert np.allclose(np.diff(df.sec), 0.005)
+    assert np.allclose(np.diff(df.sec), 0.005, atol=1e-4)      # the frames of CPP()
     assert np.isfinite(df[['cpp', 'amp', 'probv']]).all().all()
     assert ((df.probv >= 0) & (df.probv <= 1)).all()
     assert (df.voiced == (df.probv > 0.5)).all()
@@ -36,11 +36,11 @@ def test_roughly_agrees_with_get_f0(im12):
     assert (np.interp(ref.sec, df.sec, df.probv) > 0.5).astype(bool).__eq__(ref.voiced).mean() > 0.8
 
 
-def test_features_at_requested_times(im12):
-    sec = np.array([0.0125, 0.0175, 0.5, 1.0])      # includes a time before the first CPP frame
-    df = vad_features(*im12, sec=sec)
-    assert np.array_equal(df.sec, sec)
-    assert np.isfinite(df[['cpp', 'amp', 'f0']]).all().all()
+def test_features_are_on_the_cpp_frames(im12):
+    df = vad_features(*im12)
+    cpp = phon.CPP(*im12, norm=False, smooth=0)
+    assert np.array_equal(df.sec, cpp.sec) and np.array_equal(df.cpp, cpp.cpp)
+    assert list(df.columns) == ['sec', 'f0', 'cpp', 'amp'] and np.isfinite(df).all().all()
 
 
 def test_silence_is_finite_and_unvoiced():

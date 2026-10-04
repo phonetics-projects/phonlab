@@ -31,7 +31,7 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import phonlab as phon
-from phonlab.acoustic.vad import vad_features
+from phonlab.acoustic.vad import AMP_BAND, band_db, vad_features
 
 warnings.filterwarnings("ignore")
 
@@ -54,7 +54,11 @@ def collect(corpus, frac, seed):
             continue
         audio, egg, fs = phon.loadsig(str(Path(corpus) / row.relpath / f'{row.barename}.wav'), chansel=[0, 1])
         eggdf = phon.egg_to_oq(egg, fs, f0_range=F0_RANGE, diagnostics=True, **EGG_OPTIONS)
-        df = vad_features(audio, fs, sec=eggdf['sec'].to_numpy(), f0_range=F0_RANGE)   # same times as the EGG
+        feat = vad_features(audio, fs, f0_range=F0_RANGE)
+        sec = eggdf['sec'].to_numpy()          # the frames of the EGG measurements are not those of CPP()
+        df = pd.DataFrame({'sec': sec, 'f0': np.interp(sec, feat['sec'], feat['f0']),
+                           'cpp': np.interp(sec, feat['sec'], feat['cpp']),
+                           'amp': band_db(audio, fs, sec, AMP_BAND)})   # measured at the EGG times, since it can change fast
         df['vuv'] = np.where(eggdf['voiced'].to_numpy(), 'v', 'uv')
         df['egg_f0'] = eggdf['f0'].to_numpy()     # kept to examine the EGG decisions, not used in training
         df['egg_oq'] = eggdf['OQ'].to_numpy()
