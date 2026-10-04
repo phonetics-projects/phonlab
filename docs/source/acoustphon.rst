@@ -30,7 +30,6 @@ Formant Tracking
 Pitch Tracking
 --------------
 .. autofunction:: phonlab.get_f0
-.. autofunction:: phonlab.VAD
 .. autofunction:: phonlab.get_f0_shs
 .. autofunction:: phonlab.get_f0_acd
 .. autofunction:: phonlab.get_f0_srh
@@ -38,12 +37,13 @@ Pitch Tracking
 
 Voice Quality
 -------------
-.. autofunction:: phonlab.h2h1
+.. autofunction:: phonlab.VAD
+.. autofunction:: phonlab.lpcresidual
 .. autofunction:: phonlab.gci_sedreams
 .. autofunction:: phonlab.compute_cepstrogram
 .. autofunction:: phonlab.CPP
 .. autofunction:: phonlab.HNR
-.. autofunction:: phonlab.lpcresidual
+.. autofunction:: phonlab.h2h1
 .. autofunction:: phonlab.overlap_add
 
 Consonant Features

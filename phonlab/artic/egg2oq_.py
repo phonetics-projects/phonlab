@@ -44,9 +44,10 @@ def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
             By default it is the same as `norm_window`.
         floor : float, True or None, default = True
             No closing instants are found where the EGG signal is weak: where its local rms (over `floor_window` seconds) is
-            less than this proportion of the rms of the whole signal.  Without this the normalization magnifies the noise in
-            the EGG in stretches with no voicing (such as the silence at the start and end of a recording) until it looks
-            like a voice.  True is the same as 0.2.  None or False turns the test off.
+            less than this proportion of the rms of the whole signal.  Without this the sliding amplitude normalization
+            controlled by 'norm_window' magnifies the noise in the EGG in stretches with no voicing (such as the silence
+            at the start and end of a recording) until it looks like a voice.  True is the same as 0.2.
+            None or False turns the test off.
         floor_window : float, default = 0.3
             Duration in seconds of the window over which the local rms is measured for `floor`.
         peak_height : float, default = 0.5
@@ -68,7 +69,7 @@ def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
             * OQ - the glottal open quotient as a function of time.
             * f0 - estimates of the fundamental frequency of voicing as a function of time
             * voiced - True if the frame's window has two glottal closing instants that are one period apart (a period
-              between 1/f0_range[1] and 1/f0_range[0] seconds).  Unlike OQ this does not require opening instants.
+              between 1/f0_range[1] and 1/f0_range[0] seconds).  Unlike OQ this does not require the detection of opening instants.
 
         A frame has OQ and f0 only if its window (1.5 periods of the lowest f0) contains two glottal closing
         instants (peaks in the differentiated EGG), two glottal opening instants (downward crossings of
@@ -113,7 +114,7 @@ def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
 
         
     """
-    window_length = (1.0/f0_range[0]) * 1.5 # add 25% for alignment?
+    window_length = (1.0/f0_range[0]) * 1.5 
     win = int(window_length*fs)  # window for the longest period 
     hop = int(hop_dur*fs)  # 5ms hop
  
