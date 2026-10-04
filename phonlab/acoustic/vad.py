@@ -25,12 +25,13 @@ def band_db(x, fs, sec, bounds, target_fs=12000):
 def vad_features(y, fs, sec=None, f0_range=[63, 400], s=0.005):
     """Measure the predictors used by `VAD()`: `amp` and `cpp`.
 
-    `CPP()` supplies `cpp` and `f0` at its own frame times.  They are put on the times in `sec` (by
-    linear interpolation for `cpp` and the nearest frame for `f0`), which by default are spaced `s` seconds
-    apart over the span of the `CPP()` frames.  Passing `sec` is how the training script measures the
-    predictors at exactly the times of the EGG measurements.
+    `CPP()` supplies `cpp` and `f0` at its own frame times, `s` seconds apart.  It is called without
+    smoothing (smooth=0), which costs about a quarter as much as the default and predicts voicing as well
+    (see examples/compare_cpp_smooth.py).  They are put on the times in `sec` (by linear interpolation for
+    `cpp` and the nearest frame for `f0`), which by default are those of the `CPP()` frames.  Passing `sec`
+    is how the training script measures the predictors at exactly the times of the EGG measurements.
     """
-    c = CPP(y, fs, norm=False, f0_range=list(f0_range))
+    c = CPP(y, fs, norm=False, smooth=0, s=s, f0_range=list(f0_range))
     t = c['sec'].to_numpy()
     if sec is None:
         sec = np.arange(t[0], t[-1], s)
