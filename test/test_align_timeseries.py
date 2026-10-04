@@ -69,7 +69,52 @@ def test_other_time_column_name_and_unsorted_input():
     assert "t" not in out.columns
 
 
-def test_column_clash_raises():
-    other = pd.DataFrame({"sec": [0.0, 0.3], "F1": [1.0, 2.0]})
-    with pytest.raises(ValueError):
-        align_timeseries(_base(), other)
+def _clash_other():
+    return pd.DataFrame({"sec": [0.0, 0.3], "F1": [1.0, 2.0], "new": [5.0, 6.0]})
+
+
+def test_duplicate_names_ignored_by_default():
+    out = align_timeseries(_base(), _clash_other())
+    assert out["F1"].tolist() == [500, 510, 520, 530]  # base values kept
+    assert list(out.columns) == ["sec", "F1", "new"]
+
+
+def test_duplicate_names_renamed():
+    out = align_timeseries(_base(), _clash_other(), ignore_duplicate_names=False)
+    assert list(out.columns) == ["sec", "F1", "F1_2", "new"]
+    assert out["F1"].tolist() == [500, 510, 520, 530]
+    np.testing.assert_allclose(out["F1_2"], [1.0, 1 + 1 / 3, 1 + 2 / 3, 2.0])
+
+
+def test_duplicate_names_chain_of_merges():
+    base = _base()
+    for _ in range(3):
+        base = align_timeseries(base, _clash_other(), ignore_duplicate_names=False)
+    assert list(base.columns) == ["sec", "F1", "F1_2", "new", "F1_3", "new_2", "F1_4", "new_3"]
+
+
+def test_rename_avoids_other_columns_in_other():
+    other = pd.DataFrame({"sec": [0.0, 0.3], "F1": [1.0, 2.0], "F1_2": [3.0, 4.0]})
+    out = align_timeseries(_base(), other, ignore_duplicate_names=False)
+    # other's F1 takes F1_2, so other's own F1_2 must move on to F1_2_2
+    assert list(out.columns) == ["sec", "F1", "F1_2", "F1_2_2"]
+    np.testing.assert_allclose(out["F1_2"].iloc[[0, -1]], [1.0, 2.0])
+    np.testing.assert_allclose(out["F1_2_2"].iloc[[0, -1]], [3.0, 4.0])
+
+
+def test_other_columns_selects_subset():
+    other = pd.DataFrame({"sec": [0.0, 0.3], "a": [0.0, 3.0], "b": [1.0, 1.0], "c": ["x", "y"]})
+    out = align_timeseries(_base(), other, other_columns=["a", "c"])
+    assert list(out.columns) == ["sec", "F1", "a", "c"]
+
+
+def test_other_columns_duplicate_respects_flag():
+    out = align_timeseries(_base(), _clash_other(), other_columns=["F1"])
+    assert list(out.columns) == ["sec", "F1"]
+    out = align_timeseries(_base(), _clash_other(), other_columns=["F1"], ignore_duplicate_names=False)
+    assert list(out.columns) == ["sec", "F1", "F1_2"]
+
+
+def test_other_columns_missing_raises():
+    with pytest.raises(KeyError):
+        align_timeseries(_base(), _clash_other(), other_columns=["nope"])
