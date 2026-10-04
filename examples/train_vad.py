@@ -54,16 +54,13 @@ def collect(corpus, frac, seed):
             continue
         audio, egg, fs = phon.loadsig(str(Path(corpus) / row.relpath / f'{row.barename}.wav'), chansel=[0, 1])
         eggdf = phon.egg_to_oq(egg, fs, f0_range=F0_RANGE, diagnostics=True, **EGG_OPTIONS)
-        feat = vad_features(audio, fs, f0_range=F0_RANGE)
-        sec = eggdf['sec'].to_numpy()          # the frames of the EGG measurements are not those of CPP()
-        df = pd.DataFrame({'sec': sec, 'f0': np.interp(sec, feat['sec'], feat['f0']),
-                           'cpp': np.interp(sec, feat['sec'], feat['cpp']),
-                           'amp': band_db(audio, fs, sec, AMP_BAND)})   # measured at the EGG times, since it can change fast
-        df['vuv'] = np.where(eggdf['voiced'].to_numpy(), 'v', 'uv')
-        df['egg_f0'] = eggdf['f0'].to_numpy()     # kept to examine the EGG decisions, not used in training
-        df['egg_oq'] = eggdf['OQ'].to_numpy()
-        for c in ['n_gci', 'n_goi', 'degg_max', 'egg_min', 'egg_max', 'egg_range', 'fail']:
-            df[c if c.startswith('egg') else f'egg_{c}'] = eggdf[c].to_numpy()  # what egg_to_oq() found in each frame, and why it failed
+        # the EGG measurements are the base (the 'true' voicing and what egg_to_oq() found, kept to examine its decisions).
+        base = eggdf.rename(columns={'f0': 'egg_f0', 'OQ': 'egg_oq', 'voiced': 'egg_voiced', 'n_gci': 'egg_n_gci', 'n_goi': 'egg_n_goi',
+                                     'degg_max': 'egg_degg_max', 'fail': 'egg_fail'})
+        # cpp and f0 are interpolated onto the EGG frames (NaN where CPP() has no frame, before its first and after its last)
+        df = phon.align_timeseries(base, vad_features(audio, fs, f0_range=F0_RANGE), other_columns=['f0', 'cpp'])
+        df['amp'] = band_db(audio, fs, df['sec'], AMP_BAND)   # measured at the EGG times, since it can change fast
+        df['vuv'] = np.where(df.pop('egg_voiced'), 'v', 'uv')
         df['file'] = row.barename
         frames.append(df)
         print(f'{row.relpath}/{row.barename}: {len(df)} frames', flush=True)
