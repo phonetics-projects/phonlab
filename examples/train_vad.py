@@ -37,9 +37,9 @@ warnings.filterwarnings("ignore")
 
 F0_RANGE = [60, 400]
 # How the EGG voicing decisions are made (see egg_to_oq()): the range normalization of the differentiated EGG
-# uses a window of 0.3 seconds centered on each sample, and finds nothing where the local range is less than
-# 5% of the file's largest.
-EGG_OPTIONS = dict(norm_window=0.3, center=True, floor=0.05)
+# uses a window of 0.3 seconds centered on each sample, and no closing instants are found where the EGG signal is
+# weak (floor=True, meaning its local rms is less than 20% of the whole recording's).
+EGG_OPTIONS = dict(norm_window=0.3, center=True, floor=True)
 PREDICTORS = ['amp', 'cpp']
 
 

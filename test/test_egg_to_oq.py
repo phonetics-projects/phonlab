@@ -54,7 +54,7 @@ def test_normalization_options(egg):
         assert len(d) == len(base) and d.voiced.dtype == bool
     # a higher floor can only remove closing instants, so it cannot find more voiced frames than a lower one
     low = phon.egg_to_oq(long, fs, norm_window=0.3, center=True, floor=0.02).voiced.sum()
-    high = phon.egg_to_oq(long, fs, norm_window=0.3, center=True, floor=0.2).voiced.sum()
+    high = phon.egg_to_oq(long, fs, norm_window=0.3, center=True, floor=0.5).voiced.sum()
     assert high <= low
 
 
@@ -62,3 +62,17 @@ def test_default_normalization_window():
     params = inspect.signature(phon.egg_to_oq).parameters
     assert params['norm_window'].default == 0.7 and params['center'].default is True
     assert params['floor'].default is True
+
+
+def test_floor_silences_a_weak_signal():
+    # a weak noise signal followed by a strong periodic one: the noise should not be found voiced
+    fs = 16000
+    rng = np.random.default_rng(0)
+    t = np.arange(fs) / fs
+    weak = rng.normal(0, 0.002, fs)
+    strong = np.sin(2 * np.pi * 120 * t) + 0.3 * np.sin(2 * np.pi * 240 * t) + rng.normal(0, 0.002, fs)
+    x = np.r_[weak, strong]
+    d = phon.egg_to_oq(x, fs)
+    assert d.voiced[d.sec < 0.8].mean() < 0.05
+    assert d.voiced[d.sec > 1.2].mean() > 0.5
+    assert phon.egg_to_oq(x, fs, floor=None).voiced[d.sec < 0.8].mean() > 0.5    # without the floor the noise looks voiced

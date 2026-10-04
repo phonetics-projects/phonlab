@@ -5,7 +5,7 @@ import pandas as pd
 
 def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
            hp_cut = 70, hp_order = 8, threshold=0.43, norm_window=0.7, center=True,
-           egg_norm_window=None, floor=True, peak_height=0.5, diagnostics=False):
+           egg_norm_window=None, floor=True, floor_window=0.3, peak_height=0.5, diagnostics=False):
     """Get glottal open quotient from electroglottography data
     
     Extract fundamental frequency of voice (f0) and glottal open quotient (OQ) 
@@ -43,9 +43,12 @@ def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
             Window duration in seconds for range-normalizing the EGG signal itself (for the glottal opening instants).
             By default it is the same as `norm_window`.
         floor : float, True or None, default = True
-            Where the range of the differentiated EGG in the normalization window is less than this proportion of its
-            largest range anywhere in the signal, no closing instants are found.  This keeps the normalization from
-            magnifying noise or hum in stretches with no voicing.  True is the same as 0.05.  None or False turns the floor off.
+            No closing instants are found where the EGG signal is weak: where its local rms (over `floor_window` seconds) is
+            less than this proportion of the rms of the whole signal.  Without this the normalization magnifies the noise in
+            the EGG in stretches with no voicing (such as the silence at the start and end of a recording) until it looks
+            like a voice.  True is the same as 0.2.  None or False turns the test off.
+        floor_window : float, default = 0.3
+            Duration in seconds of the window over which the local rms is measured for `floor`.
         peak_height : float, default = 0.5
             A closing instant is a peak in the normalized differentiated EGG which is higher than this.
         diagnostics : boolean, default = False
@@ -118,6 +121,9 @@ def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
     coefs = scipy.signal.butter(hp_order, hp_cut, fs=fs, btype='highpass', output='sos')
     egg = scipy.signal.sosfiltfilt(coefs, x)
     degg = np.gradient(egg)  # differential of the egg
+    egg_filtered = egg
+    if floor:   # the local rms of the filtered EGG, to find the stretches with no EGG signal
+        egg_rms = pd.Series(egg).rolling(int(floor_window*fs), min_periods=10, center=True).std().to_numpy()
 
     # scale the filtered egg and degg to (0,1)  -- for long files do this locally?
     #  using pandas rolling_max
@@ -144,8 +150,9 @@ def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
     drange = deggmax - deggmin
     degg = (degg - deggmin)/drange
     if floor:
-        floor = 0.05 if floor is True else floor
-        degg = np.where(drange < floor*np.nanmax(drange), 0.0, degg)   # nothing to see in a stretch with little EGG activity
+        floor = 0.2 if floor is True else floor
+        quiet = egg_rms < floor*np.std(egg_filtered)       # little EGG signal here: noise would be magnified by the normalization
+        degg = np.where(quiet, 0.0, degg)
 
     # get peaks in the degg waveform - the glottal closing instants (gci)
     # minimum spacing between peaks (distance) is shortest possible period
