@@ -119,7 +119,7 @@ __all__ += ["sine_synth"]
 from .utils.prep_audio_ import prep_audio
 __all__ += ["prep_audio"]
 
-from .utils.textgrid import tg_tiernames
+from .utils.textgrid import tg_tiernames, read_textgrid_with
 __all__ += ["tg_tiernames",
             "read_textgrid_with"]
 
