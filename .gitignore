@@ -108,7 +108,15 @@ venv.bak/
 
 # Files generated as notebook output
 resource/mirrorexp/cache
+test/sf3_cln.csv
 
 # Vim
 *~
 *.swp
+
+# JupyterLab LSP scratch
+.virtual_documents/
+
+# datafiles we don't want to push
+test/sf3_cln.csv
+examples/vuv_features.csv

@@ -10,8 +10,8 @@ __all__ = []
 from .acoustic.nasality_measures import nasality
 __all__ += ['nasality']
 
-from .acoustic.choose_order_ import choose_order, choose_order_A
-__all__ += ["choose_order", "choose_order_A"]
+from .acoustic.choose_order_ import choose_order
+__all__ += ["choose_order"]
 
 from .acoustic.rlpc import RLPC_formants
 __all__ += ["RLPC_formants"]
@@ -52,6 +52,9 @@ __all__ += ["get_rms",
             "get_f0", 
             "get_f0_srh", 
             "get_f0_acd"]
+
+from .acoustic.vad import VAD
+__all__ += ["VAD"]
 
 from .acoustic.shs import get_f0_shs
 __all__ += ["get_f0_shs"]
@@ -131,6 +134,9 @@ __all__ += ["df_to_tg",
             "srt_to_df", 
             "split_speaker_df"]
 
+from .utils.align_series import align_timeseries
+__all__ += ["align_timeseries"]
+
 from .utils.signal import loadsig, channels_are_duplicates
 __all__ += ["loadsig",
             "channels_are_duplicates"]
@@ -144,5 +150,8 @@ __all__ += ["test_signal"]
 
 from .third_party.robustsmoothing import smoothn
 __all__ += ["smoothn"]
+
+from .utils.smooth1d_ import smooth1d
+__all__ += ["smooth1d"]
 
 
