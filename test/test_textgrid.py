@@ -20,7 +20,7 @@ import pytest
 from phonlab.utils import textgrid as tgmodule
 from phonlab.utils.textgrid import (
     TextGridParseError, TextGridParserFallbackWarning, detect_encoding,
-    _read_textgrid, _read_textgrid_praat, _read_textgrid_with, tg_tiernames
+    _read_textgrid, _read_textgrid_praat, read_textgrid_with, tg_tiernames
 )
 from phonlab.utils.tidy import df_to_tg, tg_to_df
 
@@ -889,7 +889,7 @@ def test_fallback_named_parser_succeeds(parser, monkeypatch):
     name = parser.split('.')[0]
     ctx = _no_warnings()
     try:
-        tiers = _read_textgrid_with('x.TextGrid', parser)
+        tiers = read_textgrid_with('x.TextGrid', parser)
     finally:
         ctx.__exit__(None, None, None)
     assert calls.calls == [name]
@@ -901,7 +901,7 @@ def test_fallback_to_other_parser(name, other, monkeypatch):
     outcomes = {name: TextGridParseError('named failed'), other: _tiers(other)}
     calls = _ReaderCalls(monkeypatch, **outcomes)
     with pytest.warns(TextGridParserFallbackWarning, match=f"'{name}' parser could not read"):
-        tiers = _read_textgrid_with('x.TextGrid', name)
+        tiers = read_textgrid_with('x.TextGrid', name)
     assert calls.calls == [name, other]
     assert tiers[0]['name'] == other
 
@@ -913,7 +913,7 @@ def test_fallback_only_suffix_raises_named_error(name, monkeypatch):
     other = 'praat' if name == 'python' else 'python'
     calls = _ReaderCalls(monkeypatch, **{name: err, other: _tiers(other)})
     with pytest.raises(TextGridParseError) as excinfo:
-        _read_textgrid_with('x.TextGrid', f'{name}.only')
+        read_textgrid_with('x.TextGrid', f'{name}.only')
     assert excinfo.value is err
     assert calls.calls == [name]
 
@@ -923,7 +923,7 @@ def test_fallback_both_fail(monkeypatch):
     first = ValueError('python trouble')
     calls = _ReaderCalls(monkeypatch, python=first, praat=RuntimeError('praat trouble'))
     with pytest.raises(TextGridParseError, match='Neither parser') as excinfo:
-        _read_textgrid_with('x.TextGrid', 'python')
+        read_textgrid_with('x.TextGrid', 'python')
     msg = str(excinfo.value)
     assert 'ValueError: python trouble' in msg
     assert 'RuntimeError: praat trouble' in msg
@@ -936,7 +936,7 @@ def test_fallback_unavailable_raises_named_error(monkeypatch):
     err = TextGridParseError('python failed')
     _ReaderCalls(monkeypatch, python=err, praat=ImportError('no parselmouth'))
     with pytest.raises(TextGridParseError) as excinfo:
-        _read_textgrid_with('x.TextGrid', 'python')
+        read_textgrid_with('x.TextGrid', 'python')
     assert excinfo.value is err
 
 def test_fallback_when_praat_not_installed(monkeypatch):
@@ -944,9 +944,9 @@ def test_fallback_when_praat_not_installed(monkeypatch):
     'praat.only' raises the `ImportError`."""
     _ReaderCalls(monkeypatch, python=_tiers('python'), praat=ImportError('no parselmouth'))
     with pytest.warns(TextGridParserFallbackWarning):
-        assert _read_textgrid_with('x.TextGrid', 'praat')[0]['name'] == 'python'
+        assert read_textgrid_with('x.TextGrid', 'praat')[0]['name'] == 'python'
     with pytest.raises(ImportError):
-        _read_textgrid_with('x.TextGrid', 'praat.only')
+        read_textgrid_with('x.TextGrid', 'praat.only')
 
 @pytest.mark.parametrize('name', ['python', 'praat'])
 def test_fallback_not_used_for_oserror(name, monkeypatch):
@@ -955,7 +955,7 @@ def test_fallback_not_used_for_oserror(name, monkeypatch):
     other = 'praat' if name == 'python' else 'python'
     calls = _ReaderCalls(monkeypatch, **{name: FileNotFoundError('gone'), other: _tiers(other)})
     with pytest.raises(FileNotFoundError):
-        _read_textgrid_with('x.TextGrid', name)
+        read_textgrid_with('x.TextGrid', name)
     assert calls.calls == [name]
 
 def test_fallback_oserror_from_fallback_parser(monkeypatch):
@@ -965,7 +965,7 @@ def test_fallback_oserror_from_fallback_parser(monkeypatch):
     _ReaderCalls(monkeypatch, praat=RuntimeError('praat trouble'),
                  python=FileNotFoundError('gone'))
     with pytest.raises(FileNotFoundError):
-        _read_textgrid_with('x.TextGrid', 'praat')
+        read_textgrid_with('x.TextGrid', 'praat')
 
 def test_fallback_tg_to_df_passes_parser_through(monkeypatch):
     """`tg_to_df` builds its dataframes from whichever parser succeeded."""
@@ -1105,7 +1105,7 @@ def test_fallback_warning_points_at_caller(monkeypatch):
     for call in (
         lambda: tg_to_df('x.TextGrid'),
         lambda: tg_tiernames('x.TextGrid'),
-        lambda: _read_textgrid_with('x.TextGrid'),
+        lambda: read_textgrid_with('x.TextGrid'),
     ):
         with warnings.catch_warnings(record=True) as record:
             warnings.simplefilter('always')

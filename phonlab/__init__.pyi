@@ -119,8 +119,9 @@ __all__ += ["sine_synth"]
 from .utils.prep_audio_ import prep_audio
 __all__ += ["prep_audio"]
 
-from .utils.textgrid import tg_tiernames
-__all__ += ["tg_tiernames"]
+from .utils.textgrid import tg_tiernames, read_textgrid_with
+__all__ += ["tg_tiernames",
+            "read_textgrid_with"]
 
 from .utils.tidy import df_to_tg, tg_to_df, add_context, merge_tiers, adjust_boundaries, explode_intervals, interpolate_measures, srt_to_df, split_speaker_df
 __all__ += ["df_to_tg", 
