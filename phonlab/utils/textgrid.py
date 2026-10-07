@@ -28,7 +28,10 @@ machine-generated files.
 '''
 
 __all__ = [
-    'tg_tiernames', 'TextGridParseError', 'TextGridParserFallbackWarning'
+    'TextGridParseError',
+    'TextGridParserFallbackWarning',
+    'read_textgrid_with',
+    'tg_tiernames'
 ]
 
 import codecs
@@ -837,7 +840,7 @@ def _tiername_readers(codec=None):
         'praat': _tiernames_praat,
     }
 
-def _read_textgrid_with(tgfile, parser='python'):
+def read_textgrid_with(tgfile, parser='python'):
     '''
 Read a Praat textgrid with the named parser, falling back to the other parser
 if the named one fails.
@@ -886,7 +889,7 @@ def _with_fallback(tgfile, parser, readers, stacklevel=3):
     '''
     Read `tgfile` with `readers[name]` for the parser named by `parser`,
     falling back to the other reader as documented for
-    `_read_textgrid_with()`. `stacklevel` is passed to `warnings.warn`; the
+    `read_textgrid_with()`. `stacklevel` is passed to `warnings.warn`; the
     default attributes the warning to whoever called the function that
     called this one, so it points at the user's own line.
     '''

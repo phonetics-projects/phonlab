@@ -2,7 +2,9 @@ import numpy as np
 from scipy import signal
 from scipy import fft
 import librosa
-from numba import njit
+import math
+import functools
+from numba import njit, prange
 from pandas import DataFrame
 from ..utils.prep_audio_ import prep_audio
 from ..acoustic.choose_order_ import choose_order
@@ -648,6 +650,296 @@ def IFC_process_frame(x,fs, spkr,f0_range,filterbank):
 
     return np.round([f1,f2,f3,f4,f0,c],3)
 
+
+# ------------ method 'ifc': the whole frame as one compiled function -----------------------
+#
+#  For method 'ifc' the analysis of a frame (IFC_process_frame()) runs inside numba: the upper
+#  formant inverse filter, three passes over the three IFCBLOCKs, order() and track_pitch(), and
+#  _ifc_frames() / _ifc_frames_parallel() run that over all frames of a file.  What this removes
+#  is the per-frame Python around the kernels above: ~65 inv_filter() calls (each building its
+#  kernel with abc_coefs/np.convolve), ~54 zc_frequency2() calls, IFC()/IFCBLOCK()/order() and
+#  track_pitch() -- about 0.6 ms per frame, 5x the arithmetic.  The band amplitude ratios are
+#  computed for all frames at once beforehand (_ifc_amplitude_ratios()) with the same filters.
+#  The compiled functions perform the same operations as the per-frame functions; the only
+#  differences are at the level of floating point rounding (the inverse filters are applied as the
+#  original 3-tap cascade rather than as one combined kernel, coefficients use libm exp/cos, sums
+#  are left-to-right), which the analysis is not sensitive to.  Methods 'ifc_fast' and 'ifc_old'
+#  are not touched and keep the per-frame path.
+
+IFC_JIT = True        # method 'ifc': analyse the frames with the compiled functions below
+IFC_PARALLEL = True   # ... on all cores (numba prange); False = one core
+
+@njit(cache=True, error_model='numpy')
+def _inv_cascade(x, fr, bw, fs):
+    '''The cascade of 3-tap inverse filters y[n] = c*(a*x[n-2] + b*x[n-1] + x[n]) (see inv_filter()),
+    coefficients from abc_coefs(), each stage started from rest; x is not modified.'''
+    n = x.shape[0]
+    src = x.copy()
+    dst = np.empty(n)
+    for s in range(fr.shape[0]):
+        exp1 = math.exp(-(math.pi/fs) * bw[s])
+        a = exp1*exp1
+        b = -2.0 * exp1 * math.cos((math.pi/fs * 2) * fr[s])
+        c = 1.0/(1.0+a+b)
+        dst[0] = c * src[0]
+        if n > 1:
+            dst[1] = c * (b * src[0] + src[1])
+        for i in range(2, n):
+            dst[i] = c*(a*src[i-2] + b*src[i-1] + src[i])
+        src, dst = dst, src
+    return src
+
+@njit(cache=True, error_model='numpy')
+def _ifc_filter(x, fs, n, f, b, f0, b0):
+    '''IFC(): remove formant f (and, for n == 1, also f0) from x.'''
+    if n == 1:
+        return _inv_cascade(x, np.array((f, f0)), np.array((b, b0)), fs)
+    else:
+        return _inv_cascade(x, np.array((f,)), np.array((b,)), fs)
+
+@njit(cache=True, error_model='numpy')
+def _zc2(y, fs, loop, f_no, in_freq, du1, du2):
+    '''zc_frequency2() / _zc_frequency2_core() as plain loops: same quantities, same order of
+    operations (left-to-right sums, as numba compiles np.sum), no temporaries.'''
+    n = y.shape[0]
+    freq = in_freq
+    ca = 0.3
+    dd1 = 300.0
+    dd2 = 3000.0
+    if loop == 0:  # first loop in IFCBLOCK, we calculate mean freq as a spectral parameter
+        ca = 0.2
+        dd1 = 400.0
+        dd2 = 4000.0
+        wv = 0.0
+        for i in range(n-1):
+            wv += y[i+1] * y[i]        # np.sum(y[1:] * y[:-1])
+        sv = 0.0
+        for i in range(n):
+            sv += y[i] * y[i]          # np.sum(y * y)
+        ww = wv/sv
+        if ww > 1: ww = 1.0
+        if ww < -1: ww = -1.0
+        freq = math.acos(ww) * (1/(2*math.pi/fs))
+    if loop > 1:
+        ca = 0.4
+    aa = 0.5 * (0.3+ca)
+
+    m = 0.0                            # y = y - np.mean(y)
+    for i in range(n):
+        m += y[i]
+    m = m / n
+    ym = np.empty(n)
+    for i in range(n):
+        ym[i] = y[i] - m
+
+    zci = np.empty(n, np.int64)        # indeces of zero crossings: where(y[:-1]*y[1:] <= 0)
+    L = 0
+    for i in range(n-1):
+        if ym[i] * ym[i+1] <= 0:
+            zci[L] = i
+            L += 1
+    # zcp[k] = (zci[k+1]-zci[k]) - rrr[zci[k]] + rrr[zci[k+1]],  rrr[j] = |y[j]|/(|y[j]|+|y[j+1]|)
+    # z2[k]  = fs/(zcp[k] + zcp[k+1])      -- the last zero crossing period is not used
+    nz = L - 3
+    if nz < 0:
+        nz = 0
+    z2 = np.empty(nz)
+    if L >= 3:
+        zcp = np.empty(L-2)
+        for k in range(L-2):
+            i0 = zci[k]
+            i1 = zci[k+1]
+            r0 = abs(ym[i0])/(abs(ym[i0]) + abs(ym[i0+1]))
+            r1 = abs(ym[i1])/(abs(ym[i1]) + abs(ym[i1+1]))
+            zcp[k] = float(i1 - i0) - r0 + r1
+        for k in range(nz):
+            z2[k] = fs/(zcp[k] + zcp[k+1])
+
+    if f_no <= 1:   # F1
+        al1 = (du2-du1)/1000
+        b1 = du1 - al1*200
+    elif f_no == 2 or f_no == 3:   # F2 and F3
+        al1 = (dd2-dd1)/4300
+        b1 = dd1 - al1*200
+    else:   # F4
+        al1 = 0.83721
+        b1 = 400 - al1 * 200
+
+    dep = freq * al1 + b1
+    for it in range(3):
+        dep = dep - (it * aa * dep)
+        sw = 0.0
+        swz = 0.0
+        for k in range(nz):
+            w = 1 - abs(z2[k] - freq)/dep      # np.clip(1 - deviation/dep, 0, 1)
+            if w < 0: w = 0.0
+            if w > 1: w = 1.0
+            sw += w
+            swz += z2[k] * w
+        freq = swz/(sw + 0.001)
+
+    if freq < FMIN: freq = FMIN
+    if freq > FMAX: freq = FMAX
+    return freq
+
+@njit(cache=True, error_model='numpy')
+def _ifcblock(x, fs, nc, fc, bc, nd, fd, bd, f0, b0, du1, du2):
+    '''IFCBLOCK() for method 'ifc': three passes of removing one of two formants and
+    re-estimating the other with zc_frequency2().'''
+    for i in range(3):
+        yy = _ifc_filter(x, fs, nc, fc, bc, f0, b0)
+        fd = _zc2(yy, fs, i, nd, fd, du1, du2)
+        yy = _ifc_filter(x, fs, nd, fd, bd, f0, b0)
+        fc = _zc2(yy, fs, i, nc, fc, du1, du2)
+    return fc, fd
+
+@njit(cache=True, error_model='numpy')
+def _sort4(a, b, c, d):
+    '''order(): four values from lowest to highest.'''
+    if a > b: a, b = b, a
+    if c > d: c, d = d, c
+    if a > c: a, c = c, a
+    if b > d: b, d = d, b
+    if b > c: b, c = c, b
+    return a, b, c, d
+
+@njit(cache=True, error_model='numpy')
+def _ifc_frame(x, fs, fr, bws, upper_fs, upper_bws, du1, du2, spkr, th, tl, r12, r23, r34):
+    '''IFC_process_frame() for method 'ifc', for one frame x (float64), given its band amplitude
+    ratios.  Returns (F1, F2, F3, F4, f0, c), unrounded.'''
+    y = _inv_cascade(x, upper_fs, upper_bws, fs)          # remove upper formants
+    f0 = fr[0]
+    f1 = fr[1]
+    f2 = fr[2]
+    f3 = fr[3]
+    f4 = fr[4]
+    b1 = bws[1]
+    b2 = bws[2]
+    b3 = bws[3]
+    b4 = bws[4]
+
+    for i in range(3):   # loop over main IFC blocks to find formant frequencies
+        # estimate F2 and F3 first
+        b0 = 200.0
+        if r23 >= -20: b0 = 100*r23 + 2200
+        y2 = _inv_cascade(y, np.array((f4, f0, f1)), np.array((b4, b0, b1)), fs)   # filter out all but f2 and f3
+        f2, f3 = _ifcblock(y2, fs, 3, f3, b3, 2, f2, b2, f0, b0, du1, du2)
+        f1, f2, f3, f4 = _sort4(f1, f2, f3, f4)
+
+        # estimate F1 and F2 next
+        if spkr == 0:   # longer vocal tract - remove f6 again
+            y2 = _inv_cascade(y, np.array((5500.0, f3, f4)), np.array((200.0, b3, b4)), fs)
+        else:
+            y2 = _inv_cascade(y, np.array((f3, f4)), np.array((b3, b4)), fs)   # filter out all but f1 and f2
+        b0 = 200.0
+        if r12 >= -20: b0 = 100*r12 + 2200
+        f1, f2 = _ifcblock(y2, fs, 1, f1, b1, 2, f2, b2, f0, b0, du1, du2)
+        f1, f2, f3, f4 = _sort4(f1, f2, f3, f4)
+
+        # estimate F3 and F4
+        b0 = 200.0
+        if r34 >= -20: b0 = 100*r34 + 2200
+        y2 = _inv_cascade(y, np.array((f1, f0, f2)), np.array((b1, b0, b2)), fs)   # filter out all but f3 and f4
+        f3, f4 = _ifcblock(y2, fs, 3, f3, b3, 4, f4, b4, f0, b0, du1, du2)
+        f1, f2, f3, f4 = _sort4(f1, f2, f3, f4)
+
+    # track pitch: inverse filter with the final formant estimates, autocorrelation peak in [th, tl)
+    g = _inv_cascade(y, np.array((f1, f2, f3, f4)), bws[:4], fs)
+    n = g.shape[0]
+    ac0 = 0.0
+    for j in range(n):
+        ac0 += g[j] * g[j]
+    best = -np.inf
+    ibest = th
+    for k in range(th, tl):
+        acc = 0.0
+        for j in range(n - k):
+            acc += g[j] * g[j + k]
+        if acc > best:
+            best = acc
+            ibest = k
+    pitch = 1/(ibest/fs)
+    c = np.sqrt(best)/np.sqrt(ac0)
+    return f1, f2, f3, f4, pitch, c
+
+@njit(cache=True, error_model='numpy')
+def _ifc_frames(X, fs, fr, bws, upper_fs, upper_bws, du1, du2, spkr, th, tl, ratios):
+    '''_ifc_frame() for every row of X (one frame per row); ratios has one column per frame.'''
+    R = X.shape[0]
+    out = np.empty((R, 6))
+    for r in range(R):
+        f1, f2, f3, f4, p, c = _ifc_frame(X[r], fs, fr, bws, upper_fs, upper_bws, du1, du2,
+                                          spkr, th, tl, ratios[0, r], ratios[1, r], ratios[2, r])
+        out[r, 0] = f1
+        out[r, 1] = f2
+        out[r, 2] = f3
+        out[r, 3] = f4
+        out[r, 4] = p
+        out[r, 5] = c
+    return out
+
+@njit(cache=True, error_model='numpy', parallel=True)
+def _ifc_frames_parallel(X, fs, fr, bws, upper_fs, upper_bws, du1, du2, spkr, th, tl, ratios):
+    '''_ifc_frames() with the frames spread over all cores.'''
+    R = X.shape[0]
+    out = np.empty((R, 6))
+    for r in prange(R):
+        f1, f2, f3, f4, p, c = _ifc_frame(X[r], fs, fr, bws, upper_fs, upper_bws, du1, du2,
+                                          spkr, th, tl, ratios[0, r], ratios[1, r], ratios[2, r])
+        out[r, 0] = f1
+        out[r, 1] = f2
+        out[r, 2] = f3
+        out[r, 3] = f4
+        out[r, 4] = p
+        out[r, 5] = c
+    return out
+
+@functools.lru_cache(maxsize=None)
+def _ifc_filterbank(speaker, fs):
+    '''The four band-pass filters of params[speaker]["bands"] at sampling rate fs, with their
+    sosfiltfilt() edge length and initial conditions (see _sosfiltfilt_setup()).  Designing them
+    (signal.butter + sosfilt_zi) costs a few ms, so they are built once per (speaker, fs).'''
+    sos_bank = [design_filter(b, fs, order=12) for b in params[speaker]["bands"]]
+    return tuple((sos,) + _sosfiltfilt_setup(sos) for sos in sos_bank)
+
+def _ifc_amplitude_ratios(X, fs, spkr, filterbank):
+    '''get_amplitude_ratios() for all frames at once: X has one frame per row; each row is passed
+    through the upper formant inverse filter (inv_filter(), as IFC_process_frame() does) and each
+    band is then filtered with one sosfiltfilt() call over the whole array (sosfiltfilt along an
+    axis runs the identical recursion on every row, so the numbers are the per-frame ones).
+    Returns an array of shape (3, n_frames): r12, r23, r34 per frame.'''
+    Y = np.empty((X.shape[0], X.shape[1]))
+    for i in range(X.shape[0]):
+        Y[i] = inv_filter(X[i], fs, params[spkr]["upper_fs"], params[spkr]["upper_bws"])
+    n_channels = len(filterbank)
+    rms = np.zeros((n_channels, X.shape[0]))
+    for idx, (sos, edge, zi) in enumerate(filterbank):
+        y = signal.sosfiltfilt(sos, Y, axis=-1)
+        rms[idx] = np.sqrt(np.sum(y**2, axis=-1)/n_channels)   # same divisor as get_amplitude_ratios()
+    rms = np.maximum(rms, np.finfo(rms.dtype).tiny)
+    r12 = 20*np.log10(rms[1]/rms[0])
+    r23 = 20*np.log10(rms[2]/rms[1])
+    r34 = 20*np.log10(rms[3]/rms[2])
+    return np.array((r12, r23, r34))
+
+def IFC_process_frames(X, fs, spkr, f0_range, parallel=None):
+    '''The compiled analysis of all frames in X (2-D, one 20 ms frame per row) for method 'ifc';
+    returns a 2-D array with one row per frame of [F1,F2,F3,F4,f0,c], rounded to 3 decimals like
+    IFC_process_frame().'''
+    par = params[spkr]
+    if parallel is None:
+        parallel = IFC_PARALLEL
+    X = np.ascontiguousarray(X, dtype=np.float64)
+    ratios = _ifc_amplitude_ratios(X, fs, spkr, _ifc_filterbank(spkr, fs))
+    run = _ifc_frames_parallel if parallel else _ifc_frames
+    res = run(X, int(fs),
+              par["fr"].astype(np.float64), par["bws"].astype(np.float64),
+              par["upper_fs"].astype(np.float64), par["upper_bws"].astype(np.float64),
+              float(par["du1"]), float(par["du2"]),
+              int(spkr), int(fs//f0_range[1]), int(fs//f0_range[0]),
+              np.ascontiguousarray(ratios, dtype=np.float64))
+    return np.round(res, 3)
+
 """
 # ------------ functions for LPC analysis -----------------------
 #
@@ -853,7 +1145,13 @@ def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0, quie
     return df
 
 
-def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, quiet = False):
+def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, quiet = False, jit = None, parallel = None):
+    '''IFC_tracking() -- inverse filter control formant tracking of a whole waveform; see track_formants().
+    For method 'ifc', jit (default: the module constant IFC_JIT) sends all frames through the compiled
+    IFC_process_frames(), on all cores unless parallel is False (default: IFC_PARALLEL); otherwise, and
+    for 'ifc_fast' and 'ifc_old', the frames go through IFC_process_frame() one at a time.'''
+    if jit is None:
+        jit = IFC_JIT
     
     if not quiet: 
         print(f"IFC_tracking(), using method {g_method}, with speaker set to {speaker}, and pitch range {f0_range}")
@@ -866,6 +1164,17 @@ def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, quie
 
     # apply preemphasis
     y, fs = prep_audio(x,fs,pre=preemphasis,target_fs=fs,quiet=True) 
+
+    if g_method == "ifc" and jit:
+        # method 'ifc': every frame through the compiled analysis at once (see IFC_process_frames())
+        centers = np.arange(half_frame, len(y)-frame_length, step)
+        frames = y[(centers - half_frame)[:, None] + np.arange(frame_length + 1)]
+        formants = np.empty((len(centers), 8))
+        formants[:, 0] = centers/fs
+        formants[:, 1] = rms[:len(centers)]
+        formants[:, 2:] = IFC_process_frames(frames, fs, speaker, f0_range, parallel=parallel)
+        if not quiet: print(f"\r done         ")
+        return DataFrame(formants,columns=("sec","rms","F1","F2","F3","F4","f0","c"))
     
     sos_bank = [design_filter(b, fs,order=12) for b in params[speaker]["bands"]]
     filterbank = [(sos,) + _sosfiltfilt_setup(sos) for sos in sos_bank]
