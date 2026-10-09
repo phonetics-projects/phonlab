@@ -1190,7 +1190,7 @@ def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, quie
         row = IFC_process_frame(x_win,fs,speaker,f0_range, filterbank)
         formants[frame_count] = np.concatenate(([t],[rms[frame_count]],row))
         if not quiet:   # count time though the file
-            if (t % 0.02) < 0.001:  print(f"\r {t:.2f} sec.", end='')
+            if frame_count % (fs//step) == 0:  print(f"\r {t:.2f} sec.", end='')  # once per second of audio
         frame_count += 1
 
     if not quiet: print(f"\r done         ")
