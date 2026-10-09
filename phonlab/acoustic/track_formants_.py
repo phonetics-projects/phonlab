@@ -20,6 +20,7 @@ frame_length = int(SR * 0.02) # frame length 20 ms
 half_frame = frame_length//2
 step = int(SR * 0.01)  # number of samples between frames, 10 ms       
 g_method = 'lpc'       # formant tracking method
+TRACKING_METHODS = ('lpc', 'ifc', 'ifc_old', 'ifc_fast')   # the methods track_formants() accepts
 
 # speaker parameters used in IFC tracking.  EG params[spkr]["fr"] are formant expectations for male if spkr == 0
 params = [
@@ -140,7 +141,7 @@ def dominant_frequency(y):
     '''
     
     Z = fft.rfft(y*signal.windows.hamming(len(y)),FFT_PTS)
-    f = freq_axis[np.argmax(Z)]  # return the frequency of the peak in the FFT
+    f = freq_axis[np.argmax(np.abs(Z))]  # return the frequency of the peak in the magnitude spectrum
     
     if f>FMAX:
         f = FMAX
@@ -255,9 +256,9 @@ def zc_frequency(x, fs, loop, f_no, in_freq, spkr):
     '''
     par = params[spkr]  # use the global params[] buffer.
     
-    z = np.empty(frame_length)
-    z2 = np.empty(frame_length)
     y = x-np.mean(x)
+    z = np.empty(len(y))
+    z2 = np.empty(len(y))
     
     if loop==0:  # first loop in IFCBLOCK, we calculate mean freq as a spectral parameter
         wv = np.sum(y[1:] * y[:-1])  # product of successive samples
@@ -287,7 +288,7 @@ def zc_frequency(x, fs, loop, f_no, in_freq, spkr):
     aa = 0.5 * (0.3+ca)
     noc = zcp = 0
     wv2 = y[0]
-    for n in range(1,frame_length):
+    for n in range(1,len(y)):
         wv1 = wv2  # two samples separated by one time step
         wv2 = abn = y[n]
         if (abn<0): abn = -abn
@@ -513,7 +514,7 @@ def get_amplitude_ratios(x, fs, filterbank):
     y = np.zeros((n_channels, n_samples))
     for idx, (sos, edge, zi) in enumerate(filterbank):
         y[idx] = _sosfiltfilt_apply(sos, edge, zi, x)  # mean square amp in each band
-        rms[idx] = np.sqrt(np.sum(y[idx]**2)/len(y))
+        rms[idx] = np.sqrt(np.sum(y[idx]**2)/n_samples)
         
     rms = np.maximum(rms, np.finfo(rms.dtype).tiny)
     r12 = 20*np.log10(rms[1]/rms[0])
@@ -621,7 +622,7 @@ def IFC_process_frame(x,fs, spkr,f0_range,filterbank):
         # estimate F2 and F3 first
         if (r23 >= -20): b0 = 100*r23 + 2200
         y2 = inv_filter(y,fs,[f4,f0,f1],[b4,b0,b1])  # filter out all but f2 and f3
-        f2,f3 = IFCBLOCK(y2,fs,3,f3,b3,2,f2,b2,f0,b0,spkr)
+        f3,f2 = IFCBLOCK(y2,fs,3,f3,b3,2,f2,b2,f0,b0,spkr)  # returns (F3, F2): nc=3 first
         (f1,f2,f3,f4) = order(f1, f2, f3, f4)
 
         # estimate F1 and F2 next
@@ -646,7 +647,7 @@ def IFC_process_frame(x,fs, spkr,f0_range,filterbank):
         oldFs = np.array([f1, f2, f3, f4])    
         
     # track pitch
-    f0,c = track_pitch(y,fs,oldFs,params[spkr]["bws"],f0_range)  # use final estimate formants in pitch tracking
+    f0,c = track_pitch(y,fs,oldFs,np.array((b1, b2, b3, b4)),f0_range)  # use final estimate formants (and their bandwidths) in pitch tracking
 
     return np.round([f1,f2,f3,f4,f0,c],3)
 
@@ -823,7 +824,7 @@ def _ifc_frame(x, fs, fr, bws, upper_fs, upper_bws, du1, du2, spkr, th, tl, r12,
         b0 = 200.0
         if r23 >= -20: b0 = 100*r23 + 2200
         y2 = _inv_cascade(y, np.array((f4, f0, f1)), np.array((b4, b0, b1)), fs)   # filter out all but f2 and f3
-        f2, f3 = _ifcblock(y2, fs, 3, f3, b3, 2, f2, b2, f0, b0, du1, du2)
+        f3, f2 = _ifcblock(y2, fs, 3, f3, b3, 2, f2, b2, f0, b0, du1, du2)   # returns (F3, F2)
         f1, f2, f3, f4 = _sort4(f1, f2, f3, f4)
 
         # estimate F1 and F2 next
@@ -844,7 +845,7 @@ def _ifc_frame(x, fs, fr, bws, upper_fs, upper_bws, du1, du2, spkr, th, tl, r12,
         f1, f2, f3, f4 = _sort4(f1, f2, f3, f4)
 
     # track pitch: inverse filter with the final formant estimates, autocorrelation peak in [th, tl)
-    g = _inv_cascade(y, np.array((f1, f2, f3, f4)), bws[:4], fs)
+    g = _inv_cascade(y, np.array((f1, f2, f3, f4)), np.array((b1, b2, b3, b4)), fs)
     n = g.shape[0]
     ac0 = 0.0
     for j in range(n):
@@ -915,7 +916,7 @@ def _ifc_amplitude_ratios(X, fs, spkr, filterbank):
     rms = np.zeros((n_channels, X.shape[0]))
     for idx, (sos, edge, zi) in enumerate(filterbank):
         y = signal.sosfiltfilt(sos, Y, axis=-1)
-        rms[idx] = np.sqrt(np.sum(y**2, axis=-1)/n_channels)   # same divisor as get_amplitude_ratios()
+        rms[idx] = np.sqrt(np.sum(y**2, axis=-1)/X.shape[1])
     rms = np.maximum(rms, np.finfo(rms.dtype).tiny)
     r12 = 20*np.log10(rms[1]/rms[0])
     r23 = 20*np.log10(rms[2]/rms[1])
@@ -1168,7 +1169,7 @@ def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, quie
     if g_method == "ifc" and jit:
         # method 'ifc': every frame through the compiled analysis at once (see IFC_process_frames())
         centers = np.arange(half_frame, len(y)-frame_length, step)
-        frames = y[(centers - half_frame)[:, None] + np.arange(frame_length + 1)]
+        frames = y[(centers - half_frame)[:, None] + np.arange(frame_length)]
         formants = np.empty((len(centers), 8))
         formants[:, 0] = centers/fs
         formants[:, 1] = rms[:len(centers)]
@@ -1185,12 +1186,12 @@ def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, quie
     frame_count = 0
     for index in frame_starts:
         t = index/fs
-        x_win = y[index-half_frame:index+half_frame+1]
+        x_win = y[index-half_frame:index+half_frame]   # frame_length samples, as for rms and LPC
 
         row = IFC_process_frame(x_win,fs,speaker,f0_range, filterbank)
         formants[frame_count] = np.concatenate(([t],[rms[frame_count]],row))
         if not quiet:   # count time though the file
-            if (t % 0.02) < 0.001:  print(f"\r {t:.2f} sec.", end='')
+            if frame_count % (fs//step) == 0:  print(f"\r {t:.2f} sec.", end='')  # once per second of audio
         frame_count += 1
 
     if not quiet: print(f"\r done         ")
@@ -1247,6 +1248,11 @@ Returns
 =======
 df : dataframe
     a pandas dataframe with formant, f0, amplitude, and voicing score measurements at 0.01 sec intervals.
+
+Raises
+======
+ValueError
+    if `method` is not one of 'lpc', 'ifc', 'ifc_old' or 'ifc_fast'.
 
 Note
 ====
@@ -1307,6 +1313,9 @@ the spectrogram of `x`, and the seaborn graphics package is used to add the form
 
 """
 
+    if method not in TRACKING_METHODS:
+        raise ValueError(f"track_formants(): unknown method {method!r}; "
+                         f"expected one of {', '.join(map(repr, TRACKING_METHODS))}")
     globals()['g_method'] = method
     
     if method == 'lpc':

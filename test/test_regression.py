@@ -92,8 +92,8 @@ def _cases():
         "compute_mel_sgram": lambda: phon.compute_mel_sgram(x, fs),
         "nasality": lambda: phon.nasality(x, fs),
         "track_formants_lpc": lambda: phon.track_formants(x, fs, quiet=True),
-        "track_formants_rlpc": lambda: phon.track_formants(
-            xs, fs, method="rlpc", quiet=True),
+        "track_formants_ifc_fast": lambda: phon.track_formants(
+            xs, fs, method="ifc_fast", quiet=True),
         "track_formants_ifc": lambda: phon.track_formants(
             x, fs, method="ifc", quiet=True),
         "prep_audio": lambda: phon.prep_audio(x, fs),
@@ -135,7 +135,7 @@ def _get_cases():
     "get_f0_shs", "get_f0_srh", "get_rms", "h2h1", "lpcresidual",
     "get_rhythm_spectrum", "rhythmogram", "compute_sgram",
     "compute_mel_sgram", "nasality", "track_formants_lpc",
-    "track_formants_rlpc", "track_formants_ifc", "prep_audio", "peak_rms",
+    "track_formants_ifc_fast", "track_formants_ifc", "prep_audio", "peak_rms",
     "sigcor_noise", "vocode", "third_octave_bands", "shannon_bands",
     "sine_synth", "test_signal_sine", "smoothn", "freq_scales", "tg_to_df",
 ])
