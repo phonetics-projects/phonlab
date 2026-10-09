@@ -20,6 +20,7 @@ frame_length = int(SR * 0.02) # frame length 20 ms
 half_frame = frame_length//2
 step = int(SR * 0.01)  # number of samples between frames, 10 ms       
 g_method = 'lpc'       # formant tracking method
+TRACKING_METHODS = ('lpc', 'ifc', 'ifc_old', 'ifc_fast')   # the methods track_formants() accepts
 
 # speaker parameters used in IFC tracking.  EG params[spkr]["fr"] are formant expectations for male if spkr == 0
 params = [
@@ -1248,6 +1249,11 @@ Returns
 df : dataframe
     a pandas dataframe with formant, f0, amplitude, and voicing score measurements at 0.01 sec intervals.
 
+Raises
+======
+ValueError
+    if `method` is not one of 'lpc', 'ifc', 'ifc_old' or 'ifc_fast'.
+
 Note
 ====
 
@@ -1307,6 +1313,9 @@ the spectrogram of `x`, and the seaborn graphics package is used to add the form
 
 """
 
+    if method not in TRACKING_METHODS:
+        raise ValueError(f"track_formants(): unknown method {method!r}; "
+                         f"expected one of {', '.join(map(repr, TRACKING_METHODS))}")
     globals()['g_method'] = method
     
     if method == 'lpc':
