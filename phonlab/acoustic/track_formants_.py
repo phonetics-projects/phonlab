@@ -621,7 +621,7 @@ def IFC_process_frame(x,fs, spkr,f0_range,filterbank):
         # estimate F2 and F3 first
         if (r23 >= -20): b0 = 100*r23 + 2200
         y2 = inv_filter(y,fs,[f4,f0,f1],[b4,b0,b1])  # filter out all but f2 and f3
-        f2,f3 = IFCBLOCK(y2,fs,3,f3,b3,2,f2,b2,f0,b0,spkr)
+        f3,f2 = IFCBLOCK(y2,fs,3,f3,b3,2,f2,b2,f0,b0,spkr)  # returns (F3, F2): nc=3 first
         (f1,f2,f3,f4) = order(f1, f2, f3, f4)
 
         # estimate F1 and F2 next
@@ -823,7 +823,7 @@ def _ifc_frame(x, fs, fr, bws, upper_fs, upper_bws, du1, du2, spkr, th, tl, r12,
         b0 = 200.0
         if r23 >= -20: b0 = 100*r23 + 2200
         y2 = _inv_cascade(y, np.array((f4, f0, f1)), np.array((b4, b0, b1)), fs)   # filter out all but f2 and f3
-        f2, f3 = _ifcblock(y2, fs, 3, f3, b3, 2, f2, b2, f0, b0, du1, du2)
+        f3, f2 = _ifcblock(y2, fs, 3, f3, b3, 2, f2, b2, f0, b0, du1, du2)   # returns (F3, F2)
         f1, f2, f3, f4 = _sort4(f1, f2, f3, f4)
 
         # estimate F1 and F2 next
