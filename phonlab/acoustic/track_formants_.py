@@ -256,9 +256,9 @@ def zc_frequency(x, fs, loop, f_no, in_freq, spkr):
     '''
     par = params[spkr]  # use the global params[] buffer.
     
-    z = np.empty(frame_length)
-    z2 = np.empty(frame_length)
     y = x-np.mean(x)
+    z = np.empty(len(y))
+    z2 = np.empty(len(y))
     
     if loop==0:  # first loop in IFCBLOCK, we calculate mean freq as a spectral parameter
         wv = np.sum(y[1:] * y[:-1])  # product of successive samples
@@ -288,7 +288,7 @@ def zc_frequency(x, fs, loop, f_no, in_freq, spkr):
     aa = 0.5 * (0.3+ca)
     noc = zcp = 0
     wv2 = y[0]
-    for n in range(1,frame_length):
+    for n in range(1,len(y)):
         wv1 = wv2  # two samples separated by one time step
         wv2 = abn = y[n]
         if (abn<0): abn = -abn
@@ -1169,7 +1169,7 @@ def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, quie
     if g_method == "ifc" and jit:
         # method 'ifc': every frame through the compiled analysis at once (see IFC_process_frames())
         centers = np.arange(half_frame, len(y)-frame_length, step)
-        frames = y[(centers - half_frame)[:, None] + np.arange(frame_length + 1)]
+        frames = y[(centers - half_frame)[:, None] + np.arange(frame_length)]
         formants = np.empty((len(centers), 8))
         formants[:, 0] = centers/fs
         formants[:, 1] = rms[:len(centers)]
@@ -1186,7 +1186,7 @@ def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, quie
     frame_count = 0
     for index in frame_starts:
         t = index/fs
-        x_win = y[index-half_frame:index+half_frame+1]
+        x_win = y[index-half_frame:index+half_frame]   # frame_length samples, as for rms and LPC
 
         row = IFC_process_frame(x_win,fs,speaker,f0_range, filterbank)
         formants[frame_count] = np.concatenate(([t],[rms[frame_count]],row))
