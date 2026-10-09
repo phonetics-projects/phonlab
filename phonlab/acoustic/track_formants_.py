@@ -513,7 +513,7 @@ def get_amplitude_ratios(x, fs, filterbank):
     y = np.zeros((n_channels, n_samples))
     for idx, (sos, edge, zi) in enumerate(filterbank):
         y[idx] = _sosfiltfilt_apply(sos, edge, zi, x)  # mean square amp in each band
-        rms[idx] = np.sqrt(np.sum(y[idx]**2)/len(y))
+        rms[idx] = np.sqrt(np.sum(y[idx]**2)/n_samples)
         
     rms = np.maximum(rms, np.finfo(rms.dtype).tiny)
     r12 = 20*np.log10(rms[1]/rms[0])
@@ -915,7 +915,7 @@ def _ifc_amplitude_ratios(X, fs, spkr, filterbank):
     rms = np.zeros((n_channels, X.shape[0]))
     for idx, (sos, edge, zi) in enumerate(filterbank):
         y = signal.sosfiltfilt(sos, Y, axis=-1)
-        rms[idx] = np.sqrt(np.sum(y**2, axis=-1)/n_channels)   # same divisor as get_amplitude_ratios()
+        rms[idx] = np.sqrt(np.sum(y**2, axis=-1)/X.shape[1])
     rms = np.maximum(rms, np.finfo(rms.dtype).tiny)
     r12 = 20*np.log10(rms[1]/rms[0])
     r23 = 20*np.log10(rms[2]/rms[1])
