@@ -140,7 +140,7 @@ def dominant_frequency(y):
     '''
     
     Z = fft.rfft(y*signal.windows.hamming(len(y)),FFT_PTS)
-    f = freq_axis[np.argmax(Z)]  # return the frequency of the peak in the FFT
+    f = freq_axis[np.argmax(np.abs(Z))]  # return the frequency of the peak in the magnitude spectrum
     
     if f>FMAX:
         f = FMAX
