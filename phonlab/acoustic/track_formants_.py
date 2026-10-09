@@ -646,7 +646,7 @@ def IFC_process_frame(x,fs, spkr,f0_range,filterbank):
         oldFs = np.array([f1, f2, f3, f4])    
         
     # track pitch
-    f0,c = track_pitch(y,fs,oldFs,params[spkr]["bws"],f0_range)  # use final estimate formants in pitch tracking
+    f0,c = track_pitch(y,fs,oldFs,np.array((b1, b2, b3, b4)),f0_range)  # use final estimate formants (and their bandwidths) in pitch tracking
 
     return np.round([f1,f2,f3,f4,f0,c],3)
 
@@ -844,7 +844,7 @@ def _ifc_frame(x, fs, fr, bws, upper_fs, upper_bws, du1, du2, spkr, th, tl, r12,
         f1, f2, f3, f4 = _sort4(f1, f2, f3, f4)
 
     # track pitch: inverse filter with the final formant estimates, autocorrelation peak in [th, tl)
-    g = _inv_cascade(y, np.array((f1, f2, f3, f4)), bws[:4], fs)
+    g = _inv_cascade(y, np.array((f1, f2, f3, f4)), np.array((b1, b2, b3, b4)), fs)
     n = g.shape[0]
     ac0 = 0.0
     for j in range(n):
