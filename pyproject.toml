@@ -13,15 +13,16 @@ requires-python = ">=3.10"
 dynamic = ["version"]
 
 dependencies = [
-    'numpy',
+    'numpy>=2.2',
+    'lazy_loader',
     'nitime',
-    'matplotlib',
-    'scipy',
-    'srt',
-    'colorednoise',
-    'pandas',
-    'librosa',
-    'praat-parselmouth',
+    'matplotlib>=3.10',
+    'scipy>=1.15',
+    'srt>=3.5',
+    'colorednoise>=2.2',
+    'pandas>=2.2',
+    'librosa>=0.10',
+    'praat-parselmouth>=0.4.5',
     'numba'
 ]
 classifiers = [
@@ -54,4 +55,4 @@ packages = [
 version = {attr="phonlab.__version__"}
 
 [tool.setuptools.package-data]
-phonlab = ['*.txt', 'data/noise/*.wav', 'data/example_audio/*']
+phonlab = ['*.txt', 'py.typed', 'data/noise/*.wav', 'data/example_audio/*']

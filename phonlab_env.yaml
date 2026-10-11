@@ -14,6 +14,7 @@ dependencies:
   - librosa=0.10
   - srt=3.5
   - scikit-learn=1.7
+  - lazy_loader
   - numba
   - pip
   - pip:
