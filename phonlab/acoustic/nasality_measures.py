@@ -126,7 +126,9 @@ Example
     '''    
     top_freq = target_fs//2
     
-    x,fs = prep_audio(x, fs, target_fs=target_fs, pre=preemphasis, quiet=not verbose)  # resample to target_fs
+    x,fs = prep_audio(x, fs, target_fs=target_fs, 
+                      pre=preemphasis, 
+                      quiet=not verbose)  # resample to target_fs
 
     # -------- get acoustic spectra -----------------
     if acoustic_spectrum == "FFT":
