@@ -129,6 +129,12 @@ def test_formant_trackers_find_known_formants():
     assert mid["F2"].median() == pytest.approx(1200, rel=0.1)
 
 
+def test_track_formants_rejects_unknown_method():
+    x, fs = _vowelish()
+    with pytest.raises(ValueError, match="unknown method 'rlpc'"):
+        phon.track_formants(x, fs, method="rlpc", quiet=True)
+
+
 def test_get_rms_columns_and_length():
     x, fs = _vowelish()
     df = phon.get_rms(x, fs, s=0.005)
