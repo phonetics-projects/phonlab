@@ -3,7 +3,7 @@ from scipy.signal import windows
 from numpy.lib.stride_tricks import sliding_window_view
 
 
-def compute_mt_sgram(x, fs, w=0.008, s=0.001, NW=4, order=13, low_bias=True, scale='psd'):
+def compute_mt_sgram(x, fs, w=0.008, s=0.001, NW=4, order=12, low_bias=True, scale='psd'):
     """Compute a multitaper spectrogram from an input waveform array of samples.
 
     This is a multitaper version of `compute_sgram()`.  In each analysis frame the (mean-removed) audio is multiplied by each of a set of orthogonal Slepian (DPSS) tapers, computed with `scipy.signal.windows.dpss()`, and the power spectra of the tapered frames are averaged, weighted by the eigenvalue (spectral concentration) of each taper.  This gives a low-variance spectral estimate from a short window.

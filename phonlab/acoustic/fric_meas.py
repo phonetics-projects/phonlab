@@ -123,7 +123,7 @@ def _measure(spec, freq, fspace):
     )
 
 
-def fricative(x,fs,t,w=0.02,NW=4,order=None):
+def fricative(x,fs,t,w=0.02,NW=4,order=12):
     """
     Measure fricative acoustic values, from a window (20 ms by default) centered on time `t`.
 
@@ -145,8 +145,8 @@ Parameters
         the length (in seconds) of the analysis window, centered on `t`.
     NW : float, default = 4
         the time-bandwidth product of the multitaper analysis.  The bandwidth (smoothness) of the spectrum is 2*NW/`w` Hz (400 Hz with the defaults), and about 2*NW-1 tapers are averaged to stabilize the estimate.  To keep the same smoothness when `w` is changed, scale `NW` in proportion to `w`.
-    order : integer or None, default = None
-        determines the number of points in the FFT of the spectrum (2**`order` points, at least as many as in the window).  The default, `None`, uses no zero padding, so the spectrum has a point every 1/`w` Hz (50 Hz with the default window).  A larger value, such as 12, gives a spectrum with finer frequency spacing (for peak finding), but no more frequency resolution.
+    order : integer or None, default = 12
+        determines the number of points in the FFT of the spectrum (2**`order` points, at least as many as in the window).  The value, `None`, uses no zero padding, so the spectrum has a point every 1/`w` Hz (50 Hz with the default window).  A larger value, such as 12, gives a spectrum with finer frequency spacing (for peak finding), but no more frequency resolution.
 
 
 Returns
