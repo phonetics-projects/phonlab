@@ -6,6 +6,8 @@ Spectrogram/waveform
 .. autofunction:: phonlab.display_wave
 .. autofunction:: phonlab.sgram
 .. autofunction:: phonlab.compute_sgram
+.. autofunction:: phonlab.compute_mt_sgram
+.. autofunction:: phonlab.tandem_spectrum
 .. autofunction:: phonlab.cepstral_smooth
 
 Amplitude Contour
@@ -49,6 +51,7 @@ Voice Quality
 Consonant Features
 ------------------
 .. autofunction:: phonlab.fricative
+.. autofunction:: phonlab.tandem_fric
 .. autofunction:: phonlab.burst
 .. autofunction:: phonlab.nasality
 
