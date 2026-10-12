@@ -1,7 +1,7 @@
-import scipy.optimize.lbfgsb as lbfgsb
+import scipy.optimize as lbfgsb
 import numpy.linalg
 from scipy.fftpack import dct,idct
-from scipy.ndimage.morphology import distance_transform_edt
+from scipy.ndimage import distance_transform_edt
 from random import random 
 import numpy as np
 import numpy.ma as ma

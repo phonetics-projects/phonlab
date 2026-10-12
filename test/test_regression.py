@@ -103,7 +103,7 @@ def _cases():
         "third_octave_bands": lambda: phon.third_octave_bands(),
         "shannon_bands": lambda: phon.shannon_bands(),
         "sine_synth": lambda: phon.sine_synth(
-            phon.track_formants(x, fs, quiet=True)),
+            phon.track_formants(x, fs, quiet=True),x,fs),
         "test_signal_sine": lambda: phon.test_signal("sine"),
         "smoothn": lambda: phon.smoothn(
             np.sin(np.linspace(0, 6, 60))
