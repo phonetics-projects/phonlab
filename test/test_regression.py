@@ -58,6 +58,11 @@ def _fricative(x, fs):
     return list(r)
 
 
+def _tandem_fric(x, fs):
+    r = phon.tandem_fric(x, fs, 0.3)
+    return list(r)
+
+
 def _cases():
     x, fs = _clip()
     xs, _ = _clip(dur=0.4)  # shorter clip for the slow trackers
@@ -78,6 +83,7 @@ def _cases():
         "amplitude_envelope": lambda: phon.amplitude_envelope(x, fs),
         "burst": lambda: phon.burst(x, fs, 0.1, 0.2),
         "fricative": lambda: _fricative(x, fs),
+        "tandem_fric": lambda: _tandem_fric(x, fs),
         "gci_sedreams": lambda: phon.gci_sedreams(x, fs),
         "get_f0": lambda: phon.get_f0(x, fs),
         "get_f0_acd": lambda: phon.get_f0_acd(x, fs),
@@ -131,7 +137,7 @@ def _get_cases():
 @pytest.mark.parametrize("name", [
     "CPP", "compute_cepstrogram", "cepstral_smooth", "DPPT_formants", "HNR",
     "RLPC_formants", "TVLP_formants", "choose_order", "amplitude_envelope",
-    "burst", "fricative", "gci_sedreams", "get_f0", "get_f0_acd",
+    "burst", "fricative", "tandem_fric", "gci_sedreams", "get_f0", "get_f0_acd",
     "get_f0_shs", "get_f0_srh", "get_rms", "h2h1", "lpcresidual",
     "get_rhythm_spectrum", "rhythmogram", "compute_sgram",
     "compute_mel_sgram", "nasality", "track_formants_lpc",

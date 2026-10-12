@@ -9,7 +9,6 @@ dependencies:
   - scipy=1.15
   - matplotlib=3.10
   - seaborn=0.13
-  - nitime=0.11
   - jupyter=1.1
   - librosa=0.10
   - srt=3.5

@@ -15,7 +15,6 @@ dynamic = ["version"]
 dependencies = [
     'numpy>=2.2',
     'lazy_loader',
-    'nitime',
     'matplotlib>=3.10',
     'scipy>=1.15',
     'srt>=3.5',

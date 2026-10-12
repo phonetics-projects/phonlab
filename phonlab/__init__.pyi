@@ -36,10 +36,14 @@ from .acoustic.cepstral import compute_cepstrogram, CPP, cepstral_smooth
 __all__ += ["compute_cepstrogram", 
             "CPP", "cepstral_smooth"]
 
-from .acoustic.fric_meas import hz2bark, bark2hz, fricative
+from .acoustic.multitaper_ import compute_mt_sgram, tandem_spectrum
+__all__ += ["compute_mt_sgram", "tandem_spectrum"]
+
+from .acoustic.fric_meas import hz2bark, bark2hz, fricative, tandem_fric
 __all__ += ["hz2bark", 
             "bark2hz", 
-            "fricative"]
+            "fricative",
+            "tandem_fric"]
 
 from .acoustic.gci import gci_sedreams
 __all__ += ["gci_sedreams"]
