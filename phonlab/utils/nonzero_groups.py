@@ -12,8 +12,8 @@ Parameters
 ----------
 
 a : array_like
-    The one-dimensional array to search. It is converted with ``np.asarray(a).astype(bool)``,
-    so every element that is truthy counts as non-zero (NaN included).
+    The one-dimensional array to search. As in ``np.nonzero()``, every element that is truthy
+    counts as non-zero (NaN included), and the masked elements of a masked array count as zero.
 
 minlen : int, default = 1
     The minimum length of a run. Runs with fewer than **minlen** elements are left out.
@@ -106,9 +106,12 @@ either end of the recording is leading or trailing silence rather than a gap, so
             clean[gap] = True
     df['voiced'] = clean
     '''
+    mask = np.ma.getmask(a)                     # nomask unless `a` is a masked array
     a = np.asarray(a).astype(bool)
     if a.ndim != 1:
         raise ValueError(f'nonzero_groups() expects a one-dimensional array, got {a.ndim} dimensions')
+    if mask is not np.ma.nomask:
+        a &= ~mask                              # masked elements count as zero, as in np.nonzero()
 
     # Pad with False at both ends so that runs touching either end of `a` also produce a
     # transition. The transitions then alternate: start of a run, end of a run, start, end, ...

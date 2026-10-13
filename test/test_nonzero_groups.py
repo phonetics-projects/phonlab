@@ -55,6 +55,28 @@ def test_input_is_coerced_to_bool():
     _assert_runs_equal(phon.nonzero_groups([-2, 0, 3.5]), ([0], [2]))
     # NaN is truthy, so it counts as non-zero.
     _assert_runs_equal(phon.nonzero_groups([np.nan, 0.0, 1.0]), ([0], [2]))
+    # Masked elements count as zero, and the input is not modified.
+    m = np.ma.array([0, 1, 1, 0, 2], mask=[0, 0, 1, 0, 0])
+    _assert_runs_equal(phon.nonzero_groups(m), ([1], [4]))
+    assert m.data.tolist() == [0, 1, 1, 0, 2]
+
+
+@pytest.mark.parametrize('a', [
+    np.array([0, 3, -2, 0, 7]),
+    np.array([0.0, -0.0, 1e-300, 5e-324, np.nan, np.inf, -np.inf]),
+    np.array([0 + 0j, 0 + 1j, 1 + 0j, 0j]),
+    np.array(['', 'a', ' ', '0', '']),
+    np.array([None, 0, [], 'x', 0.0, [0], '', 1, {}, {'a': 1}], dtype=object),
+    np.array(['NaT', '1970-01-01', '2000-01-01'], dtype='datetime64[s]'),
+    np.array([0, 1, 'NaT'], dtype='timedelta64[s]'),
+    pd.Series([0.0, np.nan, 1.0, 0.0, 2.0]),
+    np.ma.array([1, 1, 0, 1, 1], mask=[0, 1, 0, 0, 1]),
+    np.ma.array([1, 1], mask=[1, 1]),
+], ids=lambda a: str(getattr(a, 'dtype', type(a).__name__)) + ('/masked' if np.ma.isMaskedArray(a) else ''))
+def test_counts_the_same_elements_as_np_nonzero(a):
+    runs = phon.nonzero_groups(a)
+    got = np.concatenate(runs) if runs else np.array([], dtype=int)
+    np.testing.assert_array_equal(got, np.nonzero(a)[0])
 
 
 def test_runs_index_the_input():
