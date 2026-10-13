@@ -108,8 +108,10 @@ def test_containing():
     assert phon.nonzero_groups(A, containing=3) == ()
     assert phon.nonzero_groups(A, containing=[0, 5, 6]) == ()
     assert phon.nonzero_groups(A, containing=-len(A)) == ()
-    assert phon.nonzero_groups(A, containing=[]) == ()
-    assert phon.nonzero_groups([], containing=[]) == ()
+    with pytest.warns(UserWarning, match='empty'):
+        assert phon.nonzero_groups(A, containing=[]) == ()
+    with pytest.warns(UserWarning, match='empty'):
+        assert phon.nonzero_groups([], containing=[]) == ()
 
 
 def test_minlen_and_containing_apply_together():
@@ -151,6 +153,6 @@ def test_matches_reference_on_random_input():
         elif r < 0.6:
             containing = int(rng.integers(-n, n))                      # in bounds, negatives included
         else:
-            containing = rng.integers(-n, n, size=rng.integers(0, 6)).tolist()
+            containing = rng.integers(-n, n, size=rng.integers(1, 6)).tolist()
         _assert_runs_equal(phon.nonzero_groups(a, minlen=minlen, containing=containing),
                            _reference(a, minlen=minlen, containing=containing))

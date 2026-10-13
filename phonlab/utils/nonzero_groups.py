@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 
 
@@ -22,7 +24,8 @@ containing : int or array_like of int, default = None
     One or more indexes into **a**. If given, only the runs that contain at least one of these
     indexes are returned. The indexes must be integers; as in numpy indexing, a negative index
     counts from the end of **a**, and an index outside **a** raises IndexError. An index that
-    falls on a zero element matches no run. **minlen** is applied as well.
+    falls on a zero element matches no run, and so does an empty list or array, with a warning.
+    **minlen** is applied as well.
 
 Returns
 -------
@@ -122,7 +125,10 @@ either end of the recording is leading or trailing silence rather than a gap, so
     keep = (stops - starts) >= minlen
     if containing is not None:
         idx = np.asarray(containing).reshape(-1)
-        if idx.size and not np.issubdtype(idx.dtype, np.integer):
+        if idx.size == 0:
+            warnings.warn('nonzero_groups: no runs returned because `containing` was passed an empty '
+                          'list or array', stacklevel=2)
+        elif not np.issubdtype(idx.dtype, np.integer):
             raise TypeError(f'containing must be an integer index or indexes, got dtype {idx.dtype}')
         out_of_bounds = (idx < -a.size) | (idx >= a.size)
         if out_of_bounds.any():
