@@ -20,9 +20,9 @@ minlen : int, default = 1
 
 containing : int or array_like of int, default = None
     One or more indexes into **a**. If given, only the runs that contain at least one of these
-    indexes are returned. The indexes must be integers and non-negative; an index that is
-    outside **a**, or that falls on a zero element, matches no run. **minlen** is applied as
-    well.
+    indexes are returned. The indexes must be integers; as in numpy indexing, a negative index
+    counts from the end of **a**, and an index outside **a** raises IndexError. An index that
+    falls on a zero element matches no run. **minlen** is applied as well.
 
 Returns
 -------
@@ -79,12 +79,12 @@ To write the stretches to a TextGrid tier, put their times in a dataframe and us
                   outfile='im_twelve_voicing.TextGrid')
 
 **containing** finds the voiced stretch around a landmark such as a vowel midpoint from a
-TextGrid. Convert the time to a frame index first. The result is empty if the landmark falls on
-an unvoiced frame, as it does in the middle of a voiceless stop:
+TextGrid. Convert the time to the index of the nearest frame first. The result is empty if the
+landmark falls on an unvoiced frame, as it does in the middle of a voiceless stop:
 
 .. code-block:: Python
 
-    i = np.searchsorted(df.sec, 0.487)                  # the frame at 0.487 s, in the vowel of 'twelve'
+    i = np.argmin(np.abs(df.sec - 0.487))               # the frame nearest 0.487 s, in the vowel of 'twelve'
     runs = phon.nonzero_groups(df.voiced, containing=i)
     if runs:
         run = runs[0]
@@ -124,6 +124,10 @@ either end of the recording is leading or trailing silence rather than a gap, so
         idx = np.asarray(containing).reshape(-1)
         if idx.size and not np.issubdtype(idx.dtype, np.integer):
             raise TypeError(f'containing must be an integer index or indexes, got dtype {idx.dtype}')
+        out_of_bounds = (idx < -a.size) | (idx >= a.size)
+        if out_of_bounds.any():
+            raise IndexError(f'containing: index {idx[out_of_bounds][0]} is out of bounds for an array of size {a.size}')
+        idx = np.where(idx < 0, idx + a.size, idx)
         # The run that contains each index, if any: the last run that starts at or before the
         # index, provided that run has not ended yet.
         k = np.searchsorted(starts, idx, side='right') - 1

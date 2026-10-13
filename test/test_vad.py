@@ -58,7 +58,7 @@ def test_voiced_runs_follow_the_textgrid(im12):
     assert 3 <= len(runs) <= 8 and all(len(r) >= 4 for r in runs)
     # Each vowel midpoint lies in exactly one voiced run; the middle of a voiceless stop lies in none.
     for _, p in phones.iterrows():
-        i = np.searchsorted(df.sec, (p.t1 + p.t2) / 2)
+        i = np.argmin(np.abs(df.sec - (p.t1 + p.t2) / 2))     # the frame nearest the midpoint
         n = len(phon.nonzero_groups(df.voiced, containing=i))
         if p.phone in ('ay', 'eh', 'iy', 'aa', 'aw'):
             assert n == 1, p.phone

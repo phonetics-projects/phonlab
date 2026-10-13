@@ -18,7 +18,7 @@ def _reference(a, minlen=1, containing=None):
             runs.append(list(range(start, i)))
             start = None
     if containing is not None:
-        wanted = set(np.atleast_1d(containing).tolist())
+        wanted = {i if i >= 0 else i + len(a) for i in np.atleast_1d(containing).tolist()}
         runs = [r for r in runs if wanted & set(r)]
     return tuple(np.array(r, dtype=np.intp) for r in runs if len(r) >= minlen)
 
@@ -101,13 +101,15 @@ def test_containing():
     _assert_runs_equal(phon.nonzero_groups(A, containing=[4, 8]), ([4], [7, 8, 9]))
     _assert_runs_equal(phon.nonzero_groups(A, containing=np.array([1, 2])), ([1, 2],))
     _assert_runs_equal(phon.nonzero_groups(A, containing=[1, 9, 9]), ([1, 2], [7, 8, 9]))
-    # Indexes on zero elements, outside the array, negative, or none at all match no run.
+    # Negative indexes count from the end, as in numpy.
+    _assert_runs_equal(phon.nonzero_groups(A, containing=-1), ([7, 8, 9],))
+    _assert_runs_equal(phon.nonzero_groups(A, containing=[-6, -len(A)]), ([4],))
+    # Indexes on zero elements, or no indexes at all, match no run.
     assert phon.nonzero_groups(A, containing=3) == ()
     assert phon.nonzero_groups(A, containing=[0, 5, 6]) == ()
-    assert phon.nonzero_groups(A, containing=len(A)) == ()
-    assert phon.nonzero_groups(A, containing=-1) == ()
+    assert phon.nonzero_groups(A, containing=-len(A)) == ()
     assert phon.nonzero_groups(A, containing=[]) == ()
-    assert phon.nonzero_groups([], containing=0) == ()
+    assert phon.nonzero_groups([], containing=[]) == ()
 
 
 def test_minlen_and_containing_apply_together():
@@ -120,6 +122,14 @@ def test_containing_must_be_integer():
         phon.nonzero_groups(A, containing=1.5)
     with pytest.raises(TypeError):
         phon.nonzero_groups(A, containing=[True, False])
+
+
+def test_containing_out_of_bounds_raises():
+    for bad in (len(A), -len(A) - 1, [1, 99], [-99, 1], np.array([len(A)])):
+        with pytest.raises(IndexError):
+            phon.nonzero_groups(A, containing=bad)
+    with pytest.raises(IndexError):
+        phon.nonzero_groups([], containing=0)
 
 
 def test_input_must_be_one_dimensional():
@@ -136,11 +146,11 @@ def test_matches_reference_on_random_input():
         a = rng.random(n) < rng.random()
         minlen = int(rng.integers(0, 5))
         r = rng.random()
-        if r < 0.4:
+        if r < 0.4 or n == 0:
             containing = None
         elif r < 0.6:
-            containing = int(rng.integers(-2, n + 3))
+            containing = int(rng.integers(-n, n))                      # in bounds, negatives included
         else:
-            containing = rng.integers(-2, n + 3, size=rng.integers(0, 6)).tolist()
+            containing = rng.integers(-n, n, size=rng.integers(0, 6)).tolist()
         _assert_runs_equal(phon.nonzero_groups(a, minlen=minlen, containing=containing),
                            _reference(a, minlen=minlen, containing=containing))
