@@ -18,7 +18,8 @@ a : array_like
     counts as non-zero (NaN included), and the masked elements of a masked array count as zero.
 
 minlen : int, default = 1
-    The minimum length of a run. Runs with fewer than **minlen** elements are left out.
+    The minimum length of a run. Runs with fewer than **minlen** elements are left out. Must be
+    a non-negative integer; 0 (or 1) keeps every run.
 
 containing : int or array_like of int, default = None
     One or more indexes into **a**. If given, only the runs that contain at least one of these
@@ -110,6 +111,10 @@ either end of the recording is leading or trailing silence rather than a gap, so
             clean[gap] = True
     df['voiced'] = clean
     '''
+    if isinstance(minlen, bool) or not isinstance(minlen, (int, np.integer)):
+        raise TypeError(f'minlen must be an integer, got {minlen!r}')
+    if minlen < 0:
+        raise ValueError(f'minlen must be non-negative, got {minlen}')
     mask = np.ma.getmask(a)                     # nomask unless `a` is a masked array
     a = np.asarray(a).astype(bool)
     if a.ndim != 1:

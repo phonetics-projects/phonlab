@@ -123,6 +123,15 @@ def test_containing():
         assert phon.nonzero_groups([], containing=[]) == ()
 
 
+def test_minlen_must_be_a_non_negative_integer():
+    for bad in (2.5, 2.0, None, '2', True):
+        with pytest.raises(TypeError):
+            phon.nonzero_groups(A, minlen=bad)
+    with pytest.raises(ValueError):
+        phon.nonzero_groups(A, minlen=-1)
+    _assert_runs_equal(phon.nonzero_groups(A, minlen=np.int64(3)), ([7, 8, 9],))
+
+
 def test_minlen_and_containing_apply_together():
     _assert_runs_equal(phon.nonzero_groups(A, minlen=2, containing=[4, 8]), ([7, 8, 9],))
     assert phon.nonzero_groups(A, minlen=2, containing=4) == ()
