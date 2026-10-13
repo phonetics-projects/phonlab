@@ -33,7 +33,8 @@ Returns
 runs : tuple of arrays
     The indexes into **a** of each run of consecutive non-zero elements, in order. The array
     for a run that occupies ``a[start:stop]`` is ``np.arange(start, stop)``. The tuple is empty
-    if there are no runs.
+    if there are no runs. The indexes are positions, not labels: for a pandas Series use them
+    with ``.iloc``, or convert them with ``a.index[run]``.
 
 Examples
 --------
@@ -54,8 +55,8 @@ Examples
 a boolean **voiced** column and the time at the middle of the frame in **sec**. The runs of voiced
 frames are the voiced stretches of the recording. A frame or two of voicing inside a voiceless
 stop is common, so **minlen** is a convenient filter; here it drops stretches shorter than 20 ms
-(4 frames). The indexes in a run are row numbers of the dataframe, and the interval a run covers
-extends half a frame step before its first frame and after its last one:
+(4 frames). The indexes in a run are row positions of the dataframe (so ``.iloc``), and the
+interval a run covers extends half a frame step before its first frame and after its last one:
 
 .. code-block:: Python
 
@@ -63,7 +64,7 @@ extends half a frame step before its first frame and after its last one:
     df = phon.VAD(x, fs)
     runs = phon.nonzero_groups(df.voiced, minlen=4)
     for run in runs:
-        print(f'voiced {df.sec[run[0]] - 0.0025:.3f}-{df.sec[run[-1]] + 0.0025:.3f} s')
+        print(f'voiced {df.sec.iloc[run[0]] - 0.0025:.3f}-{df.sec.iloc[run[-1]] + 0.0025:.3f} s')
     # voiced 0.023-0.253 s
     # voiced 0.352-0.797 s
     # voiced 0.998-1.297 s
@@ -75,8 +76,8 @@ To write the stretches to a TextGrid tier, put their times in a dataframe and us
 
 .. code-block:: Python
 
-    voicing = pd.DataFrame({'t1': [df.sec[run[0]] - 0.0025 for run in runs],
-                            't2': [df.sec[run[-1]] + 0.0025 for run in runs],
+    voicing = pd.DataFrame({'t1': [df.sec.iloc[run[0]] - 0.0025 for run in runs],
+                            't2': [df.sec.iloc[run[-1]] + 0.0025 for run in runs],
                             'voicing': 'voiced'})
     phon.df_to_tg(voicing, 'voicing', end=len(x) / fs, fmt='0.4f',
                   outfile='im_twelve_voicing.TextGrid')
@@ -91,7 +92,7 @@ landmark falls on an unvoiced frame, as it does in the middle of a voiceless sto
     runs = phon.nonzero_groups(df.voiced, containing=i)
     if runs:
         run = runs[0]
-        print(f'in a voiced stretch from {df.sec[run[0]]:.3f} to {df.sec[run[-1]]:.3f} s')
+        print(f'in a voiced stretch from {df.sec.iloc[run[0]]:.3f} to {df.sec.iloc[run[-1]]:.3f} s')
     # in a voiced stretch from 0.355 to 0.795 s
 
 To clean up the decision itself, drop the short voiced stretches and then bridge the short gaps

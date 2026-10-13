@@ -79,6 +79,15 @@ def test_counts_the_same_elements_as_np_nonzero(a):
     np.testing.assert_array_equal(got, np.nonzero(a)[0])
 
 
+def test_series_runs_are_positions_not_labels():
+    s = pd.Series([0, 1, 1, 0, 1], index=[10, 20, 30, 40, 50])
+    runs = phon.nonzero_groups(s)
+    _assert_runs_equal(runs, ([1, 2], [4]))
+    for run in runs:
+        assert s.iloc[run].all()
+    assert s.index[runs[0]].tolist() == [20, 30]
+
+
 def test_runs_index_the_input():
     a = np.random.RandomState(0).rand(200) > 0.5
     runs = phon.nonzero_groups(a)
