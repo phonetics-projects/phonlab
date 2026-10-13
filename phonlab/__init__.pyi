@@ -158,4 +158,7 @@ __all__ += ["smoothn"]
 from .utils.smooth1d_ import smooth1d
 __all__ += ["smooth1d"]
 
+from .utils.nonzero_groups import nonzero_groups
+__all__ += ["nonzero_groups"]
+
 

@@ -7,3 +7,4 @@ Utility
 .. autofunction:: phonlab.smoothn
 .. autofunction:: phonlab.smooth1d
 .. autofunction:: phonlab.align_timeseries
+.. autofunction:: phonlab.nonzero_groups
