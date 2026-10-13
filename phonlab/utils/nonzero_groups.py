@@ -47,13 +47,64 @@ Examples
     phon.nonzero_groups(a, containing=[4, 8])
     # (array([4]), array([7, 8, 9]))
 
-Report the stretches of at least 50 ms in a frame-by-frame voicing decision **voiced** that was
-made every 5 ms:
+**Post-processing a voicing decision.** :func:`phonlab.VAD` returns one row per 5 ms frame, with
+a boolean **voiced** column and the time at the middle of the frame in **sec**. The runs of voiced
+frames are the voiced stretches of the recording. A frame or two of voicing inside a voiceless
+stop is common, so **minlen** is a convenient filter; here it drops stretches shorter than 20 ms
+(4 frames). The indexes in a run are row numbers of the dataframe, and the interval a run covers
+extends half a frame step before its first frame and after its last one:
 
 .. code-block:: Python
 
-    for run in phon.nonzero_groups(voiced, minlen=10):
-        print(f'voiced from {run[0] * 0.005:.3f} to {(run[-1] + 1) * 0.005:.3f} s')
+    x, fs = phon.loadsig('im_twelve.wav', chansel=[0])
+    df = phon.VAD(x, fs)
+    runs = phon.nonzero_groups(df.voiced, minlen=4)
+    for run in runs:
+        print(f'voiced {df.sec[run[0]] - 0.0025:.3f}-{df.sec[run[-1]] + 0.0025:.3f} s')
+    # voiced 0.023-0.253 s
+    # voiced 0.352-0.797 s
+    # voiced 0.998-1.297 s
+    # voiced 1.393-1.573 s
+    # voiced 1.643-1.978 s
+
+To write the stretches to a TextGrid tier, put their times in a dataframe and use
+:func:`phonlab.df_to_tg`:
+
+.. code-block:: Python
+
+    voicing = pd.DataFrame({'t1': [df.sec[run[0]] - 0.0025 for run in runs],
+                            't2': [df.sec[run[-1]] + 0.0025 for run in runs],
+                            'voicing': 'voiced'})
+    phon.df_to_tg(voicing, 'voicing', end=len(x) / fs, fmt='0.4f',
+                  outfile='im_twelve_voicing.TextGrid')
+
+**containing** finds the voiced stretch around a landmark such as a vowel midpoint from a
+TextGrid. Convert the time to a frame index first. The result is empty if the landmark falls on
+an unvoiced frame, as it does in the middle of a voiceless stop:
+
+.. code-block:: Python
+
+    i = np.searchsorted(df.sec, 0.487)                  # the frame at 0.487 s, in the vowel of 'twelve'
+    runs = phon.nonzero_groups(df.voiced, containing=i)
+    if runs:
+        run = runs[0]
+        print(f'in a voiced stretch from {df.sec[run[0]]:.3f} to {df.sec[run[-1]]:.3f} s')
+    # in a voiced stretch from 0.355 to 0.795 s
+
+To clean up the decision itself, drop the short voiced stretches and then bridge the short gaps
+between the ones that remain. The gaps are the runs of the negated array; a gap that touches
+either end of the recording is leading or trailing silence rather than a gap, so it is left alone:
+
+.. code-block:: Python
+
+    voiced = df.voiced.to_numpy()
+    clean = np.zeros_like(voiced)
+    for run in phon.nonzero_groups(voiced, minlen=4):     # drop voiced stretches shorter than 20 ms
+        clean[run] = True
+    for gap in phon.nonzero_groups(~clean):                # bridge unvoiced gaps shorter than 20 ms
+        if len(gap) < 4 and gap[0] > 0 and gap[-1] < len(clean) - 1:
+            clean[gap] = True
+    df['voiced'] = clean
     '''
     a = np.asarray(a).astype(bool)
     if a.ndim != 1:
