@@ -104,7 +104,7 @@ def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
     See the example ipython notebook for the code used to generate this figure
 
     .. figure:: images/egg2oq.png
-       :scale: 100 %
+       :scale: 40 %
        :alt: a figure showing acoustic waveform, EGG signal, and calculated OQ and f0
        :align: center
 
