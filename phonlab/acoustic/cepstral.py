@@ -55,15 +55,7 @@ References
     w = windows.hann(frame_length).astype(np.float32)
 
     # workers=-1 lets scipy's fft spread the (fully independent, one per frame) transforms
-    # across all cores instead of computing the whole batch on a single thread; the
-    # maximum/log10/multiply steps write into their input arrays in place (rather than each
-    # allocating a fresh nb x NFFT array) since these arrays are large and this is called on
-    # long recordings with many frames. Working in float32 throughout (x is cast up front, so
-    # rfft's output and everything derived from it stays float32/complex64) roughly halves the
-    # memory traffic of this memory-bandwidth-bound computation, at a precision cost that's
-    # negligible for real cepstral analysis: <0.1 dB off double precision for effectively all
-    # cells, with outliers only at the near-zero clamp floor where log10 is unstable regardless
-    # of precision (nowhere a real cepstral peak would be measured).
+    # across all cores instead of computing the whole batch on a single thread
     mag = np.abs(fft.rfft(w*frames,NFFT,workers=-1))
     np.maximum(mag, np.finfo(mag.dtype).tiny, out=mag)
     np.log10(mag, out=mag)
@@ -132,10 +124,13 @@ The columns in the returned dataframe are for each frame of audio:
 
 Note
 ====
-The default parameter values are an implementation of Hillenbrand and Houde (1996), for the measurement of breathy voice.  
-Lower values of cepstral peak prominence are associated with breathy phonation.  Following H&H, the algorithm 
-uses smoothing both across time and quefrency to improve the identification of the cepstral peak that corresponds to the 
-period of the voicing fundamental.
+The default parameter values are an implementation of
+Hillenbrand and Houde (1996), for the measurement of breathy voice.
+Lower values of cepstral peak prominence are associated with breathy
+phonation, and perhaps non-modal phonation in general.  Following H&H,
+the algorithm can use smoothing both across time and quefrency to
+improve the identification of the cepstral peak that corresponds to
+the period of the voicing fundamental.
 
 
 References
@@ -146,25 +141,25 @@ References
 
 Example
 =======
-This example plots the cepstral peak prominence through the "I'm twelve" example recording.  Note the increase in breathiness (decrease in cpp in each of the first two words "I'm" and "twelve".
+This example plots the cepstral peak prominence in a recording of "the Soviet Union" example recording. Note the decrease in cpp, during the creaky last syllable.
 
 .. code-block:: Python
 
-    example_file = importlib.resources.files('phonlab') / 'data/example_audio/im_twelve.wav'
+    example_file = AUDIO / 'the_soviet_union.wav'
     x,fs = phon.loadsig(example_file,chansel=[0])
 
     cppdf   = phon.CPP(x,fs)
-    cpp,s,_ = phon.smoothn(cppdf.cpp,s=35,isrobust=True)  # smooth the cpp curve
+    cppdf.cpp,s,_ = phon.smooth1d(cppdf.cpp,s=8,isrobust=True)  # smooth the cpp curve
 
-    ret = phon.sgram(x,fs,cmap="Blues") # draw the spectrogram from the array of samples
-    ax2 = ret[0].twinx()
-    ax2.plot(cppdf.sec, cpp, 'r-')
+    ax = phon.sgram(x,fs)[0]                   # draw the spectrogram
+    ax2 = ax.twinx()
+    ax2.plot(cppdf.sec, cppdf.cpp, 'r.')       # add the smoothed cpp curve
     plt.ylabel("Cepstral Peak Prominence (dB)")
-
+    
 .. figure:: images/cpp.png
     :scale: 40 %
     :alt: Spectrogram, with cepstral peak prominence curve overlaid.
-    :align: center  
+    :align: center
 
     '''
     y,fs = prep_audio(x, fs, target_fs=target_fs, pre=0.0, quiet=True)  # resample to 16kHz

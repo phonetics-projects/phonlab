@@ -131,25 +131,6 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
 
        Marking the burst found by `phon.burst()`
 
-    Read a file into an array `x`, track the formant frequencies in the file, use them to produce
-    sine wave speech, and then plot a spectrogram of the resulting signal.
-
-    .. code-block:: Python
-
-        example_file = importlib.resources.files('phonlab') / 'data' / 'example_audio' / 'sf3_cln.wav'
-
-        x,fs = phon.loadsig(example_file, chansel=[0]) 
-        fmtsdf = phon.track_formants(x,fs)    # track the formants
-        x2,fs2 = phon.sine_synth(fmtsdf)     # use the formants to produce sinewave synthesis
-        ax1,f,t,Sxx = phon.sgram(x2,fs2, band="nb", preemph=0)  # plot a spectrogram of it
-
-    .. figure:: images/sine_synth.png
-       :scale: 40 %
-       :alt: a spectrogram of sine-wave synthesis
-       :align: center
-
-       Showing the spectrogram of sine-wave synthesis.
-
     """
     import matplotlib.pyplot as plt
 

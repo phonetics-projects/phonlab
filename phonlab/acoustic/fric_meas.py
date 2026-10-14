@@ -183,10 +183,6 @@ namedtuple :
 Note
 ====
 
-    The multitaper spectrum is not zero padded (it has a point every 1/(window length) Hz, 50 Hz for a 20 ms window).  For a spectrum with finer frequency spacing that is also averaged over several adjacent windows, see `tandem_fric()`.
-
-    The multitaper spectrum is not zero padded (it has a point every 1/`w` Hz, or 50 Hz for the 20 ms window).  For a spectrum with finer frequency spacing that is also averaged over several adjacent windows to make it more stable, see `tandem_fric()`.
-
     The major peaks analysis implemented here draws on ideas from Shadle (2023) and Shadle et al. (2023).   Moments analysis was introduced for analysis of stop release burst spectra by Forrest et al. (1988).
 
 

@@ -28,7 +28,7 @@ _S_DIRECT_MAX = 1e6   # above this the banded system is too ill-conditioned to s
 _BOUND_WARN = 0.1     # warn if the best log10(s) is this close to either bound
 
 
-def smooth1d(y, s=None, isrobust=False, W=None, sd=None, weightstr='bisquare', nS0=10, verbose=False,
+def smooth1d(y, s=None, isrobust=True, W=None, sd=None, weightstr='bisquare', nS0=10, verbose=False,
              s_start=None, s_min=None, s_max=None):
     '''Robust spline smoothing of one-dimensional data.  After Damien Garcia's smoothn.
 
@@ -50,7 +50,7 @@ s : float, default = None
     determined using the generalized cross-validation (GCV) method. If given it must be a positive
     number, and it is used as is (see **s_start** to give a starting guess instead).
 
-isrobust : boolean, default = False
+isrobust : boolean, default = True
     Use the robust algorithm to minimize the influence of outlying data. The data are smoothed,
     outliers are down-weighted based on how far they are from the first smooth, and then the
     data are smoothed again.
@@ -74,26 +74,12 @@ verbose : boolean, default = False
     Print some information about the search for **s**.
 
 s_start : float, default = None
-    A suggested starting value for **s**. Rather than using it as is (like **s**), GCV is used to
-    refine it: the search starts with a local minimization of the GCV score around **s_start**,
-    and moves outward only if the best value is at the edge of the region searched. This skips
-    the coarse search over the whole range of **s**, which saves time when a good guess is
-    known (for example the **s** from a similar signal), and it picks the nearby GCV minimum if
-    there are several. Cannot be combined with **s**. Interpretation: see the table in the Note
-    on the meaning of **s**. For example at 200 Hz sampling (5 ms steps), ``s_start=4`` says to start
-    looking at a smoothness that passes changes slower than about 13 Hz and takes about 30 ms to
-    follow a step.
+    A suggested starting value for **s**. The search for optimal **s** starts with a local
+    minimization of the GCV score around **s_start**,
+    and moves outward only if the best value is at the edge of the region searched.
 
 s_min, s_max : float, default = None
-    Limits on the **s** that is found automatically (the search is confined to s_min <= s <= s_max),
-    for when the unconstrained optimum is not as smooth (or not as responsive) as you need. A
-    larger **s_min** guarantees at least that much smoothing, so that the curve cannot follow
-    changes faster than the corresponding rate in the table below, for example it will not fit
-    brief pitch-doubled stretches. A smaller **s_max** guarantees that the curve can still
-    follow changes at least that fast, which prevents flattening real, rapid movements such as a
-    voice break. Either may be given alone. They cannot be combined with **s**, which is
-    used as is. If the best **s** is at one of these limits no warning is given, because that
-    is what the limit is for.
+    Limits on the **s** that is found automatically (the search is confined to s_min <= s <= s_max).
 
 
 Returns
@@ -154,14 +140,35 @@ Examples
 
 .. code-block:: Python
 
-    x = np.linspace(0,100,2**5)
-    y = np.cos(x/10)+(x/50)**2 + np.random.random_sample(len(x))/2
-    y[[14, 17, 20]] = [2, 2.5, 3]
+    # 1-D example
+    x = np.linspace(0,100,100);
+    y = 100 + np.cos(x/10)*10+(x/13)**2 + np.random.random_sample(len(x))*5;
+    select = [0,1, 32, 33, 34, 35, 36,75,76]
+    y[select] *= 2;  # pitch doubling
 
-    z,s,e = phon.smooth1d(y)                 # Regular smoothing
-    zr,sr,e = phon.smooth1d(y,isrobust=True) # Robust smoothing
+    smooth = 3
 
-    print(f'regular smoothing factor = {s:.3f}, robust smoothing factor = {sr:.3f}')
+    z,s,e = phon.smooth1d(y,s=smooth,isrobust=False); # Regular smoothing
+    zr,sr,e = phon.smooth1d(y,s=smooth); # Robust smoothing
+
+    plt.subplot(121), 
+    plt.plot(x,y,'r.')
+    plt.plot(x,z,'k')
+    plt.title("Smoothed")
+
+    plt.subplot(122)
+    plt.plot(x,y,'r.')
+    plt.plot(x,zr,'k')
+    plt.title("Robust Smoothing")
+
+.. figure:: images/smoothing.png
+       :scale: 40 %
+       :alt: left panel shows regular smoothgin of a cosine corrupted by occasional doubled values, the right panel shows the result of using robust smoothing in smooth1d()
+       :align: center
+
+       Comparing regular smoothing with robust smoothing with pitch doubling in phon.smooth1d()
+
+
     '''
     y = _as_float_vector(y)
     n = len(y)

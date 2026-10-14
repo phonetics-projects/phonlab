@@ -6,21 +6,21 @@ from ..utils.prep_audio_ import prep_audio
 from ..acoustic.sgram_ import compute_sgram
 from ..acoustic.rlpc import RLPC_formants
 from ..acoustic.cepstral import cepstral_smooth
-from ..third_party.robustsmoothing import smoothn
+from ..utils.smooth1d_ import smooth1d
 
 def nasality(x,fs, order=18, analysis_band=(80,2500),  acoustic_spectrum = "CEP",
              smoothing_factor=None, preemphasis=0.96, length=0.04, step=0.005, lift=0.0025, 
              target_fs=12000, slice_time=-1, verbose=False):
 
-    '''This function implements an idea in Johnson (`Acoustic and Auditory Phonetics`) that 
-vowel nasality may be indicated by the spectral cosine difference (SCD) between the LPC spectrum (which assumes non-nasality) and a spectrum with fewer assumptions (a narrow-band FFT or a cepstrally smoothed spectrum).  
+    '''
+This function returns two commonly used measures of vowel nasality: the bandwidth of F1 from the RLPC function, and the difference between the amplitude of the harmonic closest to F1 and the lowest harmonic (A1-H1).
+
+The function also implements an idea in Johnson's `Acoustic and Auditory Phonetics` that vowel nasality may be indicated by the spectral cosine difference (SCD) between the LPC spectrum (which assumes non-nasality) and a spectrum with fewer assumptions (a narrow-band FFT or a cepstrally smoothed spectrum).  
     
 The idea is that because nasality introduces antiformants and/or additional resonant peaks in the spectrum of a vowel, nasalized vowels should have a greater difference between the LPC spectrum and an acoustic spectrum than the SCD we will find in non-nasalized vowels.
 
 In this function phon.RLPC_formants() is used to to produce LPC spectra, phon.compute_sgram() is used to compute narrow-band spectra, and phon.cepstral_smooth() is used to produce cepstrally smoothed spectra. The function then reports the spectral cosine difference (SCD) (in the specified analysis band) between the LPC spectrum and either the cepstrally smoothed acoustic spectrum or the raw (FFT) narrow-band acoustic spectrum. 
-    
-In addition the function returns two commonly used measures of vowel nasality: the bandwidth of F1 from the RLPC function, and the difference between the amplitude of the harmonic closest to F1 and the lowest harmonic. 
-    
+
 Parameters
 ==========
     x : ndarray
@@ -41,11 +41,11 @@ Parameters
         the cepstrally smoothed spectrum seems to be less affected by voice pitch effects.
     smoothing_factor : float, default = None
         If the value of this parameter is less than zero, then no smoothing will be done.  Otherwise this
-        is the `s` parameter to be passed to phon.smoothn() to robustly smooth the data.
-        Note that passing `None` (the default action) will have smoothn() automatically determine a 
+        is the `s` parameter to be passed to phon.smooth1d() to robustly smooth the data.
+        Note that passing `None` (the default action) will have smooth1d() automatically determine a 
         smoothing factor for each trajectory
         and in verbose mode will report the value of the choosen smoothing factor.  
-        See smoothn for more information.
+        See smooth1d for more information.
     preemphasis : float, default = 0.96
         value of a preemphasis factor (0-1).
     length : float, default = 0.04
@@ -123,7 +123,8 @@ Example
         
         Overlaid on a spectrogram are plotted nasality measures SCD (magenta diamonds) and a1h1 (blue dots) for two repetitions of the French minimal pair <bon> and <beau>.  Frequency of F1 is plotted with small white dots.
        
-    '''    
+    '''
+    
     top_freq = target_fs//2
     
     x,fs = prep_audio(x, fs, target_fs=target_fs, 
@@ -190,10 +191,10 @@ Example
     # ------- optionally smooth the data --------------------
     if smoothing_factor is None or smoothing_factor > 0:
         if verbose:
-            print(f"Smoothing with phon.smoothn(): s = {smoothing_factor}")
-        SCD,snas,e = smoothn(SCD, s=smoothing_factor, isrobust=True) # Robust smoothing
-        BW1_nas,sbw1,e = smoothn(fmtdf.BW1, s=smoothing_factor, isrobust=True)
-        a1h1,sa1h1,e = smoothn(a1_minus_h1, s=smoothing_factor, isrobust=True)
+            print(f"Robust smoothing with phon.smooth1d(): s = {smoothing_factor}")
+        SCD,snas,e = smooth1d(SCD, s=smoothing_factor, isrobust=True) # Robust smoothing
+        BW1_nas,sbw1,e = smooth1d(fmtdf.BW1, s=smoothing_factor, isrobust=True)
+        a1h1,sa1h1,e = smooth1d(a1_minus_h1, s=smoothing_factor, isrobust=True)
         if smoothing_factor is None and verbose:
             print(f"  Smoothing factors: ")
             print(f"     {sbw1:.3f} for BW1")

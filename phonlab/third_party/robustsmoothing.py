@@ -76,37 +76,6 @@ D. Garcia (2010) Robust smoothing of gridded data in one and higher dimensions w
 
 D. Garcia (2011) A fast all-in-one method for automated post-processing of PIV data. `Exp Fluids`, **50** , 1247-1259. http://www.biomecardio.com/publis/expfluids11.pdf
 
-Examples
---------
-
-.. code-block:: Python
-
-    x = np.linspace(0,100,2**5);
-    y = np.cos(x/10)+(x/50)**2 + np.random.random_sample(len(x))/2;
-    y[[14, 17, 20]] = [2, 2.5, 3];
-
-    z,s,e = phon.smoothn(y); # Regular smoothing
-    zr,sr,e = phon.smoothn(y,isrobust=True); # Robust smoothing
-
-    print(f'regular smoothing factor = {s:.3f}, robust smoothing factor = {sr:.3f}')
-
-    plt.subplot(121), 
-    plt.plot(x,y,'r.')
-    plt.plot(x,z,'k')
-    plt.title("Smoothed")
-
-    plt.subplot(122)
-    plt.plot(x,y,'r.')
-    plt.plot(x,zr,'k')
-    plt.title("Robust Smoothing")
-
-.. figure:: images/smoothing.png
-       :scale: 40 %
-       :alt: left panel shows a noisy cosine with regular smoothing, right panel shows the result of using robust smoothing in smoothn()
-       :align: center
-
-       Comparing regular smoothing with robust smoothing with missing data and outliers in phon.smoothn()
-
     ''' 
 
     smoothOrder=2.0  # used in calculating Lambda tensor
