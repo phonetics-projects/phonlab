@@ -75,12 +75,12 @@ This example adds white noise at a signal-to-noise ratio (SNR) of 3 dB
 
 .. code-block:: Python
 
-     x,fs = phon.loadsig("sf3_cln.wav",chansel=[0])
-     y,fs = phon.add_noise(x,fs,"white",snr=3)
+     x,fs = phon.loadsig("imtwelve.wav",chansel=[0])
+     x,fs = phon.add_noise(x,fs,"white",snr=0)
      phon.sgram(x,fs)
 
 .. figure:: images/add_noise.png
-   :scale: 90 %
+   :scale: 50 %
    :alt: a spectrogram a speech sample buried in white noise
    :align: center
 
