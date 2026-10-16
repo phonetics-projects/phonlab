@@ -178,7 +178,7 @@ Example
     # ----------- measure a1h1 ---------------------- 
     a1_minus_h1 = np.zeros(Lxx.shape[1])
     for idx in range(Lxx.shape[1]):
-        if fmtdf.F1[idx]==0:
+        if np.isnan(fmtdf.F1[idx]) or fmtdf.F1[idx]<=0:  # no F1 in this frame
             a1_minus_h1[idx] = np.nan
         else:
             peaksep = int(50//fstep)  # number of steps in xx Hz
