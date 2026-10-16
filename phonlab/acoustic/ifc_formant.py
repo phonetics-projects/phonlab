@@ -302,10 +302,10 @@ def _ifc_amplitude_ratios(X, fs, spkr):
     return np.array((r12, r23, r34))
 
 
-def IFC_formant(x, fs, preemphasis = 0.94, speaker = 0, parallel = True, quiet = False):
+def IFC_formants(x, fs, preemphasis = 0.94, speaker = 0, parallel = True, quiet = False):
     """Computes vowel formant values in audio of speech using the Inverse Filter Control method.
 
-The function uses the Watenabe/Ueda Inverse Filter Control (IFC) method of vowel formant tracking (Watenabe, 2001; Ueda et al., 2007) to estimate the first four vowel formants (the resonant frequencies of the vocal tract) in 20 ms frames at 10 ms intervals.  The method can be quite a bit more accurate than LPC, but is also substantially slower.  The analysis of the frames is accelerated by numba just in time (JIT) compilation into machine code, and the frames are analyzed in parallel on all available cores.  Therefore, the first call to `IFC_formant()` will be slower than subsequent calls, because of the time needed to compile (or load from the cache) the compiled functions.
+The function uses the Watenabe/Ueda Inverse Filter Control (IFC) method of vowel formant tracking (Watenabe, 2001; Ueda et al., 2007) to estimate the first four vowel formants (the resonant frequencies of the vocal tract) in 20 ms frames at 10 ms intervals.  The method can be quite a bit more accurate than LPC, but is also substantially slower.  The analysis of the frames is accelerated by numba just in time (JIT) compilation into machine code, and the frames are analyzed in parallel on all available cores.  Therefore, the first call to `IFC_formants()` will be slower than subsequent calls, because of the time needed to compile (or load from the cache) the compiled functions.
 
 The function only measures formants.  For f0, voicing, and amplitude see `get_f0()`, `get_rms()`, and related functions.
 
@@ -366,7 +366,7 @@ Use Inverse Filter Control to track formants in a file
 
     example_file = importlib.resources.files('phonlab') / 'data' / 'example_audio' / 'sf3_cln.wav'
     x,fs = phon.loadsig(example_file, chansel=[0])
-    fmtsdf = phon.IFC_formant(x, fs, speaker=1)
+    fmtsdf = phon.IFC_formants(x, fs, speaker=1)
 
     ret = phon.sgram(x,fs, tf=6000, cmap="Reds")  # plot the spectrogram
 
@@ -379,10 +379,10 @@ Use Inverse Filter Control to track formants in a file
 """
 
     if speaker not in (0, 1, 2):
-        raise ValueError(f"IFC_formant(): unknown speaker {speaker!r}; expected 0, 1, or 2")
+        raise ValueError(f"IFC_formants(): unknown speaker {speaker!r}; expected 0, 1, or 2")
 
     if not quiet:
-        print(f"IFC_formant(), with speaker set to {speaker}")
+        print(f"IFC_formants(), with speaker set to {speaker}")
 
     x, fs = prep_audio(x, fs, target_fs = SR, pre = 0, quiet = quiet)  # downsample waveform, no preemphasis
     y, fs = prep_audio(x, fs, pre = preemphasis, target_fs = fs, quiet = True)  # apply preemphasis

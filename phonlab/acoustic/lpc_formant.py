@@ -21,7 +21,7 @@ def _analysis_window(frame_length, fs, l):
 
 
 
-def LPC_formant(x, fs, preemphasis = 0.94, order = -1, max_bw = 800, s = 0.01, l = 0.03, quiet = False):
+def LPC_formants(x, fs, preemphasis = 0.94, order = -1, max_bw = 800, s = 0.01, l = 0.03, quiet = False):
     """Computes vowel formant values in audio of speech using linear predictive coding (LPC).
 
 The function uses the Librosa implemenation of Burg's (1975) method for linear predictive coding and then polynomial root solving of the LPC coefficients to find the vowel formant frequencies (the resonant frequencies of the vocal tract) in overlapping frames (by default 30 ms long, at 10 ms intervals).
@@ -86,7 +86,7 @@ Track formants in a file with LPC analysis, which by default will try to pick th
 
     example_file = importlib.resources.files('phonlab') / 'data' / 'example_audio' / 'sf3_cln.wav'
     x,fs = phon.loadsig(example_file, chansel=[0])
-    fmtsdf = phon.LPC_formant(x, fs)
+    fmtsdf = phon.LPC_formants(x, fs)
 
     ret = phon.sgram(x,fs, tf=6000, cmap="Reds")  # plot the spectrogram
 
@@ -99,15 +99,15 @@ Track formants in a file with LPC analysis, which by default will try to pick th
 """
 
     if s <= 0 or l <= 0:
-        raise ValueError(f"LPC_formant(): s ({s}) and l ({l}) must be positive")
+        raise ValueError(f"LPC_formants(): s ({s}) and l ({l}) must be positive")
 
-    if not quiet: print(f"LPC_formant(), with order set to {order}")
+    if not quiet: print(f"LPC_formants(), with order set to {order}")
 
     x, fs = prep_audio(x, fs, target_fs = SR, pre = 0, quiet = quiet)  # downsample, no preemphasis
     frame_length = int(fs*l)  # samples in a frame
     step = int(fs*s)          # number of samples between frames
     if len(x) < frame_length:
-        raise ValueError(f"LPC_formant(): audio is shorter than one {frame_length}-sample frame")
+        raise ValueError(f"LPC_formants(): audio is shorter than one {frame_length}-sample frame")
 
     if (preemphasis > 0): y = np.append(x[0], x[1:] - preemphasis * x[:-1])  # now apply pre-emphasis
     else: y = x

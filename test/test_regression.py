@@ -174,11 +174,11 @@ def test_golden(name, request):
             assert (got == exp).all(), f"{k} differs"
 
 
-def test_ifc_formant_matches_track_formants_golden():
-    """IFC_formant() must reproduce the formants stored for track_formants(method='ifc')
+def test_ifc_formants_matches_track_formants_golden():
+    """IFC_formants() must reproduce the formants stored for track_formants(method='ifc')
     (same clip, same frames); its output has no rms/f0/c columns."""
     x, fs = _clip()
-    df = phon.IFC_formant(x, fs, preemphasis=1.0, quiet=True)  # the preemphasis track_formants() uses
+    df = phon.IFC_formants(x, fs, preemphasis=1.0, quiet=True)  # the preemphasis track_formants() uses
     assert list(df.columns) == ["sec", "F1", "F2", "F3", "F4"]
     with np.load(GOLDEN / "track_formants_ifc.npz", allow_pickle=True) as g:
         for c in df.columns:
@@ -188,20 +188,20 @@ def test_ifc_formant_matches_track_formants_golden():
                                        err_msg=c)
 
 
-def test_lpc_formant_matches_track_formants_golden(monkeypatch):
-    """LPC_formant() must reproduce the formants stored for track_formants() with its default
+def test_lpc_formants_matches_track_formants_golden(monkeypatch):
+    """LPC_formants() must reproduce the formants stored for track_formants() with its default
     LPC method (same clip, same frames, which needs the parameters that
     track_formants() uses: preemphasis 1.0, 20 ms Hamming windowed frames); its output has no rms/f0/c columns.
 
     track_formants() counted real roots of the LPC polynomial as formants at 0 Hz or fs/2
-    (6000 Hz); LPC_formant() does not.  Frames where the stored snapshot has such a formant
+    (6000 Hz); LPC_formants() does not.  Frames where the stored snapshot has such a formant
     are compared only for having none in the new output."""
     import scipy.signal
     from phonlab.acoustic import lpc_formant
     monkeypatch.setattr(lpc_formant, "_analysis_window",
                         lambda n, fs, l: scipy.signal.windows.hamming(n))  # the window track_formants() uses
     x, fs = _clip()
-    df = phon.LPC_formant(x, fs, preemphasis=1.0, l=0.02, quiet=True)
+    df = phon.LPC_formants(x, fs, preemphasis=1.0, l=0.02, quiet=True)
     with np.load(GOLDEN / "track_formants_lpc.npz", allow_pickle=True) as g:
         fcols = [c[2:] for c in g.files if c[2:] in ("F1", "F2", "F3", "F4")]
         assert list(df.columns) == ["sec"] + fcols + [f"BW{i}" for i in range(1, len(fcols)+1)]

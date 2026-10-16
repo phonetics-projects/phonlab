@@ -214,56 +214,56 @@ def test_interpolate_measures_linear():
     np.testing.assert_allclose(r["v"], [0.75, 1.5], atol=1e-9)
 
 
-def test_ifc_formant_rejects_unknown_speaker():
+def test_ifc_formants_rejects_unknown_speaker():
     x, fs = _vowelish()
     with pytest.raises(ValueError, match="unknown speaker 3"):
-        phon.IFC_formant(x, fs, speaker=3, quiet=True)
+        phon.IFC_formants(x, fs, speaker=3, quiet=True)
 
 
-def test_ifc_formant_serial_matches_parallel():
+def test_ifc_formants_serial_matches_parallel():
     x, fs = _vowelish()
-    a = phon.IFC_formant(x, fs, parallel=True, quiet=True)
-    b = phon.IFC_formant(x, fs, parallel=False, quiet=True)
+    a = phon.IFC_formants(x, fs, parallel=True, quiet=True)
+    b = phon.IFC_formants(x, fs, parallel=False, quiet=True)
     assert list(a.columns) == ["sec", "F1", "F2", "F3", "F4"]
     pd.testing.assert_frame_equal(a, b)
 
 
-def test_ifc_formant_too_short_audio_gives_empty_frame():
-    df = phon.IFC_formant(np.random.RandomState(0).randn(100), 16000, quiet=True)
+def test_ifc_formants_too_short_audio_gives_empty_frame():
+    df = phon.IFC_formants(np.random.RandomState(0).randn(100), 16000, quiet=True)
     assert len(df) == 0 and list(df.columns) == ["sec", "F1", "F2", "F3", "F4"]
 
 
-def test_lpc_formant_finds_known_formants():
+def test_lpc_formants_finds_known_formants():
     x, fs = _vowelish(f0=120)
-    df = phon.LPC_formant(x, fs, quiet=True)
+    df = phon.LPC_formants(x, fs, quiet=True)
     mid = df.iloc[len(df) // 4: -len(df) // 4]
     assert mid["F1"].median() == pytest.approx(700, rel=0.1)
     assert mid["F2"].median() == pytest.approx(1200, rel=0.1)
 
 
-def test_lpc_formant_columns_follow_order():
+def test_lpc_formants_columns_follow_order():
     x, fs = _vowelish()
-    df = phon.LPC_formant(x, fs, order=12, quiet=True)
+    df = phon.LPC_formants(x, fs, order=12, quiet=True)
     assert list(df.columns) == ["sec"] + [f"F{i}" for i in range(1, 6)] + [f"BW{i}" for i in range(1, 6)]
 
 
-def test_lpc_formant_bandwidths_of_known_resonances():
+def test_lpc_formants_bandwidths_of_known_resonances():
     x, fs = _vowelish(f0=120)  # resonators with bandwidths 80 and 90 Hz at 700 and 1200 Hz
-    df = phon.LPC_formant(x, fs, quiet=True)
+    df = phon.LPC_formants(x, fs, quiet=True)
     mid = df.iloc[len(df) // 4: -len(df) // 4]
     assert (mid[["BW1", "BW2", "BW3", "BW4"]] > 0).all().all()
     assert mid["BW1"].median() < 300 and mid["BW2"].median() < 300
 
 
-def test_lpc_formant_too_short_audio_raises():
+def test_lpc_formants_too_short_audio_raises():
     with pytest.raises(ValueError, match="shorter than one"):
-        phon.LPC_formant(np.random.RandomState(0).randn(100), 16000, order=12, quiet=True)
+        phon.LPC_formants(np.random.RandomState(0).randn(100), 16000, order=12, quiet=True)
 
 
-def test_lpc_formant_max_bw_rejects_wide_resonances():
+def test_lpc_formants_max_bw_rejects_wide_resonances():
     x, fs = _vowelish()  # resonators with bandwidths of 80-150 Hz
-    wide = phon.LPC_formant(x, fs, order=12, max_bw=800, quiet=True)
-    narrow = phon.LPC_formant(x, fs, order=12, max_bw=60, quiet=True)
+    wide = phon.LPC_formants(x, fs, order=12, max_bw=800, quiet=True)
+    narrow = phon.LPC_formants(x, fs, order=12, max_bw=60, quiet=True)
     nan_count = lambda d: d.filter(regex=r"^F\d").isna().sum().sum()
     assert nan_count(narrow) > nan_count(wide)
     # bandwidths of the accepted formants never exceed the criterion
@@ -271,26 +271,26 @@ def test_lpc_formant_max_bw_rejects_wide_resonances():
     assert (B.to_numpy()[F.notna().to_numpy()] <= 60).all()
 
 
-def test_lpc_formant_never_reports_real_roots_as_formants():
+def test_lpc_formants_never_reports_real_roots_as_formants():
     x, fs = _vowelish()
     for order in (10, 11, 12, 14):
-        F = phon.LPC_formant(x, fs, order=order, quiet=True).filter(regex=r"^F\d").to_numpy()
+        F = phon.LPC_formants(x, fs, order=order, quiet=True).filter(regex=r"^F\d").to_numpy()
         assert not ((F <= 1) | (F >= 5999)).any()
 
 
-def test_lpc_formant_defaults_and_frame_timing():
+def test_lpc_formants_defaults_and_frame_timing():
     x, fs = _vowelish(dur=1.0)
-    df = phon.LPC_formant(x, fs, order=12, quiet=True)
+    df = phon.LPC_formants(x, fs, order=12, quiet=True)
     # 1 s at 12 kHz, 30 ms frames every 10 ms; sec is the midpoint of each frame
     assert len(df) == (12000 - 360)//120 + 1
     assert df["sec"].iloc[0] == pytest.approx(0.015)
     assert np.diff(df["sec"]).tolist() == pytest.approx([0.01]*(len(df)-1))
-    df2 = phon.LPC_formant(x, fs, order=12, s=0.02, l=0.02, quiet=True)
+    df2 = phon.LPC_formants(x, fs, order=12, s=0.02, l=0.02, quiet=True)
     assert len(df2) == (12000 - 240)//240 + 1
     assert df2["sec"].iloc[0] == pytest.approx(0.01)
 
 
-def test_lpc_formant_window_is_gaussian_and_scales_with_l():
+def test_lpc_formants_window_is_gaussian_and_scales_with_l():
     from phonlab.acoustic.lpc_formant import _analysis_window
     for l in (0.02, 0.03, 0.05):
         n = int(12000 * l)
@@ -302,20 +302,20 @@ def test_lpc_formant_window_is_gaussian_and_scales_with_l():
         assert (w >= 0.5).mean() == pytest.approx(0.52, abs=0.02)    # about as wide as a Hamming window
 
 
-def test_lpc_formant_rejects_bad_times():
+def test_lpc_formants_rejects_bad_times():
     x, fs = _vowelish()
     with pytest.raises(ValueError, match="must be positive"):
-        phon.LPC_formant(x, fs, order=12, s=0, quiet=True)
+        phon.LPC_formants(x, fs, order=12, s=0, quiet=True)
     with pytest.raises(ValueError, match="must be positive"):
-        phon.LPC_formant(x, fs, order=12, l=-0.02, quiet=True)
+        phon.LPC_formants(x, fs, order=12, l=-0.02, quiet=True)
 
 
-def test_ifc_formant_default_preemphasis_is_0_94():
+def test_ifc_formants_default_preemphasis_is_0_94():
     x, fs = _vowelish()
-    pd.testing.assert_frame_equal(phon.IFC_formant(x, fs, quiet=True),
-                                  phon.IFC_formant(x, fs, preemphasis=0.94, quiet=True))
-    assert not phon.IFC_formant(x, fs, preemphasis=1.0, quiet=True).equals(
-        phon.IFC_formant(x, fs, quiet=True))
+    pd.testing.assert_frame_equal(phon.IFC_formants(x, fs, quiet=True),
+                                  phon.IFC_formants(x, fs, preemphasis=0.94, quiet=True))
+    assert not phon.IFC_formants(x, fs, preemphasis=1.0, quiet=True).equals(
+        phon.IFC_formants(x, fs, quiet=True))
 
 
 def test_rlpc_formants_never_reports_real_roots_as_formants():
@@ -332,27 +332,27 @@ def test_rlpc_formants_has_no_window_parameter():
         phon.RLPC_formants(x, fs, window="hamming")
 
 
-def test_lpc_formant_bandwidth_is_nan_where_formant_is_rejected():
+def test_lpc_formants_bandwidth_is_nan_where_formant_is_rejected():
     x, fs = _vowelish()
     for max_bw in (800, 60):
-        df = phon.LPC_formant(x, fs, order=12, max_bw=max_bw, quiet=True)
+        df = phon.LPC_formants(x, fs, order=12, max_bw=max_bw, quiet=True)
         F, B = df.filter(regex=r"^F\d"), df.filter(like="BW")
         assert F.isna().any().any()   # something is rejected, so the test is not vacuous
         np.testing.assert_array_equal(F.isna().to_numpy(), B.isna().to_numpy())
 
 
-def test_lpc_formant_keeps_audio_in_float32():
+def test_lpc_formants_keeps_audio_in_float32():
     from phonlab.acoustic import lpc_formant
     assert lpc_formant._analysis_window(360, 12000, 0.03).dtype == np.float32
 
 
-def test_lpc_formant_float32_window_changes_little(monkeypatch):
+def test_lpc_formants_float32_window_changes_little(monkeypatch):
     from phonlab.acoustic import lpc_formant
     x, fs = _vowelish()
-    df32 = phon.LPC_formant(x, fs, order=12, quiet=True)
+    df32 = phon.LPC_formants(x, fs, order=12, quiet=True)
     w32 = lpc_formant._analysis_window
     monkeypatch.setattr(lpc_formant, "_analysis_window", lambda n, fs, l: w32(n, fs, l).astype(np.float64))
-    df64 = phon.LPC_formant(x, fs, order=12, quiet=True)
+    df64 = phon.LPC_formants(x, fs, order=12, quiet=True)
     np.testing.assert_array_equal(df32.isna().to_numpy(), df64.isna().to_numpy())
     np.testing.assert_allclose(df32.to_numpy(), df64.to_numpy(), rtol=0, atol=1.0, equal_nan=True)
 
