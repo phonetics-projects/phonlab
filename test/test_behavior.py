@@ -316,3 +316,17 @@ def test_ifc_formant_default_preemphasis_is_0_94():
                                   phon.IFC_formant(x, fs, preemphasis=0.94, quiet=True))
     assert not phon.IFC_formant(x, fs, preemphasis=1.0, quiet=True).equals(
         phon.IFC_formant(x, fs, quiet=True))
+
+
+def test_rlpc_formants_never_reports_real_roots_as_formants():
+    x, fs = _vowelish()
+    for order in (10, 11, 12, 14):
+        df, A = phon.RLPC_formants(x, fs, order=order)
+        F = df.filter(regex=r"^F\d").to_numpy()
+        assert not ((F <= 1) | (F >= 5999)).any()
+
+
+def test_rlpc_formants_has_no_window_parameter():
+    x, fs = _vowelish()
+    with pytest.raises(TypeError):
+        phon.RLPC_formants(x, fs, window="hamming")

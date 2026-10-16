@@ -1,6 +1,6 @@
 import numpy as np
 from librosa import util, lpc, frames_to_time
-from scipy.signal import windows, fftconvolve, lfilter
+from scipy.signal import fftconvolve, lfilter
 from scipy.linalg import inv
 from pandas import DataFrame
 from numba import jit
@@ -29,7 +29,7 @@ def weighted_cor(x,weight,npoles):
     return c1[1:npoles+1]
     
 def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC", s = 0.01, 
-                 l = 0.03, window = None, numiter=1, verbose=False):
+                 l = 0.03, numiter=1, verbose=False):
     """An implementation of Lee's (1988) method for Robust Linear Prediction Coding. The method computes the residual signal from a conventional LPC analysis and then uses it to down-weight samples that produce large prediction error. It is possible to iterate the residual reweighting process more than once, though not much improvement is gained after the first iteration.  Formant frequencies are found from the LPC coefficients using polynomial root solving.  A couple of functions called by `RLPC_formants()` are accelerated by the use of numba just in time (JIT) compilation into machine code.  Therefore, the first call to `RLPC_formants()` will be slower (by about 10 ms) than subsequent calls.
 
     Note that unlike other formant analysis functions, this one returns both a dataframe with analysis results and also a 2D matrix with time-varying LPC coefficients.
@@ -50,10 +50,8 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
         If `order` is -1, then use this base ('BIC' or 'coef') in phon.choose_order().
     s : float (default = 0.01)
         the interval (in seconds) between successive formant measurements.
-    l : float (default = 0.05)
-        duration (in seconds) of analysis frames
-    window : string (default = 'cosine')
-        The name of a window shape for scipy.signal.windows.get_window()
+    l : float (default = 0.03)
+        duration (in seconds) of analysis frames.  The frames are not windowed: neither Burg's method, which provides the starting LPC coefficients, nor the weighted covariance method that refines them assumes that the signal is zero outside of the frame, so no window is needed to avoid edge effects.  (Tapering the signal would also interact with the robust sample weights, because it makes the residuals near the edges of a frame small.)
     numiter : integer (default = 1)
         Number of robust LPC iterations to perform.  If this value is 0 the results of the conventional LPC analysis are returned with no robust recalculation of the linear prediction.
     verbose : boolean (default = False)
@@ -71,6 +69,8 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
         * gain - the LPC gain (variance of the residual) for each frame.
         * F1-4 - the lowest four vowel 'formants' - vocal tract resonances.
         * BW1-4 - bandwidths of the vowel formants
+
+    Resonances with a bandwidth wider than 800 Hz are rejected: the formant is NaN (NaN sorts to the end of the frame's formants), though its bandwidth is kept.  Real roots of the LPC polynomial are not resonances and are never counted as formants.  If a frame has fewer resonances than formants, the extra formants and bandwidths are NaN.
 
     References
     ==========
@@ -100,10 +100,6 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
                                hop_length=step, n_fft=frame_length)
     resid = np.zeros_like(frames)
 
-    window = window = 'boxcar' if window is None else window
-    w = windows.get_window(window, Nx=frames.shape[1])
-    frames = frames * w
-
     A = lpc(frames, order=order)  # get conventional lpc coefficients
     nb = A.shape[0]  # the number of frames in the LPC analysis
 
@@ -130,7 +126,7 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
 
     for i in range(nb):  # find formants from LPC coefficients (A) using root solving
         roots = np.roots(A[i,:])  # solve for the roots of the polynomial
-        roots = roots[np.imag(roots)>=0]  # only keep the positive ones
+        roots = roots[np.imag(roots)>0]  # only keep one of each conjugate pair; real roots are not resonances
         fr = np.angle(roots) *  fs/(2 * np.pi)  # calculate formant frequencies from them
         bw = -(fs/(np.pi)) * np.log(abs(roots)) # calculate bandwidths from them
         resid[i] = lfilter(A[i], [1.0], frames[i]) # prediction error
@@ -141,8 +137,11 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
         fr = fr[s]  # sort the formants from lowest to highest
         bw = bw[s]  # use the same sort order with the bandwidth array
 
-        formants[i,:] = fr[:nf]  
-        bandwidths[i,:] = bw[:nf]
+        n = min(nf, len(fr))  # a frame with several real roots can have fewer than nf resonances
+        formants[i,:] = np.nan
+        bandwidths[i,:] = np.nan
+        formants[i,:n] = fr[:n]
+        bandwidths[i,:n] = bw[:n]
 
     gain = np.std(resid,axis=1,ddof=order)**2
     list = ['sec',] + [f"F{i}" for i in range(1,nf+1)] + [f"BW{i}" for i in range(1,nf+1)] + ['gain']
