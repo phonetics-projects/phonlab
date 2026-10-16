@@ -17,7 +17,7 @@ def _analysis_window(frame_length, fs, l):
     all the way to the ends of the frame (the ends are 2.25 standard deviations from the center,
     where the weight is 0.08) and is about as wide (FWHM 0.52 of the frame) as a Hamming window of
     the same length, but without Hamming's sidelobes.'''
-    return signal.windows.gaussian(frame_length, WINDOW_STD * l * fs, sym=True)
+    return signal.windows.gaussian(frame_length, WINDOW_STD * l * fs, sym=True).astype(np.float32)  # as the audio
 
 
 
@@ -70,7 +70,7 @@ Note
 The columns in the output dataframe are:
     * sec - midpoint time of the frame
     * F1-n - the lowest vowel 'formants' - vocal tract resonances.  The number of formants is (order-2)/2, e.g. F1-F4 for an order of 10 or 11.
-    * BW1-n - the bandwidths (Hz) of the formants F1-n, calculated from the radius of the LPC polynomial roots.  If fewer than n resonances have a bandwidth below the wide bandwidth criterion of 800 Hz, the remaining formants are NaN and sort to the end, and their BW values are the (wide) bandwidths of the rejected roots, or NaN if the frame has fewer than n resonances.  Real roots of the LPC polynomial (which have no resonant frequency) are never counted as formants.
+    * BW1-n - the bandwidths (Hz) of the formants F1-n, calculated from the radius of the LPC polynomial roots.  If fewer than n resonances have a bandwidth below `max_bw`, the remaining formants and their bandwidths are NaN.  Real roots of the LPC polynomial (which have no resonant frequency) are never counted as formants.
 
 References
 ==========
@@ -133,7 +133,9 @@ Track formants in a file with LPC analysis, which by default will try to pick th
         fr = np.angle(roots) * fs/(2 * np.pi)  # calculate formant frequencies from them
         bw = -(fs/np.pi) * np.log(abs(roots))  # calculate bandwidths from them
 
-        fr[bw>max_bw] = np.nan  # reject formants with too wide bandwidth, NaN sorts to the end of the array
+        wide = bw>max_bw
+        fr[wide] = np.nan  # reject formants with too wide bandwidth, NaN sorts to the end of the array
+        bw[wide] = np.nan  # and don't report the bandwidth of a rejected formant
         srt = np.argsort(fr)  # get the sort order so you can apply it more than one array
         n = min(nf, len(fr))  # a frame with several real roots can have fewer than nf resonances
         formants[i,:] = np.nan

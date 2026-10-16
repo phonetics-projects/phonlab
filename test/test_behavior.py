@@ -330,3 +330,28 @@ def test_rlpc_formants_has_no_window_parameter():
     x, fs = _vowelish()
     with pytest.raises(TypeError):
         phon.RLPC_formants(x, fs, window="hamming")
+
+
+def test_lpc_formant_bandwidth_is_nan_where_formant_is_rejected():
+    x, fs = _vowelish()
+    for max_bw in (800, 60):
+        df = phon.LPC_formant(x, fs, order=12, max_bw=max_bw, quiet=True)
+        F, B = df.filter(regex=r"^F\d"), df.filter(like="BW")
+        assert F.isna().any().any()   # something is rejected, so the test is not vacuous
+        np.testing.assert_array_equal(F.isna().to_numpy(), B.isna().to_numpy())
+
+
+def test_lpc_formant_keeps_audio_in_float32():
+    from phonlab.acoustic import lpc_formant
+    assert lpc_formant._analysis_window(360, 12000, 0.03).dtype == np.float32
+
+
+def test_lpc_formant_float32_window_changes_little(monkeypatch):
+    from phonlab.acoustic import lpc_formant
+    x, fs = _vowelish()
+    df32 = phon.LPC_formant(x, fs, order=12, quiet=True)
+    w32 = lpc_formant._analysis_window
+    monkeypatch.setattr(lpc_formant, "_analysis_window", lambda n, fs, l: w32(n, fs, l).astype(np.float64))
+    df64 = phon.LPC_formant(x, fs, order=12, quiet=True)
+    np.testing.assert_array_equal(df32.isna().to_numpy(), df64.isna().to_numpy())
+    np.testing.assert_allclose(df32.to_numpy(), df64.to_numpy(), rtol=0, atol=1.0, equal_nan=True)
