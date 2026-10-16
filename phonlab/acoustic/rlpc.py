@@ -70,7 +70,7 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
         * F1-4 - the lowest four vowel 'formants' - vocal tract resonances.
         * BW1-4 - bandwidths of the vowel formants
 
-    Resonances with a bandwidth wider than 800 Hz are rejected: the formant is NaN (NaN sorts to the end of the frame's formants), though its bandwidth is kept.  Real roots of the LPC polynomial are not resonances and are never counted as formants.  If a frame has fewer resonances than formants, the extra formants and bandwidths are NaN.
+    Resonances with a bandwidth wider than 800 Hz are rejected: the formant and its bandwidth are NaN (NaN sorts to the end of the frame's formants).  Real roots of the LPC polynomial are not resonances and are never counted as formants.  If a frame has fewer resonances than formants, the extra formants and bandwidths are NaN.
 
     References
     ==========
@@ -132,7 +132,9 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
         resid[i] = lfilter(A[i], [1.0], frames[i]) # prediction error
         
         # A wide bandwidth criterion (about 800 Hz) is needed to capture fast moving formants.
-        fr[bw>800] = np.nan  # reject formants with too wide bandwidth, NaN sorts to the end of the array
+        wide = bw>800
+        fr[wide] = np.nan  # reject formants with too wide bandwidth, NaN sorts to the end of the array
+        bw[wide] = np.nan  # and don't report the bandwidth of a rejected formant
         s = np.argsort(fr)  # get the sort order so you can apply it more than one array
         fr = fr[s]  # sort the formants from lowest to highest
         bw = bw[s]  # use the same sort order with the bandwidth array

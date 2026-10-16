@@ -355,3 +355,11 @@ def test_lpc_formant_float32_window_changes_little(monkeypatch):
     df64 = phon.LPC_formant(x, fs, order=12, quiet=True)
     np.testing.assert_array_equal(df32.isna().to_numpy(), df64.isna().to_numpy())
     np.testing.assert_allclose(df32.to_numpy(), df64.to_numpy(), rtol=0, atol=1.0, equal_nan=True)
+
+
+def test_rlpc_formants_bandwidth_is_nan_where_formant_is_rejected():
+    x, fs = _vowelish()
+    df, A = phon.RLPC_formants(x, fs, order=12)
+    F, B = df.filter(regex=r"^F\d"), df.filter(like="BW")
+    np.testing.assert_array_equal(F.isna().to_numpy(), B.isna().to_numpy())
+    assert (B.to_numpy()[F.notna().to_numpy()] <= 800).all()
