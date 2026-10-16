@@ -233,6 +233,83 @@ def test_ifc_formant_too_short_audio_gives_empty_frame():
     assert len(df) == 0 and list(df.columns) == ["sec", "F1", "F2", "F3", "F4"]
 
 
+def test_lpc_formant_finds_known_formants():
+    x, fs = _vowelish(f0=120)
+    df = phon.LPC_formant(x, fs, quiet=True)
+    mid = df.iloc[len(df) // 4: -len(df) // 4]
+    assert mid["F1"].median() == pytest.approx(700, rel=0.1)
+    assert mid["F2"].median() == pytest.approx(1200, rel=0.1)
+
+
+def test_lpc_formant_columns_follow_order():
+    x, fs = _vowelish()
+    df = phon.LPC_formant(x, fs, order=12, quiet=True)
+    assert list(df.columns) == ["sec"] + [f"F{i}" for i in range(1, 6)] + [f"BW{i}" for i in range(1, 6)]
+
+
+def test_lpc_formant_bandwidths_of_known_resonances():
+    x, fs = _vowelish(f0=120)  # resonators with bandwidths 80 and 90 Hz at 700 and 1200 Hz
+    df = phon.LPC_formant(x, fs, quiet=True)
+    mid = df.iloc[len(df) // 4: -len(df) // 4]
+    assert (mid[["BW1", "BW2", "BW3", "BW4"]] > 0).all().all()
+    assert mid["BW1"].median() < 300 and mid["BW2"].median() < 300
+
+
+def test_lpc_formant_too_short_audio_raises():
+    with pytest.raises(ValueError, match="shorter than one"):
+        phon.LPC_formant(np.random.RandomState(0).randn(100), 16000, order=12, quiet=True)
+
+
+def test_lpc_formant_max_bw_rejects_wide_resonances():
+    x, fs = _vowelish()  # resonators with bandwidths of 80-150 Hz
+    wide = phon.LPC_formant(x, fs, order=12, max_bw=800, quiet=True)
+    narrow = phon.LPC_formant(x, fs, order=12, max_bw=60, quiet=True)
+    nan_count = lambda d: d.filter(regex=r"^F\d").isna().sum().sum()
+    assert nan_count(narrow) > nan_count(wide)
+    # bandwidths of the accepted formants never exceed the criterion
+    F, B = narrow.filter(regex=r"^F\d"), narrow.filter(like="BW")
+    assert (B.to_numpy()[F.notna().to_numpy()] <= 60).all()
+
+
+def test_lpc_formant_never_reports_real_roots_as_formants():
+    x, fs = _vowelish()
+    for order in (10, 11, 12, 14):
+        F = phon.LPC_formant(x, fs, order=order, quiet=True).filter(regex=r"^F\d").to_numpy()
+        assert not ((F <= 1) | (F >= 5999)).any()
+
+
+def test_lpc_formant_defaults_and_frame_timing():
+    x, fs = _vowelish(dur=1.0)
+    df = phon.LPC_formant(x, fs, order=12, quiet=True)
+    # 1 s at 12 kHz, 30 ms frames every 10 ms; sec is the midpoint of each frame
+    assert len(df) == (12000 - 360)//120 + 1
+    assert df["sec"].iloc[0] == pytest.approx(0.015)
+    assert np.diff(df["sec"]).tolist() == pytest.approx([0.01]*(len(df)-1))
+    df2 = phon.LPC_formant(x, fs, order=12, s=0.02, l=0.02, quiet=True)
+    assert len(df2) == (12000 - 240)//240 + 1
+    assert df2["sec"].iloc[0] == pytest.approx(0.01)
+
+
+def test_lpc_formant_window_is_gaussian_and_scales_with_l():
+    from phonlab.acoustic.lpc_formant import _analysis_window
+    for l in (0.02, 0.03, 0.05):
+        n = int(12000 * l)
+        w = _analysis_window(n, 12000, l)
+        assert len(w) == n
+        np.testing.assert_allclose(w, w[::-1])                       # symmetric
+        assert w.max() == pytest.approx(1.0, abs=1e-3)
+        assert w[0] == pytest.approx(0.08, abs=0.01)                 # reaches the frame ends
+        assert (w >= 0.5).mean() == pytest.approx(0.52, abs=0.02)    # about as wide as a Hamming window
+
+
+def test_lpc_formant_rejects_bad_times():
+    x, fs = _vowelish()
+    with pytest.raises(ValueError, match="must be positive"):
+        phon.LPC_formant(x, fs, order=12, s=0, quiet=True)
+    with pytest.raises(ValueError, match="must be positive"):
+        phon.LPC_formant(x, fs, order=12, l=-0.02, quiet=True)
+
+
 def test_ifc_formant_default_preemphasis_is_0_94():
     x, fs = _vowelish()
     pd.testing.assert_frame_equal(phon.IFC_formant(x, fs, quiet=True),

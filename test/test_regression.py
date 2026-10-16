@@ -23,6 +23,7 @@ AUDIO = Path(phon.__file__).parent / "data" / "example_audio"
 GOLDEN = Path(__file__).parent / "golden"
 RTOL, ATOL = 1e-4, 1e-6
 MAX_STORED = 2000
+SR_NYQ = 6000  # Nyquist frequency of the 12 kHz formant analyses
 
 
 def _clip(name="sf3_cln.wav", dur=1.0, chansel=(0,)):
@@ -185,3 +186,30 @@ def test_ifc_formant_matches_track_formants_golden():
             assert df[c].shape == exp.shape, f"{c}: shape {df[c].shape} != {exp.shape}"
             np.testing.assert_allclose(df[c].to_numpy(), exp, rtol=RTOL, atol=ATOL,
                                        err_msg=c)
+
+
+def test_lpc_formant_matches_track_formants_golden(monkeypatch):
+    """LPC_formant() must reproduce the formants stored for track_formants() with its default
+    LPC method (same clip, same frames, which needs the parameters that
+    track_formants() uses: preemphasis 1.0, 20 ms Hamming windowed frames); its output has no rms/f0/c columns.
+
+    track_formants() counted real roots of the LPC polynomial as formants at 0 Hz or fs/2
+    (6000 Hz); LPC_formant() does not.  Frames where the stored snapshot has such a formant
+    are compared only for having none in the new output."""
+    import scipy.signal
+    from phonlab.acoustic import lpc_formant
+    monkeypatch.setattr(lpc_formant, "_analysis_window",
+                        lambda n, fs, l: scipy.signal.windows.hamming(n))  # the window track_formants() uses
+    x, fs = _clip()
+    df = phon.LPC_formant(x, fs, preemphasis=1.0, l=0.02, quiet=True)
+    with np.load(GOLDEN / "track_formants_lpc.npz", allow_pickle=True) as g:
+        fcols = [c[2:] for c in g.files if c[2:] in ("F1", "F2", "F3", "F4")]
+        assert list(df.columns) == ["sec"] + fcols + [f"BW{i}" for i in range(1, len(fcols)+1)]
+        np.testing.assert_allclose(df["sec"].to_numpy(), g["r.sec"], rtol=RTOL, atol=ATOL)
+        old = np.column_stack([g[f"r.{c}"] for c in fcols])
+        new = df[fcols].to_numpy()
+    real_root = ((old <= 1) | (old >= SR_NYQ - 1)).any(axis=1)  # a real root counted as a formant
+    assert real_root.sum() < 0.1 * len(df)
+    np.testing.assert_allclose(new[~real_root], old[~real_root], rtol=RTOL, atol=ATOL,
+                               equal_nan=True)
+    assert not ((new <= 1) | (new >= SR_NYQ - 1)).any()

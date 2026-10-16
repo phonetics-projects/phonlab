@@ -90,6 +90,9 @@ __all__ += ["track_formants"]
 from .acoustic.ifc_formant import IFC_formant
 __all__ += ["IFC_formant"]
 
+from .acoustic.lpc_formant import LPC_formant
+__all__ += ["LPC_formant"]
+
 from .acoustic.vowel_norm import get_deltaF, deltaF_norm, resize_vt
 __all__ += ["get_deltaF", 
             "deltaF_norm", 
