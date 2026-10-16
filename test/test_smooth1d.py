@@ -13,7 +13,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from phonlab.utils.smooth1d_ import smooth1d, _solve, _solve_iterative
+import functools
+
+from phonlab.utils.smooth1d_ import smooth1d as _smooth1d, _solve, _solve_iterative
+
+# smooth1d() is robust by default.  Most of these tests check the regular (non-robust) smooth, as
+# smoothn does by default, so they call it with isrobust=False unless a test says otherwise.
+smooth1d = functools.partial(_smooth1d, isrobust=False)
 
 sys.path.insert(0, str(Path(__file__).parent))
 from make_smooth1d_golden import CASES, make_inputs  # noqa: E402
@@ -363,3 +369,14 @@ def test_documented_step_rise_time(s):
     z = smooth1d(np.r_[np.zeros(n // 2), np.ones(n // 2)], s=s)[0]
     rise = np.argmax(z > 0.9) - np.argmax(z > 0.1)
     assert rise == pytest.approx(2.8 * np.sqrt(s), rel=0.15)
+
+
+#### Defaults ####
+
+def test_robust_is_the_default():
+    y = INPUTS["long"][0]
+    z0, s0, _ = _smooth1d(y)
+    z1, s1, _ = _smooth1d(y, isrobust=True)
+    np.testing.assert_array_equal(z0, z1)
+    assert s0 == s1
+    assert s0 != smooth1d(y)[1]   # the non-robust smooth finds a different s
