@@ -171,3 +171,17 @@ def test_golden(name, request):
                 equal_nan=True, err_msg=k)
         else:
             assert (got == exp).all(), f"{k} differs"
+
+
+def test_ifc_formant_matches_track_formants_golden():
+    """IFC_formant() must reproduce the formants stored for track_formants(method='ifc')
+    (same clip, same frames); its output has no rms/f0/c columns."""
+    x, fs = _clip()
+    df = phon.IFC_formant(x, fs, quiet=True)
+    assert list(df.columns) == ["sec", "F1", "F2", "F3", "F4"]
+    with np.load(GOLDEN / "track_formants_ifc.npz", allow_pickle=True) as g:
+        for c in df.columns:
+            exp = g[f"r.{c}"]
+            assert df[c].shape == exp.shape, f"{c}: shape {df[c].shape} != {exp.shape}"
+            np.testing.assert_allclose(df[c].to_numpy(), exp, rtol=RTOL, atol=ATOL,
+                                       err_msg=c)

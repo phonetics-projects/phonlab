@@ -212,3 +212,22 @@ def test_interpolate_measures_linear():
     meas["v"] = meas["sec"] * 3
     r = phon.interpolate_measures(meas, "sec", interp_ts=np.array([0.25, 0.5]))
     np.testing.assert_allclose(r["v"], [0.75, 1.5], atol=1e-9)
+
+
+def test_ifc_formant_rejects_unknown_speaker():
+    x, fs = _vowelish()
+    with pytest.raises(ValueError, match="unknown speaker 3"):
+        phon.IFC_formant(x, fs, speaker=3, quiet=True)
+
+
+def test_ifc_formant_serial_matches_parallel():
+    x, fs = _vowelish()
+    a = phon.IFC_formant(x, fs, parallel=True, quiet=True)
+    b = phon.IFC_formant(x, fs, parallel=False, quiet=True)
+    assert list(a.columns) == ["sec", "F1", "F2", "F3", "F4"]
+    pd.testing.assert_frame_equal(a, b)
+
+
+def test_ifc_formant_too_short_audio_gives_empty_frame():
+    df = phon.IFC_formant(np.random.RandomState(0).randn(100), 16000, quiet=True)
+    assert len(df) == 0 and list(df.columns) == ["sec", "F1", "F2", "F3", "F4"]
