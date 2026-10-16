@@ -302,7 +302,7 @@ def _ifc_amplitude_ratios(X, fs, spkr):
     return np.array((r12, r23, r34))
 
 
-def IFC_formant(x, fs, preemphasis = 1.0, speaker = 0, parallel = True, quiet = False):
+def IFC_formant(x, fs, preemphasis = 0.94, speaker = 0, parallel = True, quiet = False):
     """Computes vowel formant values in audio of speech using the Inverse Filter Control method.
 
 The function uses the Watenabe/Ueda Inverse Filter Control (IFC) method of vowel formant tracking (Watenabe, 2001; Ueda et al., 2007) to estimate the first four vowel formants (the resonant frequencies of the vocal tract) in 20 ms frames at 10 ms intervals.  The method can be quite a bit more accurate than LPC, but is also substantially slower.  The analysis of the frames is accelerated by numba just in time (JIT) compilation into machine code, and the frames are analyzed in parallel on all available cores.  Therefore, the first call to `IFC_formant()` will be slower than subsequent calls, because of the time needed to compile (or load from the cache) the compiled functions.
@@ -317,8 +317,8 @@ x : array
 fs : int
     the sampling rate of the audio in **x**.  The audio will be resampled to 12,000 Hz for analysis.
 
-preemphasis : float, default = 1.0
-    factor of a preemphasis factor (0-1).
+preemphasis : float, default = 0.94
+    value of a high frequency preemphasis (spectral tilt) factor (0-1).
 
 speaker : int, default = 0
     set formant expectations for IFC.

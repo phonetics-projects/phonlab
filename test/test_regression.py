@@ -177,7 +177,7 @@ def test_ifc_formant_matches_track_formants_golden():
     """IFC_formant() must reproduce the formants stored for track_formants(method='ifc')
     (same clip, same frames); its output has no rms/f0/c columns."""
     x, fs = _clip()
-    df = phon.IFC_formant(x, fs, quiet=True)
+    df = phon.IFC_formant(x, fs, preemphasis=1.0, quiet=True)  # the preemphasis track_formants() uses
     assert list(df.columns) == ["sec", "F1", "F2", "F3", "F4"]
     with np.load(GOLDEN / "track_formants_ifc.npz", allow_pickle=True) as g:
         for c in df.columns:

@@ -231,3 +231,11 @@ def test_ifc_formant_serial_matches_parallel():
 def test_ifc_formant_too_short_audio_gives_empty_frame():
     df = phon.IFC_formant(np.random.RandomState(0).randn(100), 16000, quiet=True)
     assert len(df) == 0 and list(df.columns) == ["sec", "F1", "F2", "F3", "F4"]
+
+
+def test_ifc_formant_default_preemphasis_is_0_94():
+    x, fs = _vowelish()
+    pd.testing.assert_frame_equal(phon.IFC_formant(x, fs, quiet=True),
+                                  phon.IFC_formant(x, fs, preemphasis=0.94, quiet=True))
+    assert not phon.IFC_formant(x, fs, preemphasis=1.0, quiet=True).equals(
+        phon.IFC_formant(x, fs, quiet=True))
