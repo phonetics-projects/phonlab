@@ -87,6 +87,12 @@ __all__ += ["formant_to_df",
 from .acoustic.track_formants_ import track_formants
 __all__ += ["track_formants"]
 
+from .acoustic.ifc_formant import IFC_formants
+__all__ += ["IFC_formants"]
+
+from .acoustic.lpc_formant import LPC_formants
+__all__ += ["LPC_formants"]
+
 from .acoustic.vowel_norm import get_deltaF, deltaF_norm, resize_vt
 __all__ += ["get_deltaF", 
             "deltaF_norm", 

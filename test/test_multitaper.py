@@ -14,7 +14,7 @@ def test_mt_sgram_psd_integrates_to_variance():
 
 def test_mt_sgram_shape_matches_compute_sgram():
     x = np.random.default_rng(2).standard_normal(16000)
-    t, f, S = phon.compute_mt_sgram(x, 16000)
+    t, f, S = phon.compute_mt_sgram(x, 16000, w=0.008, s=0.001, order=13)  # compute_sgram's defaults for s, order
     t2, f2, S2 = phon.compute_sgram(x, 16000, 0.008)
     assert S.shape == S2.shape
     assert np.allclose(f, f2)
