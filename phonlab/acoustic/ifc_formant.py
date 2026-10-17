@@ -301,11 +301,42 @@ def _ifc_amplitude_ratios(X, fs, spkr):
     r34 = 20*np.log10(rms[3]/rms[2])
     return np.array((r12, r23, r34))
 
+def ifc_warmup_numba(verbose=True):
+    """
+    Pre-compile Numba functions for IFC_formants() with minimal data.
 
-def IFC_formants(x, fs, preemphasis = 0.94, speaker = 0, parallel = True, quiet = False):
+    Parameters
+    ==========
+    verbose: string, default='True'
+    
+    """
+    if verbose:
+        print("Warming up Numba (compiling IFC analysis functions)...",end="",flush=True)
+    
+    speaker = 1
+    fs = 12000
+    
+    # Minimal test data
+    frames = np.ascontiguousarray(np.random.randn(720).reshape((3,240)))
+
+    par = params[speaker]
+    ratios = np.ascontiguousarray(_ifc_amplitude_ratios(frames, fs, speaker), dtype=np.float64)
+
+    _ifc_frames(frames, int(fs),
+              par["fr"].astype(np.float64), par["bws"].astype(np.float64),
+              par["upper_fs"].astype(np.float64), par["upper_bws"].astype(np.float64),
+              float(par["du1"]), float(par["du2"]), int(speaker), ratios)
+    _ifc_frames_parallel(frames, int(fs),
+              par["fr"].astype(np.float64), par["bws"].astype(np.float64),
+              par["upper_fs"].astype(np.float64), par["upper_bws"].astype(np.float64),
+              float(par["du1"]), float(par["du2"]), int(speaker), ratios)
+
+
+
+def IFC_formants(x, fs, preemphasis = 0.94, speaker = 0, parallel = True, quiet = True):
     """Computes vowel formant values in audio of speech using the Inverse Filter Control method.
 
-The function uses the Watenabe/Ueda Inverse Filter Control (IFC) method of vowel formant tracking (Watenabe, 2001; Ueda et al., 2007) to estimate the first four vowel formants (the resonant frequencies of the vocal tract) in 20 ms frames at 10 ms intervals.  The method can be quite a bit more accurate than LPC, but is also substantially slower.  The analysis of the frames is accelerated by numba just in time (JIT) compilation into machine code, and the frames are analyzed in parallel on all available cores.  Therefore, the first call to `IFC_formants()` will be slower than subsequent calls, because of the time needed to compile (or load from the cache) the compiled functions.
+The function uses the Watenabe/Ueda Inverse Filter Control (IFC) method of vowel formant tracking (Watenabe, 2001; Ueda et al., 2007) to estimate the first four vowel formants (the resonant frequencies of the vocal tract) in 20 ms frames at 10 ms intervals.  The method can be quite a bit more accurate than LPC.  The analysis of the frames is accelerated by numba just in time (JIT) compilation into machine code, and the frames are analyzed in parallel on all available cores.  Therefore, the first call to `IFC_formants()` will be slower than subsequent calls, because of the time needed to compile (or load from the cache) the compiled functions.
 
 The function only measures formants.  For f0, voicing, and amplitude see `get_f0()`, `get_rms()`, and related functions.
 
@@ -321,7 +352,7 @@ preemphasis : float, default = 0.94
     value of a high frequency preemphasis (spectral tilt) factor (0-1).
 
 speaker : int, default = 0
-    set formant expectations for IFC.
+    set formant expectations for IFC based on the approximate size of the speaker's vocal tract.
 
       * 0 = long vocal tract, male speaker
       * 1 = medium, female speaker
@@ -330,7 +361,7 @@ speaker : int, default = 0
 parallel : boolean, default = True
     True means the frames are analyzed on all cores.  False uses one core.
 
-quiet : boolean, default = False
+quiet : boolean, default = True
     False means print progress or warning messages
 
 Returns
@@ -384,9 +415,10 @@ Use Inverse Filter Control to track formants in a file
     if not quiet:
         print(f"IFC_formants(), with speaker set to {speaker}")
 
-    x, fs = prep_audio(x, fs, target_fs = SR, pre = 0, quiet = quiet)  # downsample waveform, no preemphasis
-    y, fs = prep_audio(x, fs, pre = preemphasis, target_fs = fs, quiet = True)  # apply preemphasis
-
+    y, fs = prep_audio(x, fs, target_fs = SR,  # downsample
+                       pre = preemphasis,  # apply preemphasis
+                       quiet = quiet)  
+ 
     centers = np.arange(half_frame, len(y)-frame_length, step)
     if len(centers) == 0:
         return DataFrame(np.empty((0, 5)), columns=("sec","F1","F2","F3","F4"))
