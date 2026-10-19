@@ -2,6 +2,7 @@ import numpy as np
 from scipy.signal import iirpeak,filtfilt,windows, convolve, find_peaks
 from scipy import fft
 from librosa.util import frame
+from ..utils.prep_audio_ import prep_audio
 
 def h2h1(resid,fs,f0df,f0med=None,use_ac=True):
     '''Estimate the amplitude ratio of harmonic 2 and harmonic 1, in decibels.  This function 
@@ -74,6 +75,9 @@ Example
 
         
     '''
+    if (fs != 16000):
+        x,fs = prep_audio(x, fs, target_fs = 16000, quiet = True)
+
     # get analysis window length and step size from the input f0 dataframe
     l = np.round(f0df['sec'][0]*2, 3) # to the nearest ms
     s = np.round(f0df['sec'][1] - f0df['sec'][0], 3)  # to the nearest ms

@@ -637,7 +637,7 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
         Sampling frequency of **x** in Hz 
     tf : int, default = 6000
         Top frequency.  The signal will be resampled to tf*2.
-    order : int, default = 10
+    order : int, default = -1
         The number of LPC coefficients to use -- the 'order' of the LPC filter.  If this parameter is -1 then we will use `phon.choose_order(base='BIC')` to determine the best value for this parameter.
     frame_duration_sec : float, default 0.1 = 100ms
         Duration of each frame in seconds.  Gowda et al.'s tests found that 100ms provides the most accurate formant measurements.
@@ -681,7 +681,8 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
 
     target_fs = tf * 2
     x, fs = prep_audio(x, fs, target_fs = target_fs,
-                       pre = 0,
+                       scale = True,
+                       pre = 0.95,
                        fix_polarity = True,
                        pad_to=frame_duration_sec,
                        quiet = not verbose)

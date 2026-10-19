@@ -42,7 +42,7 @@ Returns
 
 
 def lpcresidual(y, fs, target_fs=16000, order = 18, l=0.04, s=0.005, window='cosine'):    
-    """Compute the residual signal which results from filtering the input array **y** 
+    """Compute the residual signal which results from filtering the input audio array **y** 
 using LPC inverse filtering. This signal is useful in voice quality and periodicity routines.
 
 The LPC order is equal to (target_fs/1000) + 2, which is by default is 18.
