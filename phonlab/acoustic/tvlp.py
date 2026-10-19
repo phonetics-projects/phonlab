@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import time
 from numba import jit, prange
 from ..utils.prep_audio_ import prep_audio
 from ..acoustic.gci import gci_sedreams
@@ -356,8 +355,7 @@ def tvlptoformants(all_ak, frame_length_samples, step, fs,
     sample_times : ndarray
         Sample indices where formants were extracted (relative to frame start)
     """
-    start_time = time.time()
-    
+
     if max_freq is None:
         max_freq = fs / 2.0
     
@@ -436,11 +434,6 @@ def tvlptoformants(all_ak, frame_length_samples, step, fs,
             all_fi[frame_idx] = fi
             all_bw[frame_idx] = bw
     
-    if verbose:
-        elapsed = time.time() - start_time
-        print(f"Total extraction time: {elapsed:.2f}s")
-        print(f"Time per frame: {elapsed / n_frames * 1000:.2f}ms")
-    
     return all_fi, all_bw, sample_times
 
 
@@ -454,8 +447,7 @@ def tvlp_batch(x, fs, frame_length, p, q, norm, qcp=True, f0median=200, max_iter
     all_ak : ndarray, shape (n_frames, p+1, frame_length)
         Time-varying LP coefficients for all samples in all frames
     """
-    start_time = time.time()
-    
+   
     # Convert to float32 and ensure contiguous
     x = np.ascontiguousarray(x, dtype=np.float32)
     if qcp: 
@@ -486,13 +478,8 @@ def tvlp_batch(x, fs, frame_length, p, q, norm, qcp=True, f0median=200, max_iter
         raise ValueError("norm must be 'l1' or 'l2'")
     
     if verbose:
-        elapsed = time.time() - start_time
         memory_mb = all_ak.nbytes / (1024 * 1024)
-        print(f"Total processing time: {elapsed:.2f}s")
-        print(f"Time per frame: {elapsed / len(frames) * 1000:.2f}ms")
         print(f"Memory for time-varying coefficients: {memory_mb:.1f} MB")
-        if len(x) > 8000:
-            print(f"Real-time factor: {len(x) / 8000 / elapsed:.1f}x")
     
     return all_ak
 
@@ -626,8 +613,6 @@ def tvlp_warmup_numba(verbose=True):
     if verbose:
         print("Warming up Numba (compiling TVLP analysis functions)...",end="",flush=True)
     
-    start = time.time()
-    
     # Minimal test data
     frames = np.random.randn(2400).astype(np.float32).reshape((3,800))
     weights = np.ones(2400).astype(np.float32).reshape((3,800))
@@ -635,16 +620,14 @@ def tvlp_warmup_numba(verbose=True):
     _ = _process_frames_l2_parallel(frames[:2], weights[:2], 10, 3)
     _ = _process_frames_l1_parallel(frames[:2], weights[:2], 10, 3, max_iter=1)
     
-    if verbose:
-        print(f" Done! ({time.time() - start:.1f}s)")
 
 def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3, 
                   norm='l2', qcp=True, step=0.01, nformants=4, f0median=200, 
                   max_bandwidth=800, use_parallel=False, verbose=False):
     """
-    This formant tracking function implements the time-varying, pitch synchronous, method that was described by Gowda et al. (2020).  The most important innovation of this method is that it smooths the Linear Prediction coefficients over time, providing a continuity constraint at the level of the LP coefficients. The second most important method is that (like Robust LPC) the method can optionally weight the audio samples pitch synchronously so the LP coefficients are caluculated from the glottal closed phase where the assumptions of LPC analysis are better met.  The third innovation, which also seems to be both the most computationally costly and least important for good formant tracking, is that the LP coefficients can be calculated minimizing the L1 norm (city-block) norm rather than the default L2 norm (Euclidian distance).  The L1 norm is 10 times slower than the L2 norm and results in almost no change in the derived formant frequencies.   
+    This formant tracking function implements the time-varying, pitch synchronous, method that was described by Gowda et al. (2020).  The most important innovation of this method is that it smooths the Linear Prediction coefficients over time, providing a continuity constraint at the level of the LP coefficients. The second most important feature of the method is that (like Robust LPC) the method can optionally weight the audio samples pitch synchronously so the LP coefficients are caluculated from the glottal closed phase where the assumptions of LPC analysis are better met.  The third innovation, which also seems to be both the most computationally costly and least important for good formant tracking, is that the LP coefficients can be calculated minimizing the L1 norm (city-block) norm rather than the default L2 norm (Euclidian distance).  The L1 norm is much slower than the L2 norm and results in almost no change in the derived formant frequencies.   
 
-    This Python implementation is a translation (done with extensive help from the AI model Claude) of Gowda's ftrack matlab code.  It uses numba for just-in-time (JIT) compilation of machine code, and parallelization of some loops which dramatically increases the speed of processing.  However, the first call to the function includes the compilation of the JIT code (on a typical laptop this can be 10 seconds!). Subsequent calls to `TVLP_formants()` will use the compiled JIT code and be much faster than the first call.  However, in some situations you may want to separate the compilation from the first call to `TVLP_formants()`. Therefore a helper function `tvlp_warmup_numba()` is provided.  The helper function can be called at the beginning of a session to compile the JIT code, and then all subsequent calls to TVLP_formants() will be accelerated by the numba functions.
+    This Python implementation is a translation (done with extensive help from the AI model Claude) of Gowda's ftrack matlab code.  It uses numba for just-in-time (JIT) compilation of machine code, and parallelization of some loops which dramatically increases the speed of processing.  However, the first call to the function includes the compilation of the JIT code (on a typical laptop this can be several seconds). Subsequent calls to `TVLP_formants()` will use the compiled JIT code and be much faster than the first call.  However, in some situations you may want to separate the compilation from the first call to `TVLP_formants()`. Therefore a helper function `tvlp_warmup_numba()` is provided.  The helper function can be called at the beginning of a session to compile the JIT code, and then all subsequent calls to TVLP_formants() will be accelerated by the numba functions.
     
     Parameters
     ==========
@@ -695,7 +678,6 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
 
     D. Gowda, R. Kadiri, B. Story, P. Alku (2020) `Time-varying quasi-closed-phase analysis for accurate formant tracking in speech signals.` in IEEE/ACM Transactions on Audio, Speech, and Language Processing, vol. 28, pp. 1901-1914, doi: 10.1109/TASLP.2020.3000037.
     """
-    overall_start = time.time()
 
     target_fs = tf * 2
     x, fs = prep_audio(x, fs, target_fs = target_fs,
@@ -795,18 +777,13 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
     df[formant_cols] = df[formant_cols].replace(0, np.nan)
     df[bandwidth_cols] = df[bandwidth_cols].replace(0, np.nan)
     
-    overall_time = time.time() - overall_start
     
     if verbose:
         print()
         print("=" * 60)
         print(f"COMPLETE!")
-        print(f"Total processing time: {overall_time:.2f}s")
         print(f"DataFrame shape: {df.shape}")
         print(f"Time range: {df['sec'].min():.4f}s to {df['sec'].max():.4f}s")
-        if len(x) > fs:
-            rtf = (len(x) / fs) / overall_time
-            print(f"Real-time factor: {rtf:.1f}x")
         print("=" * 60)
     
     return df

@@ -87,8 +87,9 @@ __all__ += ["formant_to_df",
 from .acoustic.track_formants_ import track_formants
 __all__ += ["track_formants"]
 
-from .acoustic.ifc_formant import IFC_formants
-__all__ += ["IFC_formants"]
+from .acoustic.ifc_formant import IFC_formants, ifc_warmup_numba
+__all__ += ["IFC_formants",
+            "ifc_warmup_numba"]
 
 from .acoustic.lpc_formant import LPC_formants
 __all__ += ["LPC_formants"]

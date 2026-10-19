@@ -18,13 +18,13 @@ Amplitude Contour
 
 Formant Tracking
 ----------------
-.. autofunction:: phonlab.track_formants	
-.. autofunction:: phonlab.IFC_formants
 .. autofunction:: phonlab.LPC_formants
 .. autofunction:: phonlab.RLPC_formants
 .. autofunction:: phonlab.TVLP_formants
 .. autofunction:: phonlab.tvlp_warmup_numba
+.. autofunction:: phonlab.IFC_formants
 .. autofunction:: phonlab.DPPT_formants
+.. autofunction:: phonlab.track_formants	
 .. autofunction:: phonlab.formant_to_df
 .. autofunction:: phonlab.choose_order
 .. autofunction:: phonlab.get_deltaF
