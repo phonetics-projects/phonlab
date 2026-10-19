@@ -61,7 +61,7 @@ def _inv_cascade(x, fr, bw, fs):
     (frequency, bandwidth) pair in fr, bw, each stage started from rest; x is not modified.'''
     n = x.shape[0]
     src = x.copy()
-    dst = np.empty(n)
+    dst = np.empty(n, dtype=x.dtype)  # float32 in, float32 out (the arithmetic itself is double precision)
     for s in range(fr.shape[0]):
         exp1 = math.exp(-(math.pi/fs) * bw[s])
         a = exp1*exp1
@@ -201,7 +201,7 @@ def _sort4(a, b, c, d):
 
 @njit(cache=True, error_model='numpy')
 def _ifc_frame(x, fs, fr, bws, upper_fs, upper_bws, du1, du2, spkr, r12, r23, r34):
-    '''Find F1-F4 in one frame x (float64), given its band amplitude ratios.
+    '''Find F1-F4 in one frame x (float32 or float64), given its band amplitude ratios.
     Returns (F1, F2, F3, F4), unrounded.'''
     y = _inv_cascade(x, upper_fs, upper_bws, fs)          # remove upper formants
     f0 = fr[0]       # a fixed low-frequency notch used in the inverse filters, not a measured f0
@@ -276,10 +276,14 @@ def _ifc_filterbank(speaker, fs):
     return tuple(signal.butter(12, b, fs=fs, btype='bandpass', output='sos')
                  for b in params[speaker]["bands"])
 
+_RATIO_BLOCK = 4096   # frames per block in _ifc_amplitude_ratios()
+
 def _ifc_amplitude_ratios(X, fs, spkr):
     '''The relative amplitude ratios in the formant spectral regions of every frame.  X has one frame
     per row; each row is passed through the upper formant inverse filter and then through the four
-    band-pass filters (one sosfiltfilt() call per band over the whole array).
+    band-pass filters (one sosfiltfilt() call per band over a block of frames).  The frames are done
+    in blocks of _RATIO_BLOCK because sosfiltfilt() works in double precision and returns an array
+    that size, so the memory needed would otherwise grow with the length of the audio.
 
     Returns an array of shape (3, n_frames): r12, r23, r34 per frame, the ratios in dB of the
     energy in the F2 and F1, F3 and F2, and F4 and F3 bands.
@@ -287,25 +291,69 @@ def _ifc_amplitude_ratios(X, fs, spkr):
     par = params[spkr]
     upper_fs = par["upper_fs"].astype(np.float64)
     upper_bws = par["upper_bws"].astype(np.float64)
-    Y = np.empty((X.shape[0], X.shape[1]))
-    for i in range(X.shape[0]):
-        Y[i] = _inv_cascade(X[i], upper_fs, upper_bws, int(fs))
     filterbank = _ifc_filterbank(spkr, fs)
-    rms = np.zeros((len(filterbank), X.shape[0]))
-    for idx, sos in enumerate(filterbank):
-        y = signal.sosfiltfilt(sos, Y, axis=-1)
-        rms[idx] = np.sqrt(np.sum(y**2, axis=-1)/X.shape[1])
-    rms = np.maximum(rms, np.finfo(rms.dtype).tiny)
-    r12 = 20*np.log10(rms[1]/rms[0])
-    r23 = 20*np.log10(rms[2]/rms[1])
-    r34 = 20*np.log10(rms[3]/rms[2])
-    return np.array((r12, r23, r34))
+    ratios = np.empty((3, X.shape[0]))
+    for start in range(0, X.shape[0], _RATIO_BLOCK):
+        B = X[start:start+_RATIO_BLOCK]
+        Y = np.empty(B.shape, dtype=B.dtype)
+        for i in range(B.shape[0]):
+            Y[i] = _inv_cascade(B[i], upper_fs, upper_bws, int(fs))
+        rms = np.zeros((len(filterbank), B.shape[0]))
+        for idx, sos in enumerate(filterbank):
+            y = signal.sosfiltfilt(sos, Y, axis=-1)
+            rms[idx] = np.sqrt(np.sum(y**2, axis=-1)/B.shape[1])
+        rms = np.maximum(rms, np.finfo(rms.dtype).tiny)
+        ratios[0, start:start+B.shape[0]] = 20*np.log10(rms[1]/rms[0])   # r12
+        ratios[1, start:start+B.shape[0]] = 20*np.log10(rms[2]/rms[1])   # r23
+        ratios[2, start:start+B.shape[0]] = 20*np.log10(rms[3]/rms[2])   # r34
+    return ratios
+
+def _ifc_analyze(y, fs, speaker, parallel):
+    '''Run the compiled analysis on every frame of y (a one-dimensional array that has already been
+    resampled to 12 kHz and preemphasized).  The frames are a view of y, not a copy, and the
+    arithmetic is done in the dtype of y: float32 for audio from prep_audio(), or float64 if y has
+    been converted.
+
+    Returns the frame center samples and an array with F1-F4 for each of them (unrounded).
+    '''
+    y = np.ascontiguousarray(y)
+    centers = np.arange(half_frame, len(y)-frame_length, step)
+    if len(centers) == 0:
+        return centers, np.empty((0, 4))
+    frames = np.lib.stride_tricks.sliding_window_view(y, frame_length)[::step][:len(centers)]
+    par = params[speaker]
+    ratios = _ifc_amplitude_ratios(frames, fs, speaker)
+    run = _ifc_frames_parallel if parallel else _ifc_frames
+    res = run(frames, int(fs),
+              par["fr"].astype(np.float64), par["bws"].astype(np.float64),
+              par["upper_fs"].astype(np.float64), par["upper_bws"].astype(np.float64),
+              float(par["du1"]), float(par["du2"]), int(speaker), ratios)
+    return centers, res
+
+def ifc_warmup_numba(verbose=True):
+    """
+    Pre-compile Numba functions for IFC_formants() with minimal data.
+
+    Parameters
+    ==========
+    verbose: string, default='True'
+    
+    """
+    if verbose:
+        print("Warming up Numba (compiling IFC analysis functions)...",end="",flush=True)
+    
+    y = np.random.randn(1200).astype(np.float32)  # the dtype that IFC_formants() gives the compiled functions
+    _ifc_analyze(y, 12000, 1, parallel=False)
+    _ifc_analyze(y, 12000, 1, parallel=True)
+
+    if verbose:
+        print(" done")
 
 
-def IFC_formants(x, fs, preemphasis = 0.94, speaker = 0, parallel = True, quiet = False):
+def IFC_formants(x, fs, preemphasis = 0.94, speaker = 0, parallel = True, quiet = True):
     """Computes vowel formant values in audio of speech using the Inverse Filter Control method.
 
-The function uses the Watenabe/Ueda Inverse Filter Control (IFC) method of vowel formant tracking (Watenabe, 2001; Ueda et al., 2007) to estimate the first four vowel formants (the resonant frequencies of the vocal tract) in 20 ms frames at 10 ms intervals.  The method can be quite a bit more accurate than LPC, but is also substantially slower.  The analysis of the frames is accelerated by numba just in time (JIT) compilation into machine code, and the frames are analyzed in parallel on all available cores.  Therefore, the first call to `IFC_formants()` will be slower than subsequent calls, because of the time needed to compile (or load from the cache) the compiled functions.
+The function uses the Watenabe/Ueda Inverse Filter Control (IFC) method of vowel formant tracking (Watenabe, 2001; Ueda et al., 2007) to estimate the first four vowel formants (the resonant frequencies of the vocal tract) in 20 ms frames at 10 ms intervals.  The method can be quite a bit more accurate than LPC.  The analysis of the frames is accelerated by numba just in time (JIT) compilation into machine code, and the frames are analyzed in parallel on all available cores.  Therefore, the first call to `IFC_formants()` will be slower than subsequent calls, because of the time needed to compile (or load from the cache) the compiled functions.
 
 The function only measures formants.  For f0, voicing, and amplitude see `get_f0()`, `get_rms()`, and related functions.
 
@@ -321,7 +369,7 @@ preemphasis : float, default = 0.94
     value of a high frequency preemphasis (spectral tilt) factor (0-1).
 
 speaker : int, default = 0
-    set formant expectations for IFC.
+    set formant expectations for IFC based on the approximate size of the speaker's vocal tract.
 
       * 0 = long vocal tract, male speaker
       * 1 = medium, female speaker
@@ -330,7 +378,7 @@ speaker : int, default = 0
 parallel : boolean, default = True
     True means the frames are analyzed on all cores.  False uses one core.
 
-quiet : boolean, default = False
+quiet : boolean, default = True
     False means print progress or warning messages
 
 Returns
@@ -384,22 +432,13 @@ Use Inverse Filter Control to track formants in a file
     if not quiet:
         print(f"IFC_formants(), with speaker set to {speaker}")
 
-    x, fs = prep_audio(x, fs, target_fs = SR, pre = 0, quiet = quiet)  # downsample waveform, no preemphasis
-    y, fs = prep_audio(x, fs, pre = preemphasis, target_fs = fs, quiet = True)  # apply preemphasis
-
-    centers = np.arange(half_frame, len(y)-frame_length, step)
+    y, fs = prep_audio(x, fs, target_fs = SR,  # downsample
+                       pre = preemphasis,  # apply preemphasis
+                       quiet = quiet)  
+ 
+    centers, res = _ifc_analyze(y, fs, speaker, parallel)
     if len(centers) == 0:
         return DataFrame(np.empty((0, 5)), columns=("sec","F1","F2","F3","F4"))
-
-    frames = np.ascontiguousarray(y[(centers - half_frame)[:, None] + np.arange(frame_length)],
-                                  dtype=np.float64)
-    par = params[speaker]
-    ratios = np.ascontiguousarray(_ifc_amplitude_ratios(frames, fs, speaker), dtype=np.float64)
-    run = _ifc_frames_parallel if parallel else _ifc_frames
-    res = run(frames, int(fs),
-              par["fr"].astype(np.float64), par["bws"].astype(np.float64),
-              par["upper_fs"].astype(np.float64), par["upper_bws"].astype(np.float64),
-              float(par["du1"]), float(par["du2"]), int(speaker), ratios)
 
     formants = np.empty((len(centers), 5))
     formants[:, 0] = centers/fs

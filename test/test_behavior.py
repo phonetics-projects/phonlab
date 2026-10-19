@@ -381,3 +381,20 @@ def test_nasality_a1h1_is_nan_where_f1_is_missing(monkeypatch):
     keep = np.setdiff1d(np.arange(len(out)), missing)
     np.testing.assert_allclose(out["a1h1"].to_numpy()[keep], ref["a1h1"].to_numpy()[keep], equal_nan=True)
     assert not out["a1h1"].iloc[keep].isna().all()
+
+
+def test_ifc_formants_float32_matches_float64():
+    from phonlab.acoustic import ifc_formant
+    from phonlab.utils.prep_audio_ import prep_audio
+    x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0])
+    y, fs = prep_audio(x, fs, target_fs=12000, pre=0.94, quiet=True)
+    assert y.dtype == np.float32
+    _, r32 = ifc_formant._ifc_analyze(y, fs, 1, True)
+    _, r64 = ifc_formant._ifc_analyze(y.astype(np.float64), fs, 1, True)
+    assert np.abs(r32 - r64).max() < 0.1   # Hz
+
+
+def test_ifc_warmup_numba_runs_and_compiles_the_float32_signature():
+    from phonlab.acoustic import ifc_formant
+    ifc_formant.ifc_warmup_numba(verbose=False)
+    assert any("float32" in str(sig[0]) for sig in ifc_formant._ifc_frames.signatures)
