@@ -39,7 +39,7 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
     x : ndarray
         a 1D array of audio samples
     fs : int
-        the sampling rate of samples in x.  This will be resampled to 12,000 Hz for analysis, so choose the order paramter with this in mind.
+        the sampling rate of samples in x. 
     tf : int (default = 6000)
         The top frequency of the analysis band.  The input signal will be resampled to a rate of tf*2.  
     preemphasis : float (default = 0.94)
@@ -70,7 +70,7 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
         * F1-4 - the lowest four vowel 'formants' - vocal tract resonances.
         * BW1-4 - bandwidths of the vowel formants
 
-    Resonances with a bandwidth wider than 800 Hz are rejected: the formant and its bandwidth are NaN (NaN sorts to the end of the frame's formants).  Real roots of the LPC polynomial are not resonances and are never counted as formants.  If a frame has fewer resonances than formants, the extra formants and bandwidths are NaN.
+    Resonances with a bandwidth wider than 800 Hz are rejected: the formant and its bandwidth are NaN (NaN sorts to the end of the frame's formants).  If a frame has fewer than four resonances, the missing formants and bandwidths are NaN.
 
     References
     ==========

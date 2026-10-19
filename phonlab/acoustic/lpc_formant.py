@@ -21,10 +21,10 @@ def _analysis_window(frame_length, fs, l):
 
 
 
-def LPC_formants(x, fs, preemphasis = 0.94, order = -1, max_bw = 800, s = 0.01, l = 0.03, quiet = False):
+def LPC_formants(x, fs, preemphasis = 0.94, order = -1, max_bw = 800, s = 0.01, l = 0.03, quiet = True):
     """Computes vowel formant values in audio of speech using linear predictive coding (LPC).
 
-The function uses the Librosa implemenation of Burg's (1975) method for linear predictive coding and then polynomial root solving of the LPC coefficients to find the vowel formant frequencies (the resonant frequencies of the vocal tract) in overlapping frames (by default 30 ms long, at 10 ms intervals).
+The function uses the Librosa implemenation of Burg's (1975) method for linear predictive coding and then polynomial root solving of the LPC coefficients to find the vowel formant frequencies (the resonant frequencies of the vocal tract) and their bandwidths in overlapping frames (by default 30 ms long, at 10 ms intervals).
 
 The function only measures formants and their bandwidths.  For f0, voicing, and amplitude see `get_f0()`, `get_rms()`, and related functions.
 
@@ -51,7 +51,7 @@ s : float, default = 0.01
 l : float, default = 0.03
     the duration (in seconds) of analysis frames.  This is also the frame duration that `choose_order()` uses when `order` is -1.  Each frame is multiplied by a Gaussian window whose standard deviation is `l`/4.5, so the window spans the whole frame, with the ends at 2.25 standard deviations from the center (a weight of 0.08, like a Hamming window).  The window scales with `l`.
 
-quiet : boolean, default = False
+quiet : boolean, default = True
     False means print progress or warning messages
 
 Returns
@@ -69,9 +69,9 @@ Note
 
 The columns in the output dataframe are:
     * sec - midpoint time of the frame
-    * F1-n - the lowest vowel 'formants' - vocal tract resonances.  The number of formants is (order-2)/2, e.g. F1-F4 for an order of 10 or 11.
-    * BW1-n - the bandwidths (Hz) of the formants F1-n, calculated from the radius of the LPC polynomial roots.  If fewer than n resonances have a bandwidth below `max_bw`, the remaining formants and their bandwidths are NaN.  Real roots of the LPC polynomial (which have no resonant frequency) are never counted as formants.
-
+    * F1-n - the lowest vowel 'formants' - vocal tract resonances.
+    * BW1-n - the bandwidths (Hz) of the formants F1-n, calculated from the radius of the LPC polynomial roots.  If fewer than n resonances have a bandwidth below `max_bw`, the remaining formants and their bandwidths are NaN.
+    
 References
 ==========
 
@@ -83,18 +83,30 @@ Examples
 Track formants in a file with LPC analysis, which by default will try to pick the best `order` for the speaker.
 
 .. code-block:: Python
-
-    example_file = importlib.resources.files('phonlab') / 'data' / 'example_audio' / 'sf3_cln.wav'
+    
+    example_file = AUDIO / 'sf3_cln.wav'
     x,fs = phon.loadsig(example_file, chansel=[0])
-    fmtsdf = phon.LPC_formants(x, fs)
 
-    ret = phon.sgram(x,fs, tf=6000, cmap="Reds")  # plot the spectrogram
+    fmtsdf = phon.LPC_formants(x, fs,order=-1)
 
-    dot_color = "dodgerblue"
+    vaddf = phon.VAD(x,fs)  # mark frames as voiced or voiceless
+    fmtsdf = phon.align_timeseries(fmtsdf, vaddf, ts='sec', other_columns=['voiced'])
+    fmtsdf.loc[fmtsdf["voiced"] == False, ("F1","F2","F3","F4")] = np.nan # ignore voiceless frames
+
+    ret = phon.sgram(x,fs, tf=6000,cmap="Blues")  # plot the spectrogram
+
+    dot_color = "red"
     sns.pointplot(fmtsdf,x='sec',y='F1',linestyle='none',native_scale=True,marker=".",color=dot_color)
     sns.pointplot(fmtsdf,x='sec',y='F2',linestyle='none',native_scale=True,marker=".",color=dot_color)
     sns.pointplot(fmtsdf,x='sec',y='F3',linestyle='none',native_scale=True,marker=".",color=dot_color)
     sns.pointplot(fmtsdf,x='sec',y='F4',linestyle='none',native_scale=True,marker=".",color=dot_color)
+
+.. figure:: images/LPC_formants.png
+   :scale: 50%
+   :alt: a spectrogram with the estimated vowel formants marked with blue dots 
+   :align: center
+
+   Plotting the formants found by `track_formants(... method='ifc')`, on the spectrogram of the utterance.
 
 """
 
@@ -103,21 +115,18 @@ Track formants in a file with LPC analysis, which by default will try to pick th
 
     if not quiet: print(f"LPC_formants(), with order set to {order}")
 
-    x, fs = prep_audio(x, fs, target_fs = SR, pre = 0, quiet = quiet)  # downsample, no preemphasis
+    x, fs = prep_audio(x, fs, target_fs = SR, pre = preemphasis, quiet = quiet)  # downsample, no preemphasis
     frame_length = int(fs*l)  # samples in a frame
     step = int(fs*s)          # number of samples between frames
     if len(x) < frame_length:
         raise ValueError(f"LPC_formants(): audio is shorter than one {frame_length}-sample frame")
 
-    if (preemphasis > 0): y = np.append(x[0], x[1:] - preemphasis * x[:-1])  # now apply pre-emphasis
-    else: y = x
-
     if order < 0:  # guess the correct LPC order
-        order, time = choose_order(y, fs, l)
+        order, time = choose_order(x, fs, l)
         if not quiet: print(f"Selected LPC order is: {order}, measured at time {time:.3f}")
 
     # LPC coefficients for each (windowed) frame of the whole file
-    frames = util.frame(y, frame_length=frame_length, hop_length=step, axis=0)
+    frames = util.frame(x, frame_length=frame_length, hop_length=step, axis=0)
     frames = np.multiply(frames, _analysis_window(frame_length, fs, l))
     t = frames_to_time(range(frames.shape[0]), sr=fs, hop_length=step, n_fft=frame_length)
     A = lpc(frames, order=order, axis=-1)
