@@ -58,7 +58,7 @@ Example
 
 .. code-block:: Python
 
-    example_file = importlib.resources.files('phonlab') / 'data/example_audio/sf3_cln.wav'
+    example_file = AUDIO/ 'sf3_cln.wav'
     x,fs = phon.loadsig(example_file,chansel=[0])
 
     df = HNR(x,fs, target_time=2.1)  # get diagnostic plots for the spectrum at time 2.1 seconds.
@@ -74,7 +74,8 @@ at time 2.1 seconds in the file 'sf3_cln.wav'. In the top panel we see the log m
 
 
     '''
-    x,fs = prep_audio(x,fs,target_fs=16000,fix_polarity=True)
+    x,fs = prep_audio(x,fs,target_fs=16000,
+                      scale=True, fix_polarity=True)
     
     frame_length = int(l*fs)
     step = int(s*fs)

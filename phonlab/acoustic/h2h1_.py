@@ -75,8 +75,8 @@ Example
 
         
     '''
-    if (fs != 16000):
-        x,fs = prep_audio(x, fs, target_fs = 16000, quiet = True)
+    x,fs = prep_audio(resid, fs, target_fs = 16000, 
+                      scale = True, quiet = True)
 
     # get analysis window length and step size from the input f0 dataframe
     l = np.round(f0df['sec'][0]*2, 3) # to the nearest ms

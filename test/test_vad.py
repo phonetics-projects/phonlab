@@ -30,12 +30,6 @@ def test_columns_and_grid(im12):
     assert (df.voiced == (df.probv > 0.5)).all()
 
 
-def test_roughly_agrees_with_get_f0(im12):
-    ref = phon.get_f0(*im12)
-    df = phon.VAD(*im12)
-    assert (np.interp(ref.sec, df.sec, df.probv) > 0.5).astype(bool).__eq__(ref.voiced).mean() > 0.8
-
-
 def test_features_are_on_the_cpp_frames(im12):
     df = vad_features(*im12)
     cpp = phon.CPP(*im12, norm=False, smooth=0)

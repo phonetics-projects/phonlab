@@ -63,7 +63,7 @@ Example
 
 .. code-block:: Python
 
-    example_file = importlib.resources.files('phonlab') / 'data/example_audio/sf3_cln.wav'
+    example_file = AUDIO / 'sf3_cln.wav'
     x,fs = phon.loadsig(example_file,chansel=[0])
     ttime = 2.101
 
@@ -76,7 +76,7 @@ This example shows diagnostic plots from the get_f0_shs() function. The top left
     :alt: Diagnostic plots of the log spectrum to 1200Hz, and the harmonic and submonic spectra, and in the bottom left panel shows the difference between them.
     :align: center  
 
-    Diagnostic plots from shr_pitch().
+    Diagnostic plots from shs_pitch().
 
 
 .. figure:: images/shs_pitch.png
@@ -87,7 +87,8 @@ This example shows diagnostic plots from the get_f0_shs() function. The top left
     Pitch trace produced by get_f0_shs() function.
 
     '''
-    y,fs = prep_audio(x,fs,target_fs=16000,quiet=True)
+    y,fs = prep_audio(x,fs,target_fs=16000,
+                      scale=True, quiet=True)
 
     top_freq = f0_range[1]*2.5
     

@@ -115,7 +115,10 @@ Track formants in a file with LPC analysis, which by default will try to pick th
 
     if not quiet: print(f"LPC_formants(), with order set to {order}")
 
-    x, fs = prep_audio(x, fs, target_fs = SR, pre = preemphasis, quiet = quiet)  # downsample, no preemphasis
+    x, fs = prep_audio(x, fs, target_fs = SR,  # downsample
+                       pre = preemphasis,  # no preemphasis
+                       scale = True, quiet = quiet) 
+    
     frame_length = int(fs*l)  # samples in a frame
     step = int(fs*s)          # number of samples between frames
     if len(x) < frame_length:

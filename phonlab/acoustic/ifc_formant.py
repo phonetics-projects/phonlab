@@ -434,7 +434,7 @@ Use Inverse Filter Control to track formants in a file
 
     y, fs = prep_audio(x, fs, target_fs = SR,  # downsample
                        pre = preemphasis,  # apply preemphasis
-                       quiet = quiet)  
+                       scale = True, quiet = quiet)  
  
     centers, res = _ifc_analyze(y, fs, speaker, parallel)
     if len(centers) == 0:

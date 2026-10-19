@@ -29,10 +29,7 @@ Parameters
         the sampling rate of samples in x.  This will be resampled to 'target_fs' for analysis, 
         so choose the order paramter with this in mind.
     order : integer (default = 18)
-        Number of LPC coefficients, passed to RLPC_formant().  The default value is rather large,
-        allowing the LPC function to capture more peaks and valleys than may be typical in vowel formant
-        tracking analyses.  You can set this parameter to -1 and then the 
-        function choose_order() will be used to determine the value for this parameter.  
+        Number of LPC coefficients, passed to RLPC_formant().  The default value is rather large, allowing the LPC function to capture more peaks and valleys than may be typical in vowel formant tracking analyses.  You can set this parameter to -1 and then the function choose_order() will be used to determine the value for this parameter.  
     analysis_band : list, default = (80,2500)
         Compute the spectral difference over this frequency band (in Hz)
     acoustic_spectrum : string, default = "CEP"
@@ -129,6 +126,7 @@ Example
     
     x,fs = prep_audio(x, fs, target_fs=target_fs, 
                       pre=preemphasis, 
+                      scale=True,
                       quiet=not verbose)  # resample to target_fs
 
     # -------- get acoustic spectra -----------------

@@ -83,6 +83,7 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
     x, fs = prep_audio(x, fs,
                        target_fs = target_fs,
                        pre = preemphasis,
+                       scale = True,
                        quiet = not verbose,
                        fix_polarity = True)
     

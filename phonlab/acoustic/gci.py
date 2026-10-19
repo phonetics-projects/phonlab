@@ -67,17 +67,13 @@ Parameters
     fs : int
         sampling rate of **x**
     f0median : float, default = 200
-        The median of the fundamental frequency of voicing in **x**. This value can be estimated 
-        by the user, but it is best to measure the median of values given by a pitch tracker.
+        The median of the fundamental frequency of voicing in **x**. This value can be estimated by the user, but it is best to measure the median of values given by a pitch tracker.
     target_fs : int, default=16000
         the sampling rate of the returned residual and mbs waveforms.
     order : int, default = None
-        By default the order used in LPC analysis (to calculate the LPC residual signal) is guessed
-        based on the value of F0median.  Drugmand & Dutoit (2009) used order=18.
+        By default the order used in LPC analysis (to calculate the LPC residual signal) is based on the values of target_fs and F0median.  Drugmand & Dutoit (2009) used order=18.
     cthresh: float, default = 0.1
-        A peak in the LPC residual must be greater than this thresholf value in 
-        in order to be considered a glottal closure instant.  The residual is amplitude normalized 
-        to the range [0,1], so 0.1 is 10% of the amplitude range.
+        A peak in the LPC residual must be greater than this thresholf value to be considered a glottal closure instant.  The residual is amplitude normalized to the range [0,1], so 0.1 is 10% of the amplitude range.
 
 Returns
 =======
@@ -141,8 +137,9 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
        
     '''
     
-    y,fs = prep_audio(x,fs,target_fs,pre=0,fix_polarity=False,quiet=False)
-
+    y,fs = prep_audio(x,fs,target_fs,pre=0,
+                      fix_polarity=False,
+                      scale=True, quiet=False)
 
     # ========================
     # 1. get the mean based signal and find peaks and valleys in it
@@ -174,7 +171,7 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
     # ========================
     # 3. set an expectation for the median relative postion of the GCI in the MBS
     
-    # get some big residual peaks -- to find an estimate for where to find the GCI in the MBS
+    # get some big residual peaks -- to estimate location of the GCI in the MBS
     rp,_ = find_peaks(resid,height=0.3)
     relpos = np.empty(0)
 
@@ -187,7 +184,7 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
     if len(relpos)==0:
         ratioGCI = 0.5
     else:
-        ratioGCI = np.median(relpos)  # a reasonable expectation of where the GCI will be
+        ratioGCI = np.median(relpos)  # an expectation of the location of the GCI
 
     # =========================
     # 4. Find the glottal closure instants (GCI) - peaks in the residual
@@ -222,14 +219,16 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
 
     # ==========================
     # 6. Measure jitter of adjacent periods
-    
+    #      0 = identical adjacent periods, 1 = one is twice as long as the other
+
     t2 = gci[2:]-gci[:-2] # duration between intervals of 2 GCI
     t2 = np.pad(t2,(0,2),mode='edge') # repeat the last two
-    jitter = 2 * np.fabs(0.5 - (t1/t2)) # 0 = identical adjacent periods, 1 = one is twice as long as the other
-
+    jitter = 2 * np.fabs(0.5 - (t1/t2)) 
+    
     # ==========================
     # 7. Shimmer
-    shimmer = 20*np.log10(soe[1:]/soe[:-1]) # amplitude difference between adjacent pulses.
+    #     amplitude difference between adjacent pulses (in dB).
+    shimmer = 20*np.log10(soe[1:]/soe[:-1]) 
     shimmer = np.pad(shimmer,(1,0),mode='edge')  # repeat the first one
     
     df = DataFrame({'sec': gci, 'f0':f0, 'jitter':jitter, 'soe':soe, 'shimmer':shimmer})
