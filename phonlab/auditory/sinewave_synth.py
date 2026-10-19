@@ -158,7 +158,9 @@ Example
             wav = voiced*wav
         else:
             # the original audio at the output sampling rate
-            orig, _ = prep_audio(x, fs, target_fs=target_fs, scale=False, add_tiny_noise=False)
+            orig, _ = prep_audio(x, fs, 
+                                 target_fs=target_fs, scale=False, 
+                                 add_tiny_noise=False)
             orig = np.pad(orig, (0, max(0, len(wav)-len(orig))))[:len(wav)]
             
             # match the level of the synthetic and original audio in the voiced frames
@@ -168,6 +170,9 @@ Example
             wav = voiced*wav + (1 - voiced)*orig*voiceless_gain
     
     # scale to the default level, leaving the sampling rate and the silent samples alone
-    wav, fs = prep_audio(wav, target_fs, target_fs=None, add_tiny_noise=False)
+    wav, fs = prep_audio(wav, target_fs, 
+                         target_fs = target_fs, 
+                         scale = True,
+                         add_tiny_noise = False)
            
     return wav,fs

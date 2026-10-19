@@ -1,5 +1,4 @@
 import numpy as np
-from ..utils.prep_audio_ import prep_audio
 
 def sigcor_noise(x,fs, flip_rate = 0.5, start=0, end = -1):
     """Add signal correlated noise to an audio file. 

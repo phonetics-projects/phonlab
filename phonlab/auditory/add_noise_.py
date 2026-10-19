@@ -3,7 +3,6 @@ import random
 import colorednoise as cn
 import librosa
 from importlib.resources import files as res_files
-from ..utils.prep_audio_ import prep_audio
 
 def peak_rms(y):
     """

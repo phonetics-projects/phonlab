@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import signal
 
-def test_signal(type = "sine", fs = 10000, dur=0.5, freq=500, amp = 1) :
+def test_signal(type = "sine", fs = 16000, dur=0.5, freq=500, amp = 1.0) :
     '''Generate audio test signals of various types.
 
 Parameters
@@ -15,7 +15,7 @@ Parameters
             * "square", or 
             * "impulse".
 
-    fs : integer, default = 10000
+    fs : integer, default = 16000
         The sampling rate of the returned audio test signal.
     dur : float, default = 0.5
         The duration (in seconds) of the returned audio test signal

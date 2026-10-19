@@ -150,9 +150,22 @@ that to the tensor flow function to compute mel-frequency cepstral coefficients 
 
 .. code-block:: Python
 
-    # Compute MFCCs from log_mel_spectrograms and take the first 13.
-    mel_f, sec, mel_sgram = phon.compute_mel_sgram(x,fs)
-    mfccs = tf.signal.mfccs_from_log_mel_spectrograms(mel_sgram)[..., :13]
+    # Compute log_mel_spectrogram.
+    mel_f, sec, mel_sgram = phon.compute_mel_sgram(x,fs,step_sec=0.005)
+
+    vmin = np.min(mel_sgram) + (np.max(mel_sgram)-np.min(mel_sgram))*0.2
+
+    fig = plt.figure(figsize=(12, 4.5),dpi=72)
+    ax1 = fig.add_subplot(111)
+
+    extent = (min(sec),max(sec),min(mel_f),max(mel_f)) 
+    ax1.imshow(mel_sgram.T, aspect='auto', interpolation='nearest', 
+                    cmap='Grays', vmin=vmin,
+                    extent = extent, origin='lower')
+    ax1.grid(which='major', axis='y', linestyle=':')  
+    ax1.set_xlabel("Time (sec)", size=14)
+    ax1.set_ylabel("Frequency (mels)", size=14)
+    plt.tick_params(labelsize=14)
 
 .. figure:: images/mel_sgram.png
     :scale: 40 %

@@ -215,7 +215,11 @@ References
 R. D. Patterson (1976) Auditory filter shapes derived with noise stimuli. `J. Acoust. Soc. Am.` **59** , 640-54.
         '''
         
-        x, fs = prep_audio(x, fs = fs, target_fs = self.fs, pre = preemph)
+        x, fs = prep_audio(x, fs = fs, 
+                           target_fs = self.fs, 
+                           pre = preemph,
+                           scale=True)
+        
         (sgram, self.time_axis) = self._make_sgram(x, kwargs)
         self.sgram = sgram + self.loud
         zgram = self.sgram[:, np.newaxis, :] * self.cbfilts[np.newaxis, :, :]
