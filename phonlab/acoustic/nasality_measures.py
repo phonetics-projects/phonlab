@@ -127,7 +127,7 @@ Example
     x,fs = prep_audio(x, fs, target_fs=target_fs, 
                       pre=preemphasis, 
                       scale=True,
-                      quiet=not verbose)  # resample to target_fs
+                      verbose = verbose)  # resample to target_fs
 
     # -------- get acoustic spectra -----------------
     if acoustic_spectrum == "FFT":

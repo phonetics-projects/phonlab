@@ -174,7 +174,7 @@ Example
     """
     y, fs = prep_audio(x, fs, scale = True,
                        target_fs = target_fs, 
-                       pre=0, quiet = True)
+                       pre=0, verbose= False)
 
     n_channels = len(bands)
     n_samples = y.shape[-1]

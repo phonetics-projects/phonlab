@@ -350,7 +350,8 @@ def ifc_warmup_numba(verbose=True):
         print(" done")
 
 
-def IFC_formants(x, fs, preemphasis = 0.94, speaker = 0, parallel = True, quiet = True):
+def IFC_formants(x, fs, preemphasis = 0.94, speaker = 0, 
+                 parallel = True, verbose=False):
     """Computes vowel formant values in audio of speech using the Inverse Filter Control method.
 
 The function uses the Watenabe/Ueda Inverse Filter Control (IFC) method of vowel formant tracking (Watenabe, 2001; Ueda et al., 2007) to estimate the first four vowel formants (the resonant frequencies of the vocal tract) in 20 ms frames at 10 ms intervals.  The method can be quite a bit more accurate than LPC.  The analysis of the frames is accelerated by numba just in time (JIT) compilation into machine code, and the frames are analyzed in parallel on all available cores.  Therefore, the first call to `IFC_formants()` will be slower than subsequent calls, because of the time needed to compile (or load from the cache) the compiled functions.
@@ -378,8 +379,8 @@ speaker : int, default = 0
 parallel : boolean, default = True
     True means the frames are analyzed on all cores.  False uses one core.
 
-quiet : boolean, default = True
-    False means print progress or warning messages
+verbose : boolean, default = False
+    True means print progress or warning messages
 
 Returns
 =======
@@ -429,12 +430,12 @@ Use Inverse Filter Control to track formants in a file
     if speaker not in (0, 1, 2):
         raise ValueError(f"IFC_formants(): unknown speaker {speaker!r}; expected 0, 1, or 2")
 
-    if not quiet:
+    if verbose:
         print(f"IFC_formants(), with speaker set to {speaker}")
 
     y, fs = prep_audio(x, fs, target_fs = SR,  # downsample
                        pre = preemphasis,  # apply preemphasis
-                       scale = True, quiet = quiet)  
+                       scale = True, verbose=verbose)  
  
     centers, res = _ifc_analyze(y, fs, speaker, parallel)
     if len(centers) == 0:
@@ -443,7 +444,5 @@ Use Inverse Filter Control to track formants in a file
     formants = np.empty((len(centers), 5))
     formants[:, 0] = centers/fs
     formants[:, 1:] = np.round(res, 3)
-
-    if not quiet: print("\r done         ")
 
     return DataFrame(formants, columns=("sec","F1","F2","F3","F4"))

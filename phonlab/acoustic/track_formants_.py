@@ -1071,7 +1071,7 @@ def get_LPC_lr(x,fs, frame_length,p):
     A = librosa.lpc(frames, order=p,axis= -1)
     return A,t
 
-def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0, quiet = False):
+def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0, verbose = False):
     '''LPC_tracking() uses the Librosa implemenation of linear predictive coding 
 (Markel & Gray) to find the vowel formant frequencies in a sound file, or array of audio samples.  Formant freqquencies are found from the LPC coefficients using polynomial root solving.  The function also uses the LPC coefficients to inverse filter the waveform and then calculate f0 (voice pitch) from the quasi glottal waveform using autocorrelation. The peak autocorrelation values are normalized and returned as a voicing score between 0 and 1.  Finally, the RMS amplitude of the waveform in each frame of audio is also returned.  A dataframe of measurements is returned with data at intervals of 10ms.  
  
@@ -1095,9 +1095,11 @@ def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0, quie
             voicing - a voicing score [0,1], higher values indicate stronger evidence of voicing
     '''
 
-    if not quiet: print(f"LPC_tracking(), with order set to {order}, and pitch range {f0_range}")
+    if verbose: print(f"LPC_tracking(), with order set to {order}, and pitch range {f0_range}")
 
-    x, fs = prep_audio(x, fs, target_fs = SR, pre = 0,quiet = quiet)  # downsample, no preemphasis
+    x, fs = prep_audio(x, fs, target_fs = SR, scale = True,
+                       pre = 0, verbose= verbose)
+    
     rms = librosa.feature.rms(y=x,frame_length=frame_length, 
                               hop_length=step,center=False) # get rms amplitude
     rms = 20*np.log10(rms[0])
@@ -1107,7 +1109,7 @@ def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0, quie
         
     if order<0:  # guess the correct LPC order
         order,time = choose_order(y,fs,frame_length/fs)
-        if not quiet: print(f"Selected LPC order is: {order}, measured at time {time:.3f}")
+        if verbose: print(f"Selected LPC order is: {order}, measured at time {time:.3f}")
 
     (A,t) = get_LPC_lr(y,fs, frame_length,order)  # LPC coefs for whole file using this order
 
@@ -1146,7 +1148,7 @@ def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0, quie
     return df
 
 
-def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, quiet = False, jit = None, parallel = None):
+def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, verbose = False, jit = None, parallel = None):
     '''IFC_tracking() -- inverse filter control formant tracking of a whole waveform; see track_formants().
     For method 'ifc', jit (default: the module constant IFC_JIT) sends all frames through the compiled
     IFC_process_frames(), on all cores unless parallel is False (default: IFC_PARALLEL); otherwise, and
@@ -1154,17 +1156,18 @@ def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, quie
     if jit is None:
         jit = IFC_JIT
     
-    if not quiet: 
+    if verbose: 
         print(f"IFC_tracking(), using method {g_method}, with speaker set to {speaker}, and pitch range {f0_range}")
 
-    x, fs = prep_audio(x, fs, target_fs = SR, pre = 0,quiet=quiet)  # downsample waveform, no preemphasis
+    x, fs = prep_audio(x, fs, target_fs = SR, scale = True, 
+                       pre = 0, verbose = verbose) 
 
     rms = librosa.feature.rms(y=x,frame_length=frame_length, 
                               hop_length=step,center=False) # get rms amplitude
     rms = 20*np.log10(rms[0])
 
     # apply preemphasis
-    y, fs = prep_audio(x,fs,pre=preemphasis,target_fs=fs,quiet=True) 
+    y, fs = prep_audio(x,fs,pre=preemphasis,target_fs=fs,verbose=False) 
 
     if g_method == "ifc" and jit:
         # method 'ifc': every frame through the compiled analysis at once (see IFC_process_frames())
@@ -1174,7 +1177,7 @@ def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, quie
         formants[:, 0] = centers/fs
         formants[:, 1] = rms[:len(centers)]
         formants[:, 2:] = IFC_process_frames(frames, fs, speaker, f0_range, parallel=parallel)
-        if not quiet: print(f"\r done         ")
+        if verbose: print(f"\r done         ")
         return DataFrame(formants,columns=("sec","rms","F1","F2","F3","F4","f0","c"))
     
     sos_bank = [design_filter(b, fs,order=12) for b in params[speaker]["bands"]]
@@ -1190,18 +1193,22 @@ def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, quie
 
         row = IFC_process_frame(x_win,fs,speaker,f0_range, filterbank)
         formants[frame_count] = np.concatenate(([t],[rms[frame_count]],row))
-        if not quiet:   # count time though the file
+        if verbose:   # count time though the file
             if frame_count % (fs//step) == 0:  print(f"\r {t:.2f} sec.", end='')  # once per second of audio
         frame_count += 1
 
-    if not quiet: print(f"\r done         ")
+    if verbose: print(f"\r done         ")
 
     df = DataFrame(formants,columns=("sec","rms","F1","F2","F3","F4","f0","c"))
 
     return df
 
-def track_formants(x,fs, method='lpc', preemphasis = 1.0, f0_range = [63,400], speaker = 0, order= -1, quiet=False):
-    """Computes the vowel formant values in audio of speech.
+def track_formants(x,fs, method='lpc', preemphasis = 1.0, 
+                   f0_range = [63,400], speaker = 0, 
+                   order= -1, verbose = False):
+    """***Depricated - use one of the ###_formants() functions***
+    
+Computes the vowel formant values in audio of speech.
     
 The function uses either LPC analysis or the IFC method to calculate vowel formants (the resonant frequencies of the vocal tract) and then returns a dataframe of measurements (formants, f0, voicing, and amplitude) at 10ms intervals for the duration of sound.
 
@@ -1241,8 +1248,8 @@ speaker : int, default = 0
 order : int, default = -1
     the default value, -1 tries several values of lpc_order and determines the best value for this audio file.  You can also specify the order by setting this parameter to a positive integer (12 or 14 for a male speaker, 10 or 12 for a female speaker, 8 or 10 for a child).  This parameter is only used in LPC analysis.
 
-quiet : boolean, default = False
-    False means print progress or warning messages
+verbose : boolean, default = False
+    True means print progress or warning messages
 
 Returns
 =======
@@ -1319,9 +1326,11 @@ the spectrogram of `x`, and the seaborn graphics package is used to add the form
     globals()['g_method'] = method
     
     if method == 'lpc':
-        df = LPC_tracking(x, fs, preemphasis = preemphasis, f0_range=f0_range, order=order, quiet = quiet)
+        df = LPC_tracking(x, fs, preemphasis = preemphasis, 
+                          f0_range=f0_range, order=order, verbose=verbose)
     else: 
-        df = IFC_tracking(x, fs, preemphasis = preemphasis, f0_range=f0_range, speaker=speaker,quiet = quiet)
+        df = IFC_tracking(x, fs, preemphasis = preemphasis, 
+                          f0_range=f0_range, speaker=speaker,verbose=verbose)
 
     return df
 

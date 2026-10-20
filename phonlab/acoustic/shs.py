@@ -88,7 +88,7 @@ This example shows diagnostic plots from the get_f0_shs() function. The top left
 
     '''
     y,fs = prep_audio(x,fs,target_fs=16000,
-                      scale=True, quiet=True)
+                      scale=True, verbose = False)
 
     top_freq = f0_range[1]*2.5
     

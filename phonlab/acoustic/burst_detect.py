@@ -1,5 +1,6 @@
 import numpy as np
 import librosa
+from ..utils.prep_audio_ import prep_audio
 
 def burst (x, fs, start, end):
     """Find a stop burst in a short interval of audio
@@ -63,6 +64,9 @@ In this example we open a sound file with `phon.loasig()`, prepare it for the bu
    Marking the burst found by `phon.burst()`
 
 """
+    y,fs = prep_audio(x, fs, target_fs=16000, scale=True,
+                      pre=0.0, verbose=False)  # resample to 16kHz
+    
     n_fft = 1024
     w_cands = np.zeros((3,2))  # [,0] are scores, and [,1] are times
     s_cands = np.zeros((3,2))  # [,0] are scores, and [,1] are times

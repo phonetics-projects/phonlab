@@ -162,7 +162,8 @@ This example plots the cepstral peak prominence in a recording of "the Soviet Un
     :align: center
 
     '''
-    y,fs = prep_audio(x, fs, target_fs=target_fs, pre=0.0, quiet=True)  # resample to 16kHz
+    y,fs = prep_audio(x, fs, target_fs=target_fs, 
+                      pre=0.0, verbose=False)  # resample to 16kHz
 
     if smooth: s = 0.002  # faster framerate if smoothed
 
@@ -293,7 +294,8 @@ References
     '''
     target_fs = int(tf*2)
     
-    x,fs = prep_audio(x, fs, target_fs=target_fs, pre=preemphasis, quiet=False)  # resample to target_fs
+    x,fs = prep_audio(x, fs, target_fs=target_fs, 
+                      pre=preemphasis, verbose=False) 
 
     step = int(fs*s)
     frame_length = int(fs*l)

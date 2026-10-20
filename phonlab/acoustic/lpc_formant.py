@@ -21,7 +21,8 @@ def _analysis_window(frame_length, fs, l):
 
 
 
-def LPC_formants(x, fs, preemphasis = 0.94, order = -1, max_bw = 800, s = 0.01, l = 0.03, quiet = True):
+def LPC_formants(x, fs, preemphasis = 0.94, order = -1, 
+                 max_bw = 800, s = 0.01, l = 0.03, verbose=False):
     """Computes vowel formant values in audio of speech using linear predictive coding (LPC).
 
 The function uses the Librosa implemenation of Burg's (1975) method for linear predictive coding and then polynomial root solving of the LPC coefficients to find the vowel formant frequencies (the resonant frequencies of the vocal tract) and their bandwidths in overlapping frames (by default 30 ms long, at 10 ms intervals).
@@ -113,11 +114,12 @@ Track formants in a file with LPC analysis, which by default will try to pick th
     if s <= 0 or l <= 0:
         raise ValueError(f"LPC_formants(): s ({s}) and l ({l}) must be positive")
 
-    if not quiet: print(f"LPC_formants(), with order set to {order}")
+    if verbose: 
+        print(f"LPC_formants(), with order set to {order}")
 
     x, fs = prep_audio(x, fs, target_fs = SR,  # downsample
                        pre = preemphasis,  # no preemphasis
-                       scale = True, quiet = quiet) 
+                       scale = True, verbose = verbose) 
     
     frame_length = int(fs*l)  # samples in a frame
     step = int(fs*s)          # number of samples between frames
@@ -126,7 +128,7 @@ Track formants in a file with LPC analysis, which by default will try to pick th
 
     if order < 0:  # guess the correct LPC order
         order, time = choose_order(x, fs, l)
-        if not quiet: print(f"Selected LPC order is: {order}, measured at time {time:.3f}")
+        if verbose: print(f"Selected LPC order is: {order}, measured at time {time:.3f}")
 
     # LPC coefficients for each (windowed) frame of the whole file
     frames = util.frame(x, frame_length=frame_length, hop_length=step, axis=0)

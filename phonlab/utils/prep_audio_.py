@@ -10,7 +10,7 @@ DEFAULT_PEAK = 0.89125
 
 def prep_audio(x, fs, target_fs=32000, pre = 0, scale = True, 
                add_tiny_noise = True, outtype = "float", pad_to = 0.0,
-               fix_polarity = False, quiet = True):
+               fix_polarity = False, verbose = False):
     """Prepare an array of audio waveform samples for acoustic analysis. 
     
 Parameters
@@ -54,6 +54,9 @@ Parameters
         The "float" waveform is 32 bit floating point numbers - in the range from [-1, 1].
         When converting to integers, samples outside of [-1, 1] are clipped and a warning is issued.
 
+    verbose : boolean, default = False
+        Print information about the processing.
+
 
 Returns
 =======
@@ -95,12 +98,14 @@ Take the right channel, and resample to 16,000 Hz
     if target_fs==fs:
         x2 = np.array(x, copy=True)  # always copy, so callers never get back a view of their input buffer
     else:
-        if not quiet: 
+        if verbose: 
             print(f'Prep Audio: Resampling from {fs} to {target_fs}')
         cd = np.gcd(fs,target_fs)   # common denominator   
         x2 = resample_poly(x,up=target_fs/cd, down=fs/cd)
             
     if fix_polarity:
+        if verbose:
+            print("Prep Audio: setting the polarity of the signal")
         if (np.max(x2) + np.min(x2)) < 0:  x2 = -x2   #  set the polarity of the signal
         
     if scale is not None:
@@ -109,6 +114,8 @@ Take the right channel, and resample to 16,000 Hz
         else:                                     # scale is a number of dBFS
             target_peak = 10 ** (float(scale) / 20)
         if target_peak is not None:
+            if verbose:
+                print(f"Prep Audio: Scale amplitude to be {target_peak*100:.1f} of full scale")
             peak = np.max(np.abs(x2))
             if peak > 0:
                 x2 = x2 / peak * target_peak
@@ -126,10 +133,12 @@ Take the right channel, and resample to 16,000 Hz
         extra_samples = 0 if remainder == 0 else frame_len - remainder
         if extra_samples > 0:
             x2 = np.concatenate((x2, np.zeros(extra_samples, dtype=x2.dtype)))
-        if not quiet:
+        if verbose:
             print(f"Prep Audio: Padding signal to a multiple of {pad_to} sec ({frame_len} samples), which involves adding {extra_samples} extra samples.")
 
     if (pre > 0):
+        if verbose:
+            print(f"Prep Audio: apply preemphasis factor {pre}")
         y = np.append(x2[0], x2[1:] - pre * x2[:-1])  # apply pre-emphasis
     else:
         y = x2
@@ -138,17 +147,21 @@ Take the right channel, and resample to 16,000 Hz
         # only exact-zero samples get jittered (digital silence, or the padding above) -- real
         # recordings essentially never contain literal zeros, so this leaves them bit-identical
         # across repeated calls instead of dithering every sample.
+        if verbose:
+            print("Prep Audio: adding tiny noise in place of samples that are exactly zero")
         zero_mask = (y == 0)
         n_zero = int(np.count_nonzero(zero_mask))
         if n_zero > 0:
             y[zero_mask] = (((np.random.rand(n_zero) - 0.5) * 0.00001).astype(y.dtype))
     
     if outtype == "int" or outtype == "int16":
+        if verbose:
+            print("Prep Audio: convert audio to 16 bit integers")
         peak_out = np.max(np.abs(y)) if len(y) > 0 else 0.0
         if peak_out > 1.0:
             n_clipped = int(np.count_nonzero(np.abs(y) > 1.0))
             warnings.warn(
-                f"prep_audio: {n_clipped} samples ({100 * n_clipped / len(y):.3g}%) exceed full scale "
+                f"Prep Audio: {n_clipped} samples ({100 * n_clipped / len(y):.3g}%) exceed full scale "
                 f"(peak = {20 * np.log10(peak_out):.2f} dBFS) and will be clipped when converting to "
                 f"integers. Use a lower scale value or reduce the pre-emphasis to avoid clipping.",
                 UserWarning, stacklevel=2)

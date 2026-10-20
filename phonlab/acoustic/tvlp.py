@@ -167,8 +167,6 @@ def _process_frames_l1_parallel(frames, weights, p, q, max_iter=10):
         Time-varying LP coefficients for all samples in all frames
     """
     n_frames, frame_length = frames.shape
-    #n_frames = len(frames)
-    #frame_length = len(frames[0])
     
     all_ak = np.zeros((n_frames, p + 1, frame_length), dtype=np.float32)
     
@@ -437,7 +435,8 @@ def tvlptoformants(all_ak, frame_length_samples, step, fs,
     return all_fi, all_bw, sample_times
 
 
-def tvlp_batch(x, fs, frame_length, p, q, norm, qcp=True, f0median=200, max_iter=10, verbose=False):
+def tvlp_batch(x, fs, frame_length, p, q, norm, qcp=True, 
+               f0median=200, max_iter=10, verbose=False):
     """
     Process long audio files in parallel using Numba.
     Returns only time-varying coefficients (aki matrices are not stored).
@@ -685,7 +684,7 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
                        pre = 0.95,
                        fix_polarity = True,
                        pad_to=frame_duration_sec,
-                       quiet = not verbose)
+                       verbose = verbose)
     frame_length_samples = round(frame_duration_sec * fs)  # must match prep_audio()'s pad_to rounding, or the reshape in tvlp_batch() breaks
 
     p=order

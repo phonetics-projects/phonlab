@@ -139,7 +139,7 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
     
     y,fs = prep_audio(x,fs,target_fs,pre=0,
                       fix_polarity=False,
-                      scale=True, quiet=False)
+                      scale=True, verbose=False)
 
     # ========================
     # 1. get the mean based signal and find peaks and valleys in it

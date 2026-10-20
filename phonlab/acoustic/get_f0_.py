@@ -101,7 +101,7 @@ def get_f0(y, fs, f0_range = [63,400], s= 0.005):
     """
     x, fs = prep_audio(y, fs, target_fs = None, 
                        pre = 0.0, scale = True, 
-                       quiet=True)  
+                       verbose=False)  
     
     # ---- setup constants and global variables -----
     step = int(fs * s)  # number of samples between frames
@@ -223,7 +223,8 @@ References
 T. Drugman, A. Alwan (2011) Joint robust voicing detection and pitch estimation based on residual harmonics. 'ISCA (Florence, Italy)' pp. 1973ff
 
     """
-    x,fs = prep_audio(y, fs, target_fs=16000, pre = 0, quiet=True)  # resample, preemphasis
+    x,fs = prep_audio(y, fs, target_fs=16000, 
+                      pre = 0, verbose=False) 
 
     frame_length = int(fs * l)  # frame size in samples
     half_frame = frame_length//2
@@ -295,7 +296,8 @@ def get_f0_ac(y, fs, f0_range = [60,400], l=0.05, s=0.005):
         * rms - peak normalized rms amplitude in the band from 0 to fs/2
         * c - value of the peak autocorrelation found in the frame
     """
-    x, fs = prep_audio(y, fs, target_fs = 32000, pre = 0, quiet=True)  
+    x, fs = prep_audio(y, fs, target_fs = 32000, 
+                       pre = 0, verbose=False)  
 
     short = fs//f0_range[1]  # period of highest allowable frequency - shortest lag
     long = fs//f0_range[0]  # period of lowest allowable frequency - longest lag
@@ -457,7 +459,7 @@ Example
     down_fs = nh*400  # down sample frequency
     
     x, fs = prep_audio(y, fs, target_fs = down_fs, 
-                       scale = True, pre=0,quiet=True)  # no preemphasis
+                       scale = True, pre=0,verbose=False)
     
     N = 1024    # FFT size
 
