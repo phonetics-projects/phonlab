@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 def plot_tier(df, start=0.0, end=-1, ax=None, mark_in_plot = [], 
-              span_time=None, vertical_place = 0.5, **kwargs):
+              span_time=None, vertical_place = 0.5, fontname = ["Doulos SIL","serif"],
+              fontsize = 24, **kwargs):
     """
     Plot the labels from a textgrid tier in a matplotlib plot axes.  See the example for an illustration of how this is used to add textgrid labels to a spectrogram.  This function is a combination of functions plot_tier_times() and plot_tier_spans() that were written by Martin Oberg at UBC.
 
@@ -30,6 +31,12 @@ Parameters
 
     vertical_place: float (default 0.5)
         relative vertical location of the label in the axes.  0 = centered at the bottom of the axes, and 1 = centered at the top.
+
+    fontname: text or list of text (default ["Doulos SIL","serif"])
+        The name of the font to use for labels.  See documentation for matplotlib.pyplot.text.
+
+    fontsize : float or {'xx-small', ..., 'xx-large'} (default 24)
+        See documentation for matplotlib.pyplot.text.
 
     **kwargs : keyword arguments
         arguments passed to axvspan() to control the appearance of span shading requested with the span_time argument.
@@ -130,7 +137,8 @@ The second example shows that plot_tier() can be used to add lables directly to 
         ax.axvline(row.t1, color="k")
         ax.axvline(row.t2, color="k")        
         x_loc = 0.5 * (row.t1 + row.t2)
-        ax.text(x_loc, y_loc, row[3], size=16,
+        ax.text(x_loc, y_loc, row[3], size=fontsize,
+                fontname = fontname,
                 verticalalignment='center',
                 horizontalalignment='center')
         for other_axes in mark_in_plot:

@@ -98,11 +98,11 @@ def _cases():
         "compute_sgram": lambda: phon.compute_sgram(x, fs, 0.005),
         "compute_mel_sgram": lambda: phon.compute_mel_sgram(x, fs),
         "nasality": lambda: phon.nasality(x, fs),
-        "track_formants_lpc": lambda: phon.track_formants(x, fs, quiet=True),
+        "track_formants_lpc": lambda: phon.track_formants(x, fs, verbose=False),
         "track_formants_ifc_fast": lambda: phon.track_formants(
-            xs, fs, method="ifc_fast", quiet=True),
+            xs, fs, method="ifc_fast", verbose=False),
         "track_formants_ifc": lambda: phon.track_formants(
-            x, fs, method="ifc", quiet=True),
+            x, fs, method="ifc", verbose=False),
         "prep_audio": lambda: phon.prep_audio(x, fs),
         "peak_rms": lambda: phon.peak_rms(x),
         "sigcor_noise": lambda: phon.sigcor_noise(x, fs),
@@ -110,7 +110,7 @@ def _cases():
         "third_octave_bands": lambda: phon.third_octave_bands(),
         "shannon_bands": lambda: phon.shannon_bands(),
         "sine_synth": lambda: phon.sine_synth(
-            phon.track_formants(x, fs, quiet=True),x,fs),
+            phon.track_formants(x, fs, verbose=False),x,fs),
         "test_signal_sine": lambda: phon.test_signal("sine"),
         "smoothn": lambda: phon.smoothn(
             np.sin(np.linspace(0, 6, 60))
@@ -178,7 +178,7 @@ def test_ifc_formants_matches_track_formants_golden():
     """IFC_formants() must reproduce the formants stored for track_formants(method='ifc')
     (same clip, same frames); its output has no rms/f0/c columns."""
     x, fs = _clip()
-    df = phon.IFC_formants(x, fs, preemphasis=1.0, quiet=True)  # the preemphasis track_formants() uses
+    df = phon.IFC_formants(x, fs, preemphasis=1.0, verbose=False)  # the preemphasis track_formants() uses
     assert list(df.columns) == ["sec", "F1", "F2", "F3", "F4"]
     with np.load(GOLDEN / "track_formants_ifc.npz", allow_pickle=True) as g:
         for c in df.columns:
@@ -201,7 +201,7 @@ def test_lpc_formants_matches_track_formants_golden(monkeypatch):
     monkeypatch.setattr(lpc_formant, "_analysis_window",
                         lambda n, fs, l: scipy.signal.windows.hamming(n))  # the window track_formants() uses
     x, fs = _clip()
-    df = phon.LPC_formants(x, fs, preemphasis=1.0, l=0.02, quiet=True)
+    df = phon.LPC_formants(x, fs, preemphasis=1.0, l=0.02, verbose=False)
     with np.load(GOLDEN / "track_formants_lpc.npz", allow_pickle=True) as g:
         fcols = [c[2:] for c in g.files if c[2:] in ("F1", "F2", "F3", "F4")]
         assert list(df.columns) == ["sec"] + fcols + [f"BW{i}" for i in range(1, len(fcols)+1)]
