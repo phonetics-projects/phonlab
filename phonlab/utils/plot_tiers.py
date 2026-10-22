@@ -26,8 +26,8 @@ Parameters
     mark_in_plot : list of axes (default [])
         a list of matplotlib axes where vertical black lines at label boundaries (t1 and t2) will be marked.  
 
-    span_time: float (default None)
-        a time value (in seconds) used to choose a label interval that will be highlighted by color shading overlaid on the axes in `mark_in_plot`.  By default the color of the shading is blue, and the alpha of the shading is 0.2.  These defaults can be changed by keyword arguments that will be passed to the pyplot functin `axvspan()`.
+    span_time: float or list of floats (default None)
+        a time value (in seconds), or a list of time values, used to choose label intervals that will be highlighted by color shading overlaid on the axes in `mark_in_plot`.  Each interval that contains one of the times is shaded.  By default the color of the shading is blue, and the alpha of the shading is 0.2.  These defaults can be changed by keyword arguments that will be passed to the pyplot functin `axvspan()`.
 
     vertical_place: float (default 0.5)
         relative vertical location of the label in the axes.  0 = centered at the bottom of the axes, and 1 = centered at the top.
@@ -85,7 +85,7 @@ in the spectrogram, and with one particular phone highlighed (the one that inclu
     fig,[wrd,phn,wav,specgrm] = phon.make_figure(height_ratios)
 
     # fill the figure with textgrid and acoustic data
-    phon.plot_tier(phdf, start, end, ax=phn, mark_in_plot=[wav,specgrm],span_time=0.5)
+    phon.plot_tier(phdf, start, end, ax=phn, mark_in_plot=[wav,specgrm],span_time=0.5)  # or a list, e.g. span_time=[0.3, 0.5]
     phon.plot_tier(wddf, start, end, ax=wrd) # word tier at top
     wav = phon.display_wave(x,fs,start, end, ylabel="", font_size=8, ax=wav)
     ret = phon.sgram(x,fs,start, end, ax=specgrm)
@@ -122,6 +122,13 @@ The second example shows that plot_tier() can be used to add lables directly to 
     if "color" not in kwargs.keys():
         kwargs["color"] = "b"
 
+    if span_time is None:
+        span_times = []
+    elif pd.api.types.is_list_like(span_time):
+        span_times = list(span_time)
+    else:
+        span_times = [span_time]
+
     if ax is None:
         ax = plt.gca()
     ax.axhline(0,color="k")  # horizontal line under the tier
@@ -145,12 +152,11 @@ The second example shows that plot_tier() can be used to add lables directly to 
             if isinstance(other_axes,plt.Axes):
                 other_axes.axvline(row.t1,color='k')
                 other_axes.axvline(row.t2,color='k')
-        if not span_time is None:
-            if row.t1<span_time and row.t2>span_time:
-                ax.axvspan(row.t1, row.t2, color='g', alpha=0.2) 
-                for other_axes in mark_in_plot:
-                    if isinstance(other_axes,plt.Axes):
-                        other_axes.axvspan(row.t1,row.t2,**kwargs)
+        if any(row.t1 < t < row.t2 for t in span_times):
+            ax.axvspan(row.t1, row.t2, color='g', alpha=0.2) 
+            for other_axes in mark_in_plot:
+                if isinstance(other_axes,plt.Axes):
+                    other_axes.axvspan(row.t1,row.t2,**kwargs)
 
 def make_figure(height_ratios = [1,1,5], figsize=(5, 2), dpi=72, **fig_kw):
     """
