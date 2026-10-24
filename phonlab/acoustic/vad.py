@@ -34,12 +34,13 @@ def vad_features(y, fs, f0_range=[63, 400], s=0.005):
     return df
 
 
-def VAD(y, fs, f0_range=[63, 400], s=0.005):
+def VAD(y, fs, f0_range=[63, 400], s=0.005, threshold=0.8):
     """Voice activity detection: the probability that each frame of audio is voiced.
 
     The voicing decision is a logistic regression on two measurements made in each frame: the level of
-    the amplitude envelope in a low frequency band (80-800 Hz), and cepstral peak prominence (`cpp`).
-    The coefficients were trained against EGG voicing by `examples/train_vad.py`.
+    the amplitude envelope in a low frequency band (80-800 Hz), and cepstral peak prominence
+    (a measure of perodicity). The coefficients were trained against EGG voicing by
+    `examples/train_vad.py`.
 
     Training results found agreement between VAD() and egg_to_oq() of 92.2% on [-voice]
     decisions and 95.6% on [+voice] decisions.  
@@ -54,6 +55,9 @@ def VAD(y, fs, f0_range=[63, 400], s=0.005):
             The lowest and highest values to consider in pitch tracking.
         s : float, default = 0.005
             "Hop" interval between successive analysis windows (seconds).
+        threshold : float (0-1), default = 0.8
+            Frames that have a value of **probv** greater than this will have
+            **voiced** = True,  
 
     Returns
     =======
@@ -68,10 +72,11 @@ def VAD(y, fs, f0_range=[63, 400], s=0.005):
         * cpp - cepstral peak prominence (dB) - from `phon.CPP()`
         * amp - amplitude envelope (dB) in the low frequency band (80-800 Hz)
         * probv - probability of voicing
-        * voiced - a boolean, true if probv > 0.5
+        * voiced - a boolean, true if probv > threshold
     """
+    threshold = np.max([0.0,np.min([1.0,threshold])])  # limit range to 0-1
     df = vad_features(y, fs, f0_range=f0_range, s=s)
     z = VAD_COEFS['intercept'] + VAD_COEFS['amp'] * df['amp'] + VAD_COEFS['cpp'] * df['cpp']
     df['probv'] = 1 / (1 + np.exp(-z))
-    df['voiced'] = df['probv'] > 0.5
+    df['voiced'] = df['probv'] > threshold
     return df
