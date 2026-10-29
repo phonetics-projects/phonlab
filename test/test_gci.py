@@ -49,9 +49,10 @@ def test_get_mbs_unchanged_for_typical_speech_f0(f0median):
     np.testing.assert_array_equal(get_mbs(x, fs, f0median), old_get_mbs(x, fs, f0median))
 
 
-@pytest.mark.parametrize("f0, fs", [(12, 2000), (15, 4000), (25, 4000), (15, 12000)])
+@pytest.mark.parametrize("fs", [2000, 4000])
+@pytest.mark.parametrize("f0", [5, 7.5, 10, 12.5, 15, 20, 25])
 def test_gci_sedreams_tracks_very_low_f0(f0, fs):
-    dur = 2.0
+    dur = max(2.0, 20 / f0)  # at least 20 glottal cycles
     x = synth_voice(f0, [40, 170, 400, 650], [20, 40, 60, 80], fs, dur=dur)
     df, mbs, resid = phon.gci_sedreams(x, fs, f0median=f0, target_fs=fs)
     expected = dur * f0

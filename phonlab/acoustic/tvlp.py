@@ -621,8 +621,8 @@ def tvlp_warmup_numba(verbose=True):
     
 
 def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3, 
-                  norm='l2', qcp=True, step=0.01, nformants=4, f0median=200, 
-                  max_bandwidth=800, use_parallel=False, verbose=False, pre=0.95):
+                  norm='l2', qcp=True, step=0.01, nformants=4, f0median=200, pre=0.95,
+                  max_bandwidth=800, use_parallel=False, verbose=False):
     """
     This formant tracking function implements the time-varying, pitch synchronous, method that was described by Gowda et al. (2020).  The most important innovation of this method is that it smooths the Linear Prediction coefficients over time, providing a continuity constraint at the level of the LP coefficients. The second most important feature of the method is that (like Robust LPC) the method can optionally weight the audio samples pitch synchronously so the LP coefficients are caluculated from the glottal closed phase where the assumptions of LPC analysis are better met.  The third innovation, which also seems to be both the most computationally costly and least important for good formant tracking, is that the LP coefficients can be calculated minimizing the L1 norm (city-block) norm rather than the default L2 norm (Euclidian distance).  The L1 norm is much slower than the L2 norm and results in almost no change in the derived formant frequencies.   
 
@@ -652,6 +652,8 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
         Number of formants to extract
     f0median : float, default=200.0
         This is an estimate of the median F0 value to expect in the signal being analyzed.  This parameter is used in the pitch synchronous method (i.e. when `qcp` is **True**) to guide the algorithm's expectation for finding glottal closure intervals.  It is important to get this approximately correct. It is also the lowest frequency that will be reported as a formant.
+    pre : float, default=0.95
+        Pre-emphasis factor applied to the signal before analysis (see `phon.prep_audio()`). Use a smaller value, or 0 for no pre-emphasis, when the formants of interest are at very low frequencies, because pre-emphasis attenuates the lowest part of the spectrum.
     max_bandwidth : float, default=800
         Maximum formant bandwidth in Hz, formants with bandwidth greater than this are rejected.
     use_parallel : bool, default=True
@@ -659,8 +661,6 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
         Note: Usually doesn't work in Jupyter notebooks, set to False for notebooks
     verbose : bool, default=False
         Print progress
-    pre : float, default=0.95
-        Pre-emphasis factor applied to the signal before analysis (see `phon.prep_audio()`). Use a smaller value, or 0 for no pre-emphasis, when the formants of interest are at very low frequencies, because pre-emphasis attenuates the lowest part of the spectrum.
     
     Returns
     =======
