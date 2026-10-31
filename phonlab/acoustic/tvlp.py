@@ -622,7 +622,7 @@ def tvlp_warmup_numba(verbose=True):
 
 def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3, 
                   norm='l2', qcp=True, step=0.01, nformants=4, f0median=200, pre=0.95,
-                  max_bandwidth=800, use_parallel=False, verbose=False):
+                  min_freq=None, max_bandwidth=800, use_parallel=False, verbose=False):
     """
     This formant tracking function implements the time-varying, pitch synchronous, method that was described by Gowda et al. (2020).  The most important innovation of this method is that it smooths the Linear Prediction coefficients over time, providing a continuity constraint at the level of the LP coefficients. The second most important feature of the method is that (like Robust LPC) the method can optionally weight the audio samples pitch synchronously so the LP coefficients are caluculated from the glottal closed phase where the assumptions of LPC analysis are better met.  The third innovation, which also seems to be both the most computationally costly and least important for good formant tracking, is that the LP coefficients can be calculated minimizing the L1 norm (city-block) norm rather than the default L2 norm (Euclidian distance).  The L1 norm is much slower than the L2 norm and results in almost no change in the derived formant frequencies.   
 
@@ -635,9 +635,9 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
     fs : int
         Sampling frequency of **x** in Hz 
     tf : int, default = 6000
-        Top frequency.  The signal will be resampled to tf*2.
+        Top frequency.  The signal will be resampled to tf*2.  The LPC poles are spread across the whole band from 0 to **tf**, so **tf** should not be much higher than the highest formant of interest.  The default is suitable for adult speech.
     order : int, default = -1
-        The number of LPC coefficients to use -- the 'order' of the LPC filter.  If this parameter is -1 then we will use `phon.choose_order(base='BIC')` to determine the best value for this parameter.
+        The number of LPC coefficients to use -- the 'order' of the LPC filter.  If this parameter is -1 then we will use `phon.choose_order(base='BIC')` to determine the best value for this parameter.  `choose_order()` assumes speech, so for other vocalizations set the order directly.
     frame_duration_sec : float, default 0.1 = 100ms
         Duration of each frame in seconds.  Gowda et al.'s tests found that 100ms provides the most accurate formant measurements.  For voices with very low F0 (such as elephant rumbles), a longer frame may be needed so that each frame contains several glottal cycles.
     q : int, default = 3
@@ -651,9 +651,11 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
     nformants : int, default=3
         Number of formants to extract
     f0median : float, default=200.0
-        This is an estimate of the median F0 value to expect in the signal being analyzed.  This parameter is used in the pitch synchronous method (i.e. when `qcp` is **True**) to guide the algorithm's expectation for finding glottal closure intervals.  It is important to get this approximately correct. It is also the lowest frequency that will be reported as a formant.
+        This is an estimate of the median F0 value to expect in the signal being analyzed.  This parameter is used in the pitch synchronous method (i.e. when `qcp` is **True**) to guide the algorithm's expectation for finding glottal closure intervals.  It is important to get this approximately correct. Unless **min_freq** is given, it is also the lowest frequency that will be reported as a formant.
     pre : float, default=0.95
         Pre-emphasis factor applied to the signal before analysis (see `phon.prep_audio()`). Use a smaller value, or 0 for no pre-emphasis, when the formants of interest are at very low frequencies, because pre-emphasis attenuates the lowest part of the spectrum.
+    min_freq : float, default=None
+        The lowest frequency (in Hz) that will be reported as a formant.  If None, **f0median** is used.  Set this below the lowest expected formant when F1 may be close to F0, because a resonance below **min_freq** is not reported and the higher formants then move down a column (F2 is reported as F1, and so on).
     max_bandwidth : float, default=800
         Maximum formant bandwidth in Hz, formants with bandwidth greater than this are rejected.
     use_parallel : bool, default=True
@@ -696,7 +698,8 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
             print(f"in TVLP_formants(), order is {p}, taken at time {order_time:.3f}")
 
     max_freq = fs / 2.0
-    min_freq = f0median
+    if min_freq is None:
+        min_freq = f0median
 
 
     if verbose:
