@@ -1,4 +1,5 @@
 import numpy as np
+from math import comb
 from librosa import util, lpc
 from scipy.signal import windows, lfilter
 
@@ -39,6 +40,13 @@ Returns
             # to maximize CPU cache efficiency
             y[start + j] += frames[i, j] * window_vec[j]
     return y
+
+
+def _invalid_lpc(A, order):
+    """True for rows of A (LPC polynomials [1, a1, ... ap]) that are non-finite or that
+    cannot be minimum phase because some |a_k| exceeds the binomial coefficient C(p,k)."""
+    bound = np.array([comb(order, k) for k in range(order + 1)], dtype=np.float64)
+    return ~np.isfinite(A).all(axis=-1) | (np.abs(A) > bound).any(axis=-1)
 
 
 def lpcresidual(y, fs, target_fs=16000, order = 18, l=0.04, s=0.005, window='cosine'):    
@@ -94,6 +102,20 @@ Returns
     # 3. Compute LPC Coefficients
     # librosa.lpc is generally efficient, we process frames in one go.
     A = lpc(frames, order=order) 
+
+    # Burg's method in float32 can return garbage coefficients (non-finite, or finite but
+    # huge) for frames that are badly conditioned, e.g. a low-F0 voice at fs=12000 with 
+    # almost no energy above a few hundred Hz.  A single such frame makes the whole 
+    # residual NaN (via overflow in the energy normalization below).  A valid (minimum 
+    # phase) LPC polynomial of order p has |a_k| <= C(p,k), so frames outside that bound 
+    # are redone in float64, and if that also fails the frame is left unfiltered 
+    # (A = [1, 0, 0, ...]).  Valid frames are not changed.
+    bad = _invalid_lpc(A, order)
+    if bad.any():
+        A[bad] = lpc(frames[bad].astype(np.float64), order=order).astype(A.dtype)
+        bad = _invalid_lpc(A, order)
+        A[bad] = 0
+        A[bad, 0] = 1
 
     # 4. Inverse Filtering (The Bottleneck)    
 
