@@ -12,6 +12,12 @@ def get_mbs(x,fs, f0median, width = 1.4):
     1.4 seems to be better for higher pitched voices without harming performance with lower 
     voices.
 
+    The smoothed signal is then highpass filtered to remove low frequency drift.  The passband
+    edge is 50 Hz (stopband edge 30 Hz) for f0median >= 100 Hz.  For lower f0median the
+    passband edge is f0median/2 (stopband edge 0.3*f0median), so that the fundamental of
+    the mean-based signal is not removed for very low pitched voices (e.g. elephant rumbles
+    with F0 < 20 Hz).
+
     TO DO: What about using F0 trajectory rather than a single median?  This would mean 
     having a time series of windows w with length determined frame by frame.   
     '''
@@ -22,8 +28,12 @@ def get_mbs(x,fs, f0median, width = 1.4):
     w = windows.blackman(2*halfL +1)  # the length of the smoothing filter is critical
     mbs = filtfilt(w,1,x)  # smooth audio with blackman window, for mean-based signal
 
-    # remove lowfrequency oscillation in the mbs
-    n,Wp = buttord(50,30,3,60,fs=fs)
+    # remove lowfrequency oscillation in the mbs. The passband edge is 50 Hz, or f0median/2
+    # if that is lower, so the fundamental of the mbs survives for very low f0 (< 100 Hz).
+    # For f0median >= 100 this is the same 50/30 Hz filter that was used previously.
+    passband = min(50.0, 0.5*f0median)
+    stopband = 0.6*passband
+    n,Wp = buttord(passband,stopband,3,60,fs=fs)
     sos = butter(n, Wp, 'hp', output='sos',fs=fs)
     mbs = sosfiltfilt(sos, mbs)  # highpass filter the mean-based signal
     mbs = mbs/np.max(np.abs(mbs))
@@ -67,7 +77,7 @@ Parameters
     fs : int
         sampling rate of **x**
     f0median : float, default = 200
-        The median of the fundamental frequency of voicing in **x**. This value can be estimated by the user, but it is best to measure the median of values given by a pitch tracker.
+        The median of the fundamental frequency of voicing in **x**. This value can be estimated by the user, but it is best to measure the median of values given by a pitch tracker. It sets the length of the window used to smooth the signal into the "mean based signal", and (when it is below 100 Hz) the cutoff frequency of the highpass filter applied to the mean based signal, so it must be set appropriately for voices with very low F0.
     target_fs : int, default=16000
         the sampling rate of the returned residual and mbs waveforms.
     order : int, default = None
