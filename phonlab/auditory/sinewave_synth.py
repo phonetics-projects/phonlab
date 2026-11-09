@@ -140,7 +140,7 @@ Example
     wav[-ns:] *= ramp[::-1]  # and a short (20ms) decay time
     
     if isinstance(voiceless, (int, float, np.number)) and not isinstance(voiceless, bool):
-        voiceless_gain = 20**(voiceless/20)   # volume control (dB) for the copied voiceless audio
+        voiceless_gain = 10**(voiceless/20)  # volume control (dB) for the copied voiceless audio
         voiceless = "copy"
     elif voiceless == "copy":
         voiceless_gain = 1.0
