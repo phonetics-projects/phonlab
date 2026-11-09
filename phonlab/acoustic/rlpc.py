@@ -66,7 +66,7 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
     ====
     The columns in the output dataframe are:
         * sec - midpoint time of the frame 
-        * gain - the LPC gain (variance of the residual) for each frame.
+        * gain - the LPC gain (variance of the residual) for each frame.  The first `order` samples of the residual, which depend on the (unknown) samples before the start of the frame, are not included.
         * F1-4 - the lowest four vowel 'formants' - vocal tract resonances.
         * BW1-4 - bandwidths of the vowel formants
 
@@ -104,7 +104,9 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
     for iter in range(numiter):  # iterate this loop numiter times
         for i in range(nb):
             resid[i] = lfilter(A[i], [1.0], frames[i]) # prediction error
-        sd = np.std(resid,axis=1)
+        # The first `order` residuals depend on the (unknown) samples before the frame, since
+        # lfilter() starts with zero initial conditions, so they are not used to estimate the scale
+        sd = np.std(resid[:,order:],axis=1)
         temp = np.clip(resid/sd[:,None],a_min=-1.5,a_max=1.5)  # min/max clipping
         weight = (sd[:,None] * temp)/resid   # down weight samples with high error
         for i in range(nb):  # recompute A frame by frame
@@ -142,7 +144,12 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
         formants[i,:n] = fr[:n]
         bandwidths[i,:n] = bw[:n]
 
-    gain = np.std(resid,axis=1,ddof=order)**2
+    # lfilter() starts each frame with zero initial conditions, so the first `order` residuals are
+    # not prediction errors (the very first one is just the sample value).  They are left out of the
+    # gain, otherwise a frame that happens to begin at a large sample value has an inflated gain.
+    # The variance is divided by the number of samples that remain, which equals the frame length
+    # minus the order -- the same divisor as before.
+    gain = np.var(resid[:,order:],axis=1)
     list = ['sec',] + [f"F{i}" for i in range(1,nf+1)] + [f"BW{i}" for i in range(1,nf+1)] + ['gain']
     df = DataFrame(np.concatenate((t.reshape(nb,1), formants, 
                                    bandwidths, gain.reshape(nb,1)), axis=1),columns=(list))

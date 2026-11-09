@@ -15,12 +15,12 @@ def compute_mt_sgram(x, fs, w=0.02, s=0.001, NW=4, order=12, low_bias=True, scal
     fs : integer
         The sampling frequency of the audio samples in `x`
     w : float, default = 0.02
-        Length in seconds of the analysis window.  As in `compute_sgram()`, w = 0.008 gives a wideband spectrogram, and w = 0.04 a narrow band spectrogram.
+        Length in seconds of the analysis window.  The effective bandwidth of the analysis depends on both `w` and `NW` (see below), so it is not described as "wideband" or "narrow band" as in `compute_sgram()`.
     s : float, default = 0.001
         The time (in seconds) between adjacent spectra in the spectrogram.
     NW : float, default = 4
         The time-bandwidth product of the tapers.  The half-bandwidth of the analysis is NW/w Hz, and up to 2*NW tapers are used. Larger values produce smoother spectra with poorer frequency resolution.
-    order : integer or None, default = 13
+    order : integer or None, default = 12
         This parameter determines the number of points in the FFT analysis that produces the spectrogram.  The number of points is 2**order and should be larger than the number of points in the analysis window (which is w*fs); the window is zero padded to this length.  If `order` is `None` there is no zero padding, and the FFT is as long as the analysis window.
     low_bias : boolean, default = True
         If True, only use the tapers that have better than 90% spectral concentration within the bandwidth.
