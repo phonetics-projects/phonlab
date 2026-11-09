@@ -181,8 +181,8 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
         reference : dict, default = None
             Reference (mean, standard deviation) pairs of the smoothed SD and a1h1 over voiced frames, used when
             calibration="fixed", as {"SD": (mean, sd), "a1h1": (mean, sd)}. The default reference values (reference=None)
-            uses {"SD": (1.93, 0.62), "a1h1": (5.24, 2.58)}, pooled over three nasometer test recordings (2 talkers). 
-            The per-recording means ranged from 1.60 to 2.14 for SD and from 4.6 to 6.1 for a1h1, so these constants 
+            uses {"SD": (3.86, 1.26), "a1h1": (10.56, 5.28)}, pooled over three nasometer test recordings (2 talkers). 
+            The per-recording means ranged from 3.2 to 4.3 for SD and from 9.2 to 12.4 for a1h1, so these constants 
             carry some talker and session variation.
 
     Returns
@@ -334,13 +334,13 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
         ref = {"SD": (np.nanmean(SD_s[voiced]), np.nanstd(SD_s[voiced], ddof=1)),
                "a1h1": (np.nanmean(a1h1_s[voiced]), np.nanstd(a1h1_s[voiced], ddof=1))}
     else:
-        ref = reference if reference is not None else {"SD": (1.93, 0.62), "a1h1": (5.24, 2.58)}
+        ref = reference if reference is not None else {"SD": (3.86, 1.26), "a1h1": (10.56, 5.28)}
         if reference is None and (index_smoothing != 24 or tuple(analysis_band) != (100, 1200)
                                   or length != 0.03 or lift != 0.002 or preemphasis != 0.96):
             import warnings
             warnings.warn("nasality(): the default reference means and standard deviations were measured with the "
                           "default analysis parameters; nas_index may be mis-scaled with the parameters used here")
-    nas_index = ((SD_s - ref["SD"][0]) / ref["SD"][1] - (a1h1_s - ref["a1h1"][0]) / ref["a1h1"][1]) / 2
+    nas_index = -((SD_s - ref["SD"][0]) / ref["SD"][1] + (a1h1_s - ref["a1h1"][0]) / ref["a1h1"][1]) / 2
     if calibration == "recording":
         nas_index[~voiced] = np.nan
     df["nas_index"] = nas_index
@@ -399,7 +399,7 @@ def nasalance(filename, nasal_channel = 'left',
 
     """
     # load all channels; loadsig() returns [chan0, chan1, ..., fs]
-    chans = phon.loadsig(filename)
+    chans = loadsig(filename)
     raw_fs = chans.pop()
     if len(chans) != 2:
         raise ValueError(f"nasalance(): '{filename}' has {len(chans)} channel(s); "

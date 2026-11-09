@@ -453,6 +453,57 @@ def test_nasality_diagnostic_plot_is_consistent_with_the_measurements():
     plt.close("all")
 
 
+def test_nasality_index_is_minus_the_mean_of_z_scored_sd_and_a1h1():
+    # lower SD and lower a1h1 both go with more nasality, so the index must fall when either one rises
+    x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0], duration=1.0)
+    ref = {"SD": (3.0, 2.0), "a1h1": (10.0, 4.0)}
+    df = phon.nasality(x, fs, calibration="fixed", index_smoothing=0, reference=ref)
+    a1h1 = df["a1h1"].interpolate(limit_direction="both").to_numpy()
+    expected = -((df["SD"].to_numpy() - 3.0) / 2.0 + (a1h1 - 10.0) / 4.0) / 2
+    np.testing.assert_allclose(df["nas_index"].to_numpy(), expected, rtol=1e-6, atol=1e-6)
+
+
+def test_nasality_recording_calibration_is_z_scored_over_voiced_frames():
+    x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0], duration=1.5)
+    df = phon.nasality(x, fs, calibration="recording")
+    voiced = (df["probv"] > 0.5).to_numpy()
+    assert voiced.sum() > 10
+    assert df["nas_index"][~voiced].isna().all()
+    assert df["nas_index"][voiced].notna().all()
+
+
+def _write_stereo(path, fs=16000, dur=1.0):
+    """left channel loud in the first half and quiet in the second half, right channel the opposite"""
+    from scipy.io import wavfile
+    t = np.arange(int(fs * dur)) / fs
+    tone = np.sin(2 * np.pi * 500 * t) + 0.5 * np.sin(2 * np.pi * 900 * t)
+    first = (t < dur / 2).astype(float)
+    left = tone * (0.9 * first + 0.09 * (1 - first))
+    right = tone * (0.09 * first + 0.9 * (1 - first))
+    wavfile.write(str(path), fs, np.stack([left, right], axis=1).astype(np.float32))
+
+
+def test_nasalance_sign_follows_the_nasal_channel(tmp_path):
+    # each channel is scaled to the same peak, so what matters is the change in relative level over time
+    f = tmp_path / "stereo.wav"
+    _write_stereo(f)
+    left = phon.nasalance(str(f), nasal_channel="left")
+    right = phon.nasalance(str(f), nasal_channel="right")
+    assert list(left.columns) == ["sec", "nasalance"]
+    first, second = (left["sec"] < 0.4).to_numpy(), (left["sec"] > 0.6).to_numpy()
+    assert left["nasalance"][first].median() > 0.5 and left["nasalance"][second].median() < -0.5
+    # naming the other channel as the nasal one flips the sign
+    np.testing.assert_allclose(right["nasalance"].to_numpy(), -left["nasalance"].to_numpy(), atol=1e-6)
+
+
+def test_nasalance_requires_a_stereo_file(tmp_path):
+    from scipy.io import wavfile
+    mono = tmp_path / "m.wav"
+    wavfile.write(str(mono), 16000, np.zeros(16000, dtype=np.float32) + 0.1)
+    with pytest.raises(ValueError, match="stereo"):
+        phon.nasalance(str(mono))
+
+
 def test_ifc_formants_float32_matches_float64():
     from phonlab.acoustic import ifc_formant
     from phonlab.utils.prep_audio_ import prep_audio
