@@ -21,7 +21,10 @@ warnings.filterwarnings("ignore")
 
 AUDIO = Path(phon.__file__).parent / "data" / "example_audio"
 GOLDEN = Path(__file__).parent / "golden"
-RTOL, ATOL = 1e-4, 1e-6
+# The golden files are written on one machine and checked on others (e.g. the Linux CI runners), where
+# FFT, BLAS and float32 arithmetic differ slightly.  CI saw relative differences of about 1e-4 in
+# sine_synth, compute_cepstrogram, nasality and TVLP_formants, so allow 10x that.
+RTOL, ATOL = 1e-3, 1e-6
 MAX_STORED = 2000
 SR_NYQ = 6000  # Nyquist frequency of the 12 kHz formant analyses
 
