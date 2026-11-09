@@ -383,6 +383,76 @@ def test_nasality_a1h1_is_nan_where_f1_is_missing(monkeypatch):
     assert not out["a1h1"].iloc[keep].isna().all()
 
 
+def _prepared_example(duration=1.0):
+    """example audio prepared as nasality() prepares it: 12 kHz, pre-emphasis, peak scaled again after pre-emphasis"""
+    x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0], duration=duration)
+    xp, fsp = phon.prep_audio(x, fs, target_fs=12000, scale=True, pre=0.96)
+    xp, fsp = phon.prep_audio(xp, fsp, target_fs=fsp, scale=True, pre=0.0)
+    return x, fs, xp, fsp
+
+
+def test_cepstral_smooth_matches_frame_by_frame_fft_reference():
+    # the batched/direct implementation must give what a plain frame-by-frame FFT liftering gives
+    x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0], duration=0.5)
+    for lift in (0.0015, 0.003):
+        ts, freqE, Exx, freqS, Sxx, quef, Cxx = phon.cepstral_smooth(x, fs, tf=5000, l=0.04, lift=lift)
+        xp, fsp = phon.prep_audio(x, fs, target_fs=10000, pre=0.0, verbose=False)
+        _, _, S = phon.compute_sgram(xp, fsp, 0.04, 0.005)
+        nl = int(lift * fsp)
+        for j in (0, S.shape[1] // 2, S.shape[1] - 1):
+            c = np.fft.irfft(S[:, j].astype(float))
+            e = np.concatenate((c, c[1:][::-1]))
+            e[nl:-nl] = 0.
+            ref = np.fft.rfft(e).real[:len(c)]
+            np.testing.assert_allclose(Exx[:, j], ref, rtol=0, atol=1e-3)
+            np.testing.assert_allclose(Cxx[:, j], c, rtol=0, atol=1e-3)
+        assert Exx.shape == Cxx.shape == (len(quef), len(ts))
+        assert freqE[-1] == pytest.approx(fsp / 2)
+
+
+def test_cepstral_smooth_rejects_unusable_lift():
+    x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0], duration=0.3)
+    with pytest.raises(ValueError, match="lift"):
+        phon.cepstral_smooth(x, fs, lift=0.0)
+
+
+def test_nasality_band_limited_sd_matches_full_spectrum_computation():
+    # SD is computed only at frequencies in the analysis band; compare with the full-spectrum calculation
+    x, fs, xp, fsp = _prepared_example()
+    df = phon.nasality(x, fs)
+    t, freq, Exx, freqS, Sxx, _, _ = phon.cepstral_smooth(xp, fsp, s=0.005, l=0.03, tf=6000, preemphasis=0.0, lift=0.002)
+    fmt, A = phon.RLPC_formants(xp, fsp, s=0.005, l=0.03, tf=6000, preemphasis=0.0, order=-1)
+    Lxx = -20 * np.log10(np.abs(np.fft.rfft(A, n=Exx.shape[0] * 2 - 1)).T)   # constant gain terms drop out of SD
+    lo, hi = np.argmin(abs(freq - 100)), np.argmin(abs(freq - 1200))
+    L, E = Lxx[lo:hi], Exx[lo:hi]
+    sd_full = np.sqrt(np.mean(((L - L.mean(0)) - (E - E.mean(0))) ** 2, axis=0))
+    err = np.abs(df["SD"].to_numpy() - sd_full)
+    assert np.nanmax(err) < 0.1      # the band edges differ by less than 1 Hz
+    assert np.nanmean(err) < 0.01
+
+
+def test_nasality_diagnostic_plot_is_consistent_with_the_measurements():
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    x, fs, xp, fsp = _prepared_example()
+    st = 0.5
+    plt.close("all")
+    df = phon.nasality(x, fs, slice_time=st)
+    idx = int(np.argmin(abs(df["sec"].to_numpy() - st)))
+    lines = plt.gcf().axes[0].lines
+    assert len(lines) == 7                       # LPC, smoothed and narrow-band spectra, h1, a1, two band edges
+    (fL, L), (fE, E), (fS, S) = [(np.asarray(l.get_xdata()), np.asarray(l.get_ydata())) for l in lines[:3]]
+    # the smoothed spectrum and the LPC spectrum, compared in the band as SD does, give the SD that was measured
+    band = (fE >= 100) & (fE < 1200)
+    sd_plot = np.sqrt(np.mean(((L[band] - L[band].mean()) - (E[band] - E[band].mean())) ** 2))
+    assert sd_plot == pytest.approx(df["SD"].iloc[idx], abs=0.1)
+    # the narrow-band spectrum is the one nasality() analyzed, on the same amplitude scale as the LPC spectrum
+    _, _, Sfull = phon.compute_sgram(xp, fsp, 0.03, 0.005)
+    np.testing.assert_allclose(S, Sfull[:, idx], rtol=0, atol=1e-3)
+    plt.close("all")
+
+
 def test_ifc_formants_float32_matches_float64():
     from phonlab.acoustic import ifc_formant
     from phonlab.utils.prep_audio_ import prep_audio
