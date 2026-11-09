@@ -9,7 +9,14 @@
 project = 'Phonlab'
 copyright = '2026, Regents of the University of California'
 author = 'Keith Johnson and Ronald Sprouse'
-release = "Beta"
+
+# Read the version from the source file rather than importing phonlab, so that
+# the docs build does not depend on the package's dependencies being importable.
+import re
+from pathlib import Path
+_init = Path(__file__).resolve().parents[2] / "phonlab" / "__init__.py"
+release = re.search(r'^__version__\s*=\s*"([^"]+)"', _init.read_text(), re.M).group(1)
+version = ".".join(release.split(".")[:2])   # short X.Y version
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

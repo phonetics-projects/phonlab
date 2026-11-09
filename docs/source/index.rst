@@ -52,6 +52,7 @@ Table of Contents
     textgrids
     corpora
     util
+    changelog
 
 
 

@@ -1,3 +1,17 @@
-rm -rf phonlab.egg-info build && python3 -m build
-python3 -m twine upload dist/phonlab-0.0.*
+Release checklist (see CHANGELOG.rst for the version numbering policy)
 
+1. Add the new version's section to CHANGELOG.rst (breaking changes first) and set the
+   version in phonlab/__init__.py.  Change "(unreleased)" in the changelog to the date.
+2. Run the tests, and merge to master.
+3. Build and upload to PyPI (VER is the new version, e.g. 0.1.0):
+
+     rm -rf phonlab.egg-info build && python3 -m build
+     python3 -m twine upload dist/phonlab-VER*
+
+4. Tag the release commit and push the tag.  Read the Docs builds docs for each tag
+   (the version slug is the tag name) and treats the newest tag as "stable":
+
+     git tag -a vVER -m "phonlab VER"
+     git push origin vVER
+
+5. Create a GitHub Release from the tag and paste in the changelog section.
