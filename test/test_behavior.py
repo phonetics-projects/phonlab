@@ -368,7 +368,7 @@ def test_rlpc_formants_bandwidth_is_nan_where_formant_is_rejected():
 def test_nasality_a1h1_is_nan_where_f1_is_missing(monkeypatch):
     from phonlab.acoustic import nasality_measures as nm
     x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0], duration=1.0)
-    ref = phon.nasality(x, fs, smoothing_factor=0)
+    ref = phon.nasality(x, fs)
     missing = [20, 21, 60]
 
     def rlpc_without_f1(*args, **kwargs):
@@ -376,7 +376,7 @@ def test_nasality_a1h1_is_nan_where_f1_is_missing(monkeypatch):
         df.loc[missing, "F1"] = np.nan
         return df, A
     monkeypatch.setattr(nm, "RLPC_formants", rlpc_without_f1)
-    out = phon.nasality(x, fs, smoothing_factor=0)
+    out = phon.nasality(x, fs)
     assert out["a1h1"].iloc[missing].isna().all()
     keep = np.setdiff1d(np.arange(len(out)), missing)
     np.testing.assert_allclose(out["a1h1"].to_numpy()[keep], ref["a1h1"].to_numpy()[keep], equal_nan=True)

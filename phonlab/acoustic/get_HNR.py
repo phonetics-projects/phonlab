@@ -90,7 +90,7 @@ at time 2.1 seconds in the file 'sf3_cln.wav'. In the top panel we see the log m
     ts = (np.array(range(nb)) * step + half_frame)/fs  # time axis for output
     w = np.blackman(frame_length)
     mag = np.abs(rfft(w*frames,NFFT))
-    S = 10 * np.log10(np.maximum(mag, np.finfo(mag.dtype).tiny))
+    S = 20 * np.log10(np.maximum(mag, np.finfo(mag.dtype).tiny))
     C = np.real(irfft(S,NFFT))  # spectrum of the spectrum = cepstrum
 
     if f0_range[0]<f0_range[1]:

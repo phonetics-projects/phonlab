@@ -27,7 +27,7 @@ def test_columns_and_grid(im12):
     assert np.allclose(np.diff(df.sec), 0.005, atol=1e-4)      # the frames of CPP()
     assert np.isfinite(df[['cpp', 'amp', 'probv']]).all().all()
     assert ((df.probv >= 0) & (df.probv <= 1)).all()
-    assert (df.voiced == (df.probv > 0.5)).all()
+    assert (df.voiced == (df.probv > 0.8)).all()
 
 
 def test_features_are_on_the_cpp_frames(im12):

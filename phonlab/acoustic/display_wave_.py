@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
 def display_wave(x,fs,start=0, end=-1, ax = None, 
                  ylabel = "Amplitude", font_size=14, **kwargs):
@@ -58,6 +57,7 @@ Plot a portion of the sound file from 0.2 to 0.9 seconds.
        :align: center
 
     '''
+    import matplotlib.pyplot as plt
 
     if "color" not in kwargs.keys():
         kwargs["color"] = "k"

@@ -4,7 +4,7 @@ from ..acoustic.vad import VAD
 from ..utils.prep_audio_ import prep_audio
 
 def sine_synth(formant_data, x, fs, target_fs=16000, voiceless="copy",
-               formant_amps=(0, -8, -12.5, -29)):
+               formant_amps=(0, -8, -12.5, -29), voicing_threshold=0.8):
     """Produces 'sinewave speech' - an audio signal made up of time-varying sinusoidal waves at the frequencies of the vowel formants. 
 
 Note
@@ -65,6 +65,9 @@ Parameters
 
     formant_amps : a sequence of four numbers, default=(0, -8, -12.5, -29)
         the amplitudes (in dB) of the sine waves at F1, F2, F3 and F4, relative to each other.
+
+    voicing_threshold : float (default=0.8)
+        The threshold value of probability of voicing, for determining whether a frame is voiced or voiceless.  This parameter is passed to phon.VAD().
 
        
 Returns
@@ -137,7 +140,7 @@ Example
     wav[-ns:] *= ramp[::-1]  # and a short (20ms) decay time
     
     if isinstance(voiceless, (int, float, np.number)) and not isinstance(voiceless, bool):
-        voiceless_gain = 10**(voiceless/20)   # volume control (dB) for the copied voiceless audio
+        voiceless_gain = 20**(voiceless/20)   # volume control (dB) for the copied voiceless audio
         voiceless = "copy"
     elif voiceless == "copy":
         voiceless_gain = 1.0
@@ -145,8 +148,9 @@ Example
         raise ValueError('voiceless must be "copy", "silent", "sinewave" or a number (dB)')
     
     if voiceless != "sinewave":
+        print("replacing voiceless parts")
         # voicing decision for each sample, from the nearest VAD frame
-        vad = VAD(x, fs)
+        vad = VAD(x, fs,threshold = voicing_threshold)
         vstep = vad.sec.iloc[1] - vad.sec.iloc[0]
         t = np.arange(len(wav))/target_fs
         idx = np.clip(np.round((t - vad.sec.iloc[0])/vstep).astype(int), 0, len(vad)-1)

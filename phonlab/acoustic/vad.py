@@ -7,7 +7,7 @@ from .cepstral import CPP
 # regression coefficients of the voicing decision.  Both were fit by examples/train_vad.py against
 # EGG-derived voicing.
 AMP_BAND = (80, 800)
-VAD_COEFS = {'intercept': -4.559, 'amp': 0.1848, 'cpp': 0.4548}
+VAD_COEFS = {'intercept': -5.929, 'amp': 0.1848, 'cpp': 0.2274}
 
 
 def band_db(x, fs, sec, bounds, target_fs=12000):

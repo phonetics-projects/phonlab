@@ -58,15 +58,12 @@ References
     # across all cores instead of computing the whole batch on a single thread
     mag = np.abs(fft.rfft(w*frames,NFFT,workers=-1))
     np.maximum(mag, np.finfo(mag.dtype).tiny, out=mag)
-    np.log10(mag, out=mag)
-    Sxx = mag
-    Sxx *= 10
+    Sxx = 20 * np.log10(mag)
     Sxx2 = np.abs(fft.rfft(Sxx,NFFT,workers=-1))   # spectrum of the spectrum -- cepstrum
     Ceps = Sxx2[:,:-1]
     np.maximum(Ceps, np.finfo(Ceps.dtype).tiny, out=Ceps)  # avoid log(0) below, either base
     if (dBscale):
-        np.log10(Ceps, out=Ceps)
-        Ceps *= 10
+        Ceps = 20 * np.log10(Ceps, out=Ceps)
     else:
         np.log(Ceps, out=Ceps)
         
