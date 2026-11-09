@@ -383,6 +383,127 @@ def test_nasality_a1h1_is_nan_where_f1_is_missing(monkeypatch):
     assert not out["a1h1"].iloc[keep].isna().all()
 
 
+def _prepared_example(duration=1.0):
+    """example audio prepared as nasality() prepares it: 12 kHz, pre-emphasis, peak scaled again after pre-emphasis"""
+    x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0], duration=duration)
+    xp, fsp = phon.prep_audio(x, fs, target_fs=12000, scale=True, pre=0.96)
+    xp, fsp = phon.prep_audio(xp, fsp, target_fs=fsp, scale=True, pre=0.0)
+    return x, fs, xp, fsp
+
+
+def test_cepstral_smooth_matches_frame_by_frame_fft_reference():
+    # the batched/direct implementation must give what a plain frame-by-frame FFT liftering gives
+    x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0], duration=0.5)
+    for lift in (0.0015, 0.003):
+        ts, freqE, Exx, freqS, Sxx, quef, Cxx = phon.cepstral_smooth(x, fs, tf=5000, l=0.04, lift=lift)
+        xp, fsp = phon.prep_audio(x, fs, target_fs=10000, pre=0.0, verbose=False)
+        _, _, S = phon.compute_sgram(xp, fsp, 0.04, 0.005)
+        nl = int(lift * fsp)
+        for j in (0, S.shape[1] // 2, S.shape[1] - 1):
+            c = np.fft.irfft(S[:, j].astype(float))
+            e = np.concatenate((c, c[1:][::-1]))
+            e[nl:-nl] = 0.
+            ref = np.fft.rfft(e).real[:len(c)]
+            np.testing.assert_allclose(Exx[:, j], ref, rtol=0, atol=1e-3)
+            np.testing.assert_allclose(Cxx[:, j], c, rtol=0, atol=1e-3)
+        assert Exx.shape == Cxx.shape == (len(quef), len(ts))
+        assert freqE[-1] == pytest.approx(fsp / 2)
+
+
+def test_cepstral_smooth_rejects_unusable_lift():
+    x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0], duration=0.3)
+    with pytest.raises(ValueError, match="lift"):
+        phon.cepstral_smooth(x, fs, lift=0.0)
+
+
+def test_nasality_band_limited_sd_matches_full_spectrum_computation():
+    # SD is computed only at frequencies in the analysis band; compare with the full-spectrum calculation
+    x, fs, xp, fsp = _prepared_example()
+    df = phon.nasality(x, fs)
+    t, freq, Exx, freqS, Sxx, _, _ = phon.cepstral_smooth(xp, fsp, s=0.005, l=0.03, tf=6000, preemphasis=0.0, lift=0.002)
+    fmt, A = phon.RLPC_formants(xp, fsp, s=0.005, l=0.03, tf=6000, preemphasis=0.0, order=-1)
+    Lxx = -20 * np.log10(np.abs(np.fft.rfft(A, n=Exx.shape[0] * 2 - 1)).T)   # constant gain terms drop out of SD
+    lo, hi = np.argmin(abs(freq - 100)), np.argmin(abs(freq - 1200))
+    L, E = Lxx[lo:hi], Exx[lo:hi]
+    sd_full = np.sqrt(np.mean(((L - L.mean(0)) - (E - E.mean(0))) ** 2, axis=0))
+    err = np.abs(df["SD"].to_numpy() - sd_full)
+    assert np.nanmax(err) < 0.1      # the band edges differ by less than 1 Hz
+    assert np.nanmean(err) < 0.01
+
+
+def test_nasality_diagnostic_plot_is_consistent_with_the_measurements():
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    x, fs, xp, fsp = _prepared_example()
+    st = 0.5
+    plt.close("all")
+    df = phon.nasality(x, fs, slice_time=st)
+    idx = int(np.argmin(abs(df["sec"].to_numpy() - st)))
+    lines = plt.gcf().axes[0].lines
+    assert len(lines) == 7                       # LPC, smoothed and narrow-band spectra, h1, a1, two band edges
+    (fL, L), (fE, E), (fS, S) = [(np.asarray(l.get_xdata()), np.asarray(l.get_ydata())) for l in lines[:3]]
+    # the smoothed spectrum and the LPC spectrum, compared in the band as SD does, give the SD that was measured
+    band = (fE >= 100) & (fE < 1200)
+    sd_plot = np.sqrt(np.mean(((L[band] - L[band].mean()) - (E[band] - E[band].mean())) ** 2))
+    assert sd_plot == pytest.approx(df["SD"].iloc[idx], abs=0.1)
+    # the narrow-band spectrum is the one nasality() analyzed, on the same amplitude scale as the LPC spectrum
+    _, _, Sfull = phon.compute_sgram(xp, fsp, 0.03, 0.005)
+    np.testing.assert_allclose(S, Sfull[:, idx], rtol=0, atol=1e-3)
+    plt.close("all")
+
+
+def test_nasality_index_is_minus_the_mean_of_z_scored_sd_and_a1h1():
+    # lower SD and lower a1h1 both go with more nasality, so the index must fall when either one rises
+    x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0], duration=1.0)
+    ref = {"SD": (3.0, 2.0), "a1h1": (10.0, 4.0)}
+    df = phon.nasality(x, fs, calibration="fixed", index_smoothing=0, reference=ref)
+    a1h1 = df["a1h1"].interpolate(limit_direction="both").to_numpy()
+    expected = -((df["SD"].to_numpy() - 3.0) / 2.0 + (a1h1 - 10.0) / 4.0) / 2
+    np.testing.assert_allclose(df["nas_index"].to_numpy(), expected, rtol=1e-6, atol=1e-6)
+
+
+def test_nasality_recording_calibration_is_z_scored_over_voiced_frames():
+    x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0], duration=1.5)
+    df = phon.nasality(x, fs, calibration="recording")
+    voiced = (df["probv"] > 0.5).to_numpy()
+    assert voiced.sum() > 10
+    assert df["nas_index"][~voiced].isna().all()
+    assert df["nas_index"][voiced].notna().all()
+
+
+def _write_stereo(path, fs=16000, dur=1.0):
+    """left channel loud in the first half and quiet in the second half, right channel the opposite"""
+    from scipy.io import wavfile
+    t = np.arange(int(fs * dur)) / fs
+    tone = np.sin(2 * np.pi * 500 * t) + 0.5 * np.sin(2 * np.pi * 900 * t)
+    first = (t < dur / 2).astype(float)
+    left = tone * (0.9 * first + 0.09 * (1 - first))
+    right = tone * (0.09 * first + 0.9 * (1 - first))
+    wavfile.write(str(path), fs, np.stack([left, right], axis=1).astype(np.float32))
+
+
+def test_nasalance_sign_follows_the_nasal_channel(tmp_path):
+    # each channel is scaled to the same peak, so what matters is the change in relative level over time
+    f = tmp_path / "stereo.wav"
+    _write_stereo(f)
+    left = phon.nasalance(str(f), nasal_channel="left")
+    right = phon.nasalance(str(f), nasal_channel="right")
+    assert list(left.columns) == ["sec", "nasalance"]
+    first, second = (left["sec"] < 0.4).to_numpy(), (left["sec"] > 0.6).to_numpy()
+    assert left["nasalance"][first].median() > 0.5 and left["nasalance"][second].median() < -0.5
+    # naming the other channel as the nasal one flips the sign
+    np.testing.assert_allclose(right["nasalance"].to_numpy(), -left["nasalance"].to_numpy(), atol=1e-6)
+
+
+def test_nasalance_requires_a_stereo_file(tmp_path):
+    from scipy.io import wavfile
+    mono = tmp_path / "m.wav"
+    wavfile.write(str(mono), 16000, np.zeros(16000, dtype=np.float32) + 0.1)
+    with pytest.raises(ValueError, match="stereo"):
+        phon.nasalance(str(mono))
+
+
 def test_ifc_formants_float32_matches_float64():
     from phonlab.acoustic import ifc_formant
     from phonlab.utils.prep_audio_ import prep_audio
