@@ -216,6 +216,69 @@ This example plots the cepstral peak prominence in a recording of "the Soviet Un
     return DataFrame({'sec': sec, 'f0':f0, 'cpp':cpp})
 
 
+def _lifter_envelope(C, theta, chunk=2048):
+    '''Evaluate cepstrally smoothed log spectra at the angular frequencies `theta`.
+
+`C` holds the low-quefrency cepstral coefficients c[0..lift] (one column per frame).  Keeping c[0..lift-1] and the
+mirrored tail c[lift..1] of the cepstrum and transforming back to the frequency domain is a cosine series
+
+    E(theta) = c[0] + 2 * sum_{q=1}^{lift-1} c[q] cos(q theta) + c[lift] cos(lift theta)
+
+so it can be evaluated directly at any frequencies of interest (theta = 2 pi f / fs, in radians per sample) with one
+small matrix product, without computing a full-length FFT of the liftered cepstrum for every frame.
+'''
+    nl = C.shape[0] - 1
+    q = np.arange(nl + 1)[:, None]
+    w = np.full((nl + 1, 1), 2.0)
+    w[0] = 1.0
+    w[nl] = 1.0
+    basis = (w * np.cos(q * np.asarray(theta)[None, :])).T      # (n_theta, lift+1)
+    out = np.empty((len(theta), C.shape[1]), dtype=C.dtype)
+    for a in range(0, C.shape[1], chunk):                         # limit the size of temporaries
+        out[:, a:a + chunk] = basis @ C[:, a:a + chunk]
+    return out
+
+
+def _lift_samples(lift, fs, ncep):
+    '''Convert a lifter cutoff from seconds to samples and check that it can be used with a cepstrum of `ncep` points.'''
+    nl = int(lift * fs)
+    if not 1 <= nl < ncep:
+        raise ValueError(f"lift = {lift} s is {nl} samples at fs = {fs} Hz; it must be between 1 and {ncep - 1} samples")
+    return nl
+
+
+def _cepstral_smooth_band(Sxx, fs, lift, freqs, chunk=2048):
+    '''Cepstrally smoothed spectra of the dB spectrogram `Sxx`, evaluated only at the frequencies `freqs` (Hz).
+
+This computes the same smoothed spectra as `cepstral_smooth()` but only at the requested frequencies.  A
+frequency band that is a small part of the spectrum is much cheaper than the full smoothed spectrogram,
+and the result does not depend on the number of points in the FFT that produced `Sxx`.  The frames are
+processed in chunks, because only the lowest `lift` points of each (long) cepstrum are kept.
+'''
+    ncep = 2 * (Sxx.shape[0] - 1)
+    nl = _lift_samples(lift, fs, ncep)
+    theta = 2 * np.pi * np.asarray(freqs) / fs
+    out = np.empty((len(theta), Sxx.shape[1]), dtype=Sxx.dtype)
+    for a in range(0, Sxx.shape[1], chunk):
+        C = fft.irfft(Sxx[:, a:a + chunk], axis=0, workers=-1)[:nl + 1]
+        out[:, a:a + chunk] = _lifter_envelope(C, theta)
+    return out
+
+
+def _smooth_sgram(Sxx, fs, lift):
+    '''Cepstrally smooth a dB spectrogram `Sxx` (frequency by time) made by compute_sgram().  Returns the frequency
+axis, the smoothed spectra and the cepstra (freqE, Exx, Cxx), as documented for `cepstral_smooth()`.'''
+    Cxx = fft.irfft(Sxx, axis=0, workers=-1)   # cepstrogram, all frames in one batched call spread over all cores
+    nbins = Cxx.shape[0]
+    nl = _lift_samples(lift, fs, nbins)         # lift value in samples (from seconds)
+    # Lifter: keep only quefrencies shorter than `lift`, and return to the frequency axis.  The mirrored
+    # cepstrum has 2*nbins-1 points, so bin k of the smoothed spectrum is at angle 2 pi k/(2 nbins-1).
+    # Because only `lift` coefficients survive, this is evaluated directly (see _lifter_envelope()).
+    Exx = _lifter_envelope(Cxx[:nl + 1], 2*np.pi*np.arange(nbins)/(2*nbins - 1))
+    freqE = np.arange(1, nbins + 1)*(fs/2)/nbins                                  # frequency axis
+    return freqE, Exx, Cxx
+
+
 def cepstral_smooth(x, fs, tf=5000, s=0.005, l=0.04, preemphasis=0.0, lift=0.003):
     '''Smooth spectra by cepstral 'liftering' to remove the periodic source, leaving only the overall spectral envelope shape. 
 The implementation here borrows heavily from Seonju Kim's repository (https://github.com/hwang9u/pyceps).  
@@ -300,15 +363,7 @@ References
 
     ts,freqS,Sxx = compute_sgram(x,fs,l,s)
                               
-    Cxx = np.apply_along_axis(func1d=lambda xx: np.fft.irfft(xx).real, axis=0, arr=Sxx)   # cepstrogram
+    freqE, Exx, Cxx = _smooth_sgram(Sxx, fs, lift)
     quef = np.arange(Cxx.shape[0])/fs
-
-    lift = int(lift * fs)  # convert lift value to samples (from seconds)
-    Exx = Cxx.copy()
-    Exx = np.concatenate(  (Exx, Exx[1:][::-1]), axis=0 )   # mirror spectrum
-    Exx[lift:-lift, :] = 0.     # filter, set all to zero exept below lift period (shorter periods only)
-    Exx = np.apply_along_axis(func1d=lambda xx: np.fft.rfft(xx).real[:Cxx.shape[0]], 
-                              axis=0, arr=Exx)  # back to frequency axis
-    freqE = np.arange(1,Exx.shape[0]+1)*(fs/2)/Exx.shape[0]                       # frequency axis
 
     return ts, freqE, Exx, freqS, Sxx, quef, Cxx

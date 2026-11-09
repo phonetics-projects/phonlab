@@ -7,11 +7,88 @@ from ..utils.prep_audio_ import prep_audio
 from ..utils.align_series import align_timeseries
 from ..acoustic.sgram_ import compute_sgram
 from ..acoustic.rlpc import RLPC_formants
-from ..acoustic.cepstral import cepstral_smooth
+from ..acoustic.cepstral import _cepstral_smooth_band, _smooth_sgram
 from ..acoustic.amp_env import amplitude_envelope
 from ..acoustic.vad import VAD
 from ..acoustic.display_wave_ import display_wave
 from ..utils.smooth1d_ import smooth1d
+
+
+BAND_STEP = 1.0   # Hz, spacing of the frequencies at which spectra are compared in the analysis band
+
+
+def _spectral_distance(Sxx, A, fs, lift, freqs, chunk=2048):
+    '''RMS difference (dB) between the LPC spectrum and the cepstrally smoothed spectrum, at frequencies `freqs` (Hz).
+
+Both spectra are evaluated only at `freqs` (see cepstral._cepstral_smooth_band() and below), so there is no need
+to compute full-length spectra for every frame.  The mean of each spectrum over the band is removed before they are
+compared, so only spectral shape matters.  That also means the LPC gain and the window amplitude correction (a
+constant for each frame) drop out and are not needed here; they are needed to draw the diagnostic plot where the
+LPC and acoustic spectra are shown on the same dB scale.
+'''
+    Exx = _cepstral_smooth_band(Sxx, fs, lift, freqs)                       # (len(freqs), nframes)
+    # |A(e^jw)| at the requested frequencies: the polynomial A has only order+1 coefficients, so this is a small
+    # matrix product, which is much cheaper than a full-length FFT of A for every frame
+    W = np.exp(-2j*np.pi*np.outer(np.arange(A.shape[1]), freqs)/fs)
+    tiny = np.finfo(float).tiny
+    SD = np.empty(A.shape[0])
+    for a in range(0, A.shape[0], chunk):                                   # limits the size of the temporaries
+        Lxx = -20*np.log10(np.maximum(np.abs(A[a:a+chunk] @ W).T, tiny))    # LPC spectrum, up to a constant
+        Eb = Exx[:, a:a+chunk]
+        SD[a:a+chunk] = np.sqrt(np.mean(((Lxx - Lxx.mean(axis=0)) - (Eb - Eb.mean(axis=0)))**2, axis=0))
+    return SD
+
+
+def _find_peaks_h1_a1(spectrum, peaksep):
+    '''Find h1 (the lowest spectral peak) and a1 (the peak nearest F1) in a narrow-band dB spectrum.  
+Only peaks within 35 dB of the highest point of the spectrum are considered.  Returns (peaks, minheight), 
+where `peaks` is empty if there are no such peaks.'''
+    minheight = np.max(spectrum) - 35
+    peaks, _ = find_peaks(spectrum, width=peaksep, distance=peaksep, height=minheight)
+    return peaks, minheight
+
+
+def _slice_diagnostic_plot(x, fs, idx, step, length, lift, A_row, gain, F1, SD_i, a1h1_i, slice_time, analysis_band):
+    '''Plot the LPC spectrum, the cepstrally smoothed spectrum and the narrow-band spectrum of frame `idx`, 
+with h1 and a1 marked.  Only this one frame is analyzed, and its spectra are computed over the whole frequency range.  
+`x` is the prepared audio that was analyzed by nasality().'''
+    import matplotlib.pyplot as plt
+    hop, win = int(fs*step), int(fs*length)
+    _, freqS, Sxx = compute_sgram(x[idx*hop: idx*hop + win], fs, length, step)   # one frame
+    freq, Exx, _ = _smooth_sgram(Sxx, fs, lift)
+    Sxx, Exx = Sxx[:, 0], Exx[:, 0]
+    n = len(Exx)*2 - 1
+
+    # We use a window for FFT spectra, and don't for LPC, therefore an amplitude correction is needed
+    window = windows.blackmanharris(win)
+    amp_correction = 2.5 + 20 * np.log10(np.sum(window)/np.sqrt(np.sum(np.square(window))))
+    tiny = np.finfo(float).tiny
+    lpc_mag = np.abs(np.fft.rfft(A_row, n=n))
+    Lxx = 20 * np.log10(np.maximum(np.sqrt(gain), tiny)/np.maximum(lpc_mag, tiny)) - amp_correction
+
+    fig3 = plt.figure(figsize=(5, 4),dpi=150)
+    ax3 = fig3.add_subplot(111)
+    ax3.plot(freq, Lxx)  # the LPC spectrum
+    ax3.plot(freq, Exx)  # the Cepstrum
+
+    peaksep = int(50//(freqS[1]-freqS[0]))  # number of steps in 50 Hz
+    peaks, minheight = _find_peaks_h1_a1(Sxx, peaksep)
+    print(f"F1 = {F1:.1f}")
+    print(f"at {slice_time} ({idx}): SD = {SD_i:.3f}, a1-h1 = {a1h1_i:.3f}")
+    print(f"peak must be at least {minheight:.2f} dB to be h1")
+
+    ax3.plot(freqS, Sxx, color="gray", alpha=0.4)
+    if len(peaks) > 0:
+        h1 = Sxx[peaks[0]]
+        a1idx = np.argmin(np.fabs(freqS[peaks]-F1))
+        a1 = Sxx[peaks[a1idx]]
+        ax3.plot(freqS[peaks[0]],h1, "rx")
+        ax3.plot(freqS[peaks[a1idx]],a1,"rx")
+        ax3.text(freqS[peaks[0]],h1, "h1")
+        ax3.text(freqS[peaks[a1idx]],a1,"a1")
+
+    ax3.axvline(analysis_band[0],color='gray', linestyle="dashed")
+    ax3.axvline(analysis_band[1],color='gray', linestyle="dashed")
 
 
 def nasality(x,fs, order=-1, analysis_band=(100,1200),
@@ -46,8 +123,11 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
     With calibration="fixed" it is scaled with reference means and standard deviations drawn from test 
     recordings (see `reference`), which keeps recordings comparable and needs no voice activity detection.
 
-    In this function phon.RLPC_formants() is used to produce LPC spectra, and phon.cepstral_smooth() is used 
-    to produce narrow-band spectra and cepstrally smoothed spectra.
+    In this function phon.RLPC_formants() is used to produce LPC spectra, and phon.compute_sgram() is used to 
+    produce narrow-band spectra.  The cepstrally smoothed spectra (see phon.cepstral_smooth()) are computed only at 
+    frequencies in the analysis band, which makes the function several times faster and use much less memory than 
+    computing full spectra for every frame.  The diagnostic plot (`slice_time`) analyzes a single frame over the
+    whole frequency range.
 
     Parameters
     ==========
@@ -101,8 +181,8 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
         reference : dict, default = None
             Reference (mean, standard deviation) pairs of the smoothed SD and a1h1 over voiced frames, used when
             calibration="fixed", as {"SD": (mean, sd), "a1h1": (mean, sd)}. The default reference values (reference=None)
-            uses {"SD": (1.93, 0.62), "a1h1": (5.24, 2.58)}, pooled over three nasometer test recordings (2 talkers). 
-            The per-recording means ranged from 1.60 to 2.14 for SD and from 4.6 to 6.1 for a1h1, so these constants 
+            uses {"SD": (3.86, 1.26), "a1h1": (10.56, 5.28)}, pooled over three nasometer test recordings (2 talkers). 
+            The per-recording means ranged from 3.2 to 4.3 for SD and from 9.2 to 12.4 for a1h1, so these constants 
             carry some talker and session variation.
 
     Returns
@@ -179,12 +259,15 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
                       scale=True, pre = preemphasis,
                       verbose = verbose)  # resample to target_fs
 
-    # -------- get acoustic spectra -----------------
+    # Pre-emphasis comes after scaling in prep_audio(), so scale the audio again.  This puts the narrow-band
+    # spectra on the same amplitude scale as the audio that RLPC_formants() analyzes (it scales its input in the
+    # same way), which the LPC gain relies on when the LPC and acoustic spectra are compared in the diagnostic plot.
+    x,fs = prep_audio(x, fs, target_fs=fs, scale=True, pre=0.0)
+
+    # -------- get narrow-band spectra (dB) -----------------
     if verbose:
-        print(f"calling phon.cepstral_smooth() with lift = {lift} and top_freq = {top_freq}")
-    t, freq, Exx, freqS, Sxx, _, _ = cepstral_smooth(x, fs, s=step, l=length,  
-                                             tf = top_freq, preemphasis = 0.0, lift=lift)
-    n = Exx.shape[0]*2-1
+        print(f"calling phon.compute_sgram() with length = {length} and step = {step}")
+    t, freqS, Sxx = compute_sgram(x, fs, length, step)
     fstep = freqS[1]-freqS[0]   # step size in Hz of the Sxx spectrum     
 
     # --------- use RLPC_formants() to get LPC spectra and formants and bandwidths -------------
@@ -194,77 +277,40 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
     # we need both the fmtdf and the A matrix
     fmtdf, A =  RLPC_formants(x, fs, s=step, l=length, tf = top_freq, 
                                       preemphasis=0.0, order=order, verbose=verbose)
-   
-    # We use a window for FFT spectra, and don't for LPC, therefore an amplitude correction is needed
-    window = windows.blackmanharris(int(length*fs))
-    amp_correction = 2.5 + 20 * np.log10(np.sum(window)/np.sqrt(np.sum(np.square(window))))
-    
-    gain = fmtdf.gain.to_numpy()
-    tiny = np.finfo(float).tiny
-    lpc_mag = np.abs(np.fft.rfft(A, n=n)).T
-    Lxx = 20 * np.log10(np.maximum(np.sqrt(gain), tiny)/np.maximum(lpc_mag, tiny)) - amp_correction
+    if Sxx.shape[1] != A.shape[0]:
+        raise RuntimeError(f"nasality(): {Sxx.shape[1]} spectra but {A.shape[0]} LPC frames; analysis frames do not line up")
 
     # -------- measure the difference between the smoothed spectrum and the LPC spectrum -------
+    # Only the analysis band is needed, so both spectra are computed only at frequencies in the band.
+    band_freqs = np.arange(analysis_band[0], analysis_band[1], BAND_STEP)
     if verbose:
-        print(f"computing spectral distance (SD) in band {analysis_band}")
-        print(f"Lxx.shape = {Lxx.shape}")
-        print(f"Exx.shape = {Sxx.shape}")
-    lowidx = np.argmin(abs(freq-analysis_band[0]))
-    highidx = np.argmin(abs(freq-analysis_band[1]))
-
-    LPC_frames = Lxx[lowidx:highidx, :]
-    Env_frames = Exx[lowidx:highidx, :]
-    
-    SD = np.sqrt(np.mean(((LPC_frames - LPC_frames.mean(axis=0)) - (Env_frames - Env_frames.mean(axis=0)))**2, axis=0))
+        print(f"computing spectral distance (SD) in band {analysis_band} at {len(band_freqs)} frequencies")
+        print(f"Sxx.shape = {Sxx.shape}")
+    SD = _spectral_distance(Sxx, A, fs, lift, band_freqs)
     
     # ----------- measure a1h1 ---------------------- 
-    a1_minus_h1 = np.zeros(Lxx.shape[1])
-    for idx in range(Lxx.shape[1]):
-        if np.isnan(fmtdf.F1[idx]) or fmtdf.F1[idx]<=0:  # no F1 in this frame
-            a1_minus_h1[idx] = np.nan
-        else:
-            peakamp = np.max(Sxx[:,idx])
-            minheight = peakamp - 35
-            peaksep = int(50//fstep)  # number of steps in xx Hz
-            peaks,props = find_peaks(Sxx[:,idx], width = peaksep,
-                                     distance = peaksep, height=minheight)
-            h1 = Sxx[peaks[0],idx]  # amplitude of the first (lowest)  spectral peak
-            a1idx = np.argmin(np.fabs(freqS[peaks]-fmtdf.F1[idx]))
-            a1 = Sxx[peaks[a1idx],idx]  # amplitude of the peak closest to F1
-            a1_minus_h1[idx] = a1 - h1   # difference in amp at F1 and at H1
+    F1 = fmtdf.F1.to_numpy()
+    a1_minus_h1 = np.full(Sxx.shape[1], np.nan)
+    peaksep = int(50//fstep)  # number of steps in xx Hz
+    for idx in range(Sxx.shape[1]):
+        if np.isnan(F1[idx]) or F1[idx]<=0:  # no F1 in this frame
+            continue
+        peaks, _ = _find_peaks_h1_a1(Sxx[:,idx], peaksep)
+        if len(peaks) == 0:                  # no peak is high enough to be h1
+            continue
+        h1 = Sxx[peaks[0],idx]  # amplitude of the first (lowest)  spectral peak
+        a1idx = np.argmin(np.fabs(freqS[peaks]-F1[idx]))
+        a1 = Sxx[peaks[a1idx],idx]  # amplitude of the peak closest to F1
+        a1_minus_h1[idx] = a1 - h1   # difference in amp at F1 and at H1
  
     BW1_nas = fmtdf.BW1.to_numpy()
     a1h1 = a1_minus_h1
 
     # -------- optionally show a plot of the acoustic and LPC spectra ---------
     if slice_time > 0:
-        import matplotlib.pyplot as plt
         idx = np.argmin(abs(t-slice_time))  # find the closest index
-
-        fig3 = plt.figure(figsize=(5, 4),dpi=150)
-        ax3 = fig3.add_subplot(111)
-        ax3.plot(freq, Lxx[:,idx])  # the LPC spectrum
-        ax3.plot(freq, Exx[:,idx])  # the Cepstrum
-        
-        peakamp = np.max(Sxx[:,idx])
-        minheight = peakamp - 35
-        peaks,props = find_peaks(Sxx[:,idx], width = peaksep,
-                                 distance=peaksep, height = minheight)
-        h1 = Sxx[peaks[0],idx]
-        a1idx = np.argmin(np.fabs(freqS[peaks]-fmtdf.F1[idx]))
-        a1 = Sxx[peaks[a1idx],idx]
-        print(f"F1 = {fmtdf.F1[idx]:.1f}")
-        print(f"at {slice_time} ({idx}): SD = {SD[idx]:.3f}, a1-h1 = {a1h1[idx]:.3f}")
-        print(f"peak must be at least {minheight:.2f} dB to be h1")
-
-        ax3.plot(freqS, Sxx[:,idx],color="gray", alpha=0.4)
-        ax3.plot(freqS[peaks[0]],h1, "rx")
-        ax3.plot(freqS[peaks[a1idx]],a1,"rx")
-        ax3.text(freqS[peaks[0]],h1, "h1")
-        ax3.text(freqS[peaks[a1idx]],a1,"a1")
-        
-        ax3.axvline(analysis_band[0],color='gray', linestyle="dashed")
-        ax3.axvline(analysis_band[1],color='gray', linestyle="dashed")
+        _slice_diagnostic_plot(x, fs, idx, step, length, lift, A[idx], fmtdf.gain.iloc[idx], F1[idx],
+                               SD[idx], a1h1[idx], slice_time, analysis_band)
 
      # Create DataFrame
     data_dict = {'sec': t, "BW1_nas":BW1_nas, "a1h1" : a1h1, "SD" : SD}
@@ -288,13 +334,13 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
         ref = {"SD": (np.nanmean(SD_s[voiced]), np.nanstd(SD_s[voiced], ddof=1)),
                "a1h1": (np.nanmean(a1h1_s[voiced]), np.nanstd(a1h1_s[voiced], ddof=1))}
     else:
-        ref = reference if reference is not None else {"SD": (1.93, 0.62), "a1h1": (5.24, 2.58)}
+        ref = reference if reference is not None else {"SD": (3.86, 1.26), "a1h1": (10.56, 5.28)}
         if reference is None and (index_smoothing != 24 or tuple(analysis_band) != (100, 1200)
                                   or length != 0.03 or lift != 0.002 or preemphasis != 0.96):
             import warnings
             warnings.warn("nasality(): the default reference means and standard deviations were measured with the "
                           "default analysis parameters; nas_index may be mis-scaled with the parameters used here")
-    nas_index = ((SD_s - ref["SD"][0]) / ref["SD"][1] - (a1h1_s - ref["a1h1"][0]) / ref["a1h1"][1]) / 2
+    nas_index = -((SD_s - ref["SD"][0]) / ref["SD"][1] + (a1h1_s - ref["a1h1"][0]) / ref["a1h1"][1]) / 2
     if calibration == "recording":
         nas_index[~voiced] = np.nan
     df["nas_index"] = nas_index
@@ -353,7 +399,7 @@ def nasalance(filename, nasal_channel = 'left',
 
     """
     # load all channels; loadsig() returns [chan0, chan1, ..., fs]
-    chans = phon.loadsig(filename)
+    chans = loadsig(filename)
     raw_fs = chans.pop()
     if len(chans) != 2:
         raise ValueError(f"nasalance(): '{filename}' has {len(chans)} channel(s); "
