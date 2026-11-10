@@ -1,5 +1,5 @@
-Phonlab version |release|
-=========================
+Phonlab
+=======
 A collection of python functions for doing Phonetics.
 
 The package is divided into functions for :doc:`acoustphon`, to calculate acoustic measures of vowels, stops and
