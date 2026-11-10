@@ -44,3 +44,4 @@ html_theme = 'sphinx_rtd_theme'
 html_logo = 'logo3.png'
 #html_theme = 'cloud'
 html_static_path = ['_static']
+html_css_files = ['custom.css']

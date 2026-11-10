@@ -1,0 +1,15 @@
+{% extends "!layout.html" %}
+
+{#- Override the sphinx_rtd_theme sidebar header so that, above the logo, there
+    are two lines: the home icon + project name, then the release number. #}
+{% block sidebartitle %}
+  {%- set _logo_url = logo_url|default(pathto('_static/' + (logo or ""), 1)) %}
+  {%- set _root_doc = root_doc|default(master_doc) %}
+  <a href="{{ pathto(_root_doc) }}" class="icon icon-home">{{ project }}</a>
+  <div class="version">v {{ release }}</div>
+  {%- if logo or logo_url %}
+    <a href="{{ pathto(_root_doc) }}"><img src="{{ _logo_url }}" class="logo" alt="{{ _('Logo') }}"/></a>
+  {%- endif %}
+
+  {%- include "searchbox.html" %}
+{% endblock %}
