@@ -29,8 +29,8 @@ documentation stays on Read the Docs, e.g. https://phonlab.readthedocs.io/en/v0.
 The docs for the newest release are at https://phonlab.readthedocs.io/en/stable/ .
 
 
-Unreleased
-----------
+0.1.0 (2026-11-09)
+------------------
 
 Breaking changes
 ~~~~~~~~~~~~~~~~
@@ -175,6 +175,7 @@ Added
   prediction error, which the LPC filters turn back into the audio, for use as the source in a
   source-filter resynthesis), and a ``normalize`` parameter (``False`` keeps the level of the residual
   instead of scaling its peak to 1).  ``gci()`` has the same ``gain`` parameter.
+* ``mfcc()`` a new function to calculate melfrequency cepstral coefficients.
 
 
 
