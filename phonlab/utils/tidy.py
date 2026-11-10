@@ -700,11 +700,13 @@ preceding discussion, words contain multiple phones.
 Parameters
 ==========
 
-outer_ts : Series of num
-    A series of time values that correspond to outer_ts boundaries.
-
 inner_ts : Series of num
-    A series of time values that correspond to inner_ts boundaries.
+    A series of time values that correspond to the boundaries of the inner
+    (contained) annotations, e.g. phones.
+
+outer_ts : Series of num
+    A series of time values that correspond to the boundaries of the outer
+    (containing) annotations, e.g. words. These are the values that are adjusted.
 
 tolerance : num
     Maximum distance from outer_ts to inner_ts value for inexact matches.
@@ -718,7 +720,7 @@ match of a value in `inner_ts`.
 Raises
 ======
 
-    ValueError: A ValueError is raised if one or more boundaries are not within tolerance. A list of the values from `outer_ts` that are out of tolerance is included as the second value of the Exception object's `args` attribute. An error message is the first value of `args`.
+    ValueError: A ValueError is raised if one or more boundaries are not within tolerance. A list of the values from `outer_ts` that are out of tolerance is included as the second value of the Exception object's `args` attribute, and a list of the corresponding index labels of `outer_ts` is the third value. An error message is the first value of `args`.
 
 
 Examples
@@ -733,11 +735,14 @@ Read phone and word tiers from a textgrid.
 
     # Adjust word 't1' values up to 5 ms.
     try:
-       wddf['t1'] = phon.adjust_boundaries(wddf['t1'], phdf['t1'], tolerance=0.005)
+       wddf['t1'] = phon.adjust_boundaries(
+           inner_ts=phdf['t1'], outer_ts=wddf['t1'], tolerance=0.005
+       )
     except ValueError as e:
        badt = ', '.join([f'{t:0.4f}' for t in e.args[1]])
+       badi = ', '.join([str(i) for i in e.args[2]])
        msg = f"Word-phone boundary mismatch greater than {tolerance} in {tgpath}. " \\
-             f"Bad word boundary found at time(s) {badt}."
+             f"Bad word boundary found at time(s) {badt} (row label(s) {badi})."
        raise ValueError(msg) from None
 """
 
@@ -745,9 +750,15 @@ Read phone and word tiers from a textgrid.
     try:
         return inner_ts[idx].values
     except KeyError:
+        # `badpos` holds positions, so `outer_ts` must be indexed positionally
+        # here: plain [] on a Series looks up labels and raises KeyError for
+        # any index that is not a 0-based range.
+        badpos = np.where(idx == -1)[0]
+        bad_outer_ts = pd.Series(outer_ts)
         raise ValueError(
             'Boundaries out of tolerance in `outer_ts`.',
-            [outer_ts[i] for i in np.where(idx == -1)[0]]
+            list(bad_outer_ts.iloc[badpos]),
+            list(bad_outer_ts.index[badpos])
         )
 
 def explode_intervals(divs, ts=['t1', 't2'], df=None, prefix='obs_'):
