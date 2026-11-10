@@ -29,7 +29,7 @@ documentation stays on Read the Docs, e.g. https://phonlab.readthedocs.io/en/v0.
 The docs for the newest release are at https://phonlab.readthedocs.io/en/stable/ .
 
 
-0.1.0 (unreleased)
+0.1.0 (2026-11-09)
 ------------------
 
 Version 0.0.70 was the last release in the 0.0.x series.
