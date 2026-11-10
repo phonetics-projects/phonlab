@@ -740,14 +740,9 @@ Read phone and word tiers from a textgrid.
        )
     except ValueError as e:
        badt = ', '.join([f'{t:0.4f}' for t in e.args[1]])
-<<<<<<< HEAD
-       msg = f"Word-phone boundary mismatch greater than {tolerance} in {tgpath}. " \\
-             f"Bad word boundary found at time(s) {badt}."
-=======
        badi = ', '.join([str(i) for i in e.args[2]])
-       msg = f"Word-phone boundary mismatch greater than {tolerance} in {tgpath}. " \
+       msg = f"Word-phone boundary mismatch greater than {tolerance} in {tgpath}. " \\
              f"Bad word boundary found at time(s) {badt} (row label(s) {badi})."
->>>>>>> cdc402e (adjust_boundaries: add out-of-tolerance index labels as args[2])
        raise ValueError(msg) from None
 """
 
