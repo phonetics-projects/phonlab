@@ -118,10 +118,10 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
     (0.65 in nasal murmurs, 0.5 in vowel-like frames; 0.66-0.73 across recordings). BW1_nas was a weaker 
     predictor (rho 0.3-0.45) and did not improve the index. With the default parameters, this index mostly 
     picks out nasal consonants and the nasalized portions of vowels. The index is relative, 
-    not an estimate of nasalance in absolute terms. With calibration="recording" (the default) it is 
-    z-scored within the voiced frames of the recording, so it is not comparable across talkers or sessions. 
-    With calibration="fixed" it is scaled with reference means and standard deviations drawn from test 
-    recordings (see `reference`), which keeps recordings comparable and needs no voice activity detection.
+    not an estimate of nasalance in absolute terms. With calibration="fixed" (the default) it is scaled
+    with reference means and standard deviations drawn from test recordings (see `reference`), which keeps
+    recordings comparable and needs no voice activity detection. With calibration="recording" it is
+    z-scored within the voiced frames of the recording, so it is not comparable across talkers or sessions.
 
     In this function phon.RLPC_formants() is used to produce LPC spectra, and phon.compute_sgram() is used to 
     produce narrow-band spectra.  The cepstrally smoothed spectra (see phon.cepstral_smooth()) are computed only at 
@@ -169,7 +169,7 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
             Smoothing matters: in the nasometer comparison the index correlated with nasalance at 0.57 
             without smoothing, 0.70 with s = 16 and 0.71 with s = 32-48. The SD and a1h1 columns 
             themselves are not smoothed.
-        calibration : string, default = "recording"
+        calibration : string, default = "fixed"
             How the smoothed SD and a1h1 are z-scored to make `nas_index`. 
             
                 * "recording": use the mean and standard deviation over the voiced frames of this recording, found with phon.VAD() (frames with probv > `voicing_threshold`). `nas_index` is NaN in other frames. 

@@ -1,5 +1,5 @@
 __name__ = "phonlab"
-__version__ = "0.0.70"
+__version__ = "0.1.0"
 
 import lazy_loader as lazy
 

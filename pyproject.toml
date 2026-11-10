@@ -25,6 +25,7 @@ dependencies = [
     'numba'
 ]
 classifiers = [
+    'Development Status :: 4 - Beta',
     'Programming Language :: Python :: 3',
     'Operating System :: OS Independent',
     'Intended Audience :: Science/Research',
@@ -36,6 +37,8 @@ license-files = ["LICENSE"]
 
 [project.urls]
 Homepage = "https://github.com/phonetics-projects/phonlab"
+Documentation = "https://phonlab.readthedocs.io/en/stable/"
+Changelog = "https://phonlab.readthedocs.io/en/stable/changelog.html"
 Issues = "https://github.com/phonetics-projects/phonlab/issues"
 
 [tool.setuptools]
