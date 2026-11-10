@@ -208,7 +208,7 @@ tiercols: str or dict or list of str/dict
 
 ts : list of str or list of list of str (default=['t1', 't2'])
     The column names in each dataframe in `dfs` that hold the start and end
-    times of the labels. For Point tiers Use `None` as the second value.
+    times of the labels. For Point tiers use `None` as the second value.
     If this value is a simple list, then all dataframes must be of the same
     Interval/Point type with the same names for the time columns.
     For a mix of Interval and Point tier types, or if time column names vary
@@ -231,8 +231,8 @@ codec : str (default 'utf-8')
 
 fmt : str or None (default None)
     The format string to apply to all time columns, as used by the
-    `format <https://docs.python.org/3/library/stdtypes.html#str.format>`
-    built-in method, for example, '0.4f' for four-digit floating point.
+    `format <https://docs.python.org/3/library/stdtypes.html#str.format>`_
+    built-in method, for example, '0.4f' for four decimal places.
 
 fill_gaps : str or None (default '' empty string)
     When `fill_gaps` is not None, new labels will be inserted into IntervalTier
@@ -458,12 +458,12 @@ Returns
 -------
 
 tiers : list of dataframes
-    Textgrid tiers are returned as a list of dataframes for each tier, in the order selected by `tiersel`. The time columns of each dataframe are named `t1` and `t2` for label start and end times of interval tiers, or `t1` for the timepoints of point tiers. The textgrid tier's name is used as the name of the column containing the label content unless column names are provided by `names`. If `tiers` is an empty list `[]` then all textgrid tiers are returned in the list of dataframes.
+    Textgrid tiers are returned as a list of dataframes for each tier, in the order selected by `tiersel`. The time columns of each dataframe are named `t1` and `t2` for label start and end times of interval tiers, or `t1` for the timepoints of point tiers. The textgrid tier's name is used as the name of the column containing the label content unless column names are provided by `names`. If `tiersel` is an empty list `[]` then all textgrid tiers are returned in the list of dataframes.
 
 Example
 -------
 
-In this example we have the name of an existing Praat Textgrid file, and use **tg_to_df()** to read the textgrid into a set of dataframes (one for each tier of the textgrid file.
+In this example we have the name of an existing Praat Textgrid file, and use **tg_to_df()** to read the textgrid into a set of dataframes (one for each tier of the textgrid file).
 
 .. code-block:: Python
 
@@ -736,7 +736,7 @@ Read phone and word tiers from a textgrid.
        wddf['t1'] = phon.adjust_boundaries(wddf['t1'], phdf['t1'], tolerance=0.005)
     except ValueError as e:
        badt = ', '.join([f'{t:0.4f}' for t in e.args[1]])
-       msg = f"Word-phone boundary mismatch greater than {tolerance} in {tgpath}. " \
+       msg = f"Word-phone boundary mismatch greater than {tolerance} in {tgpath}. " \\
              f"Bad word boundary found at time(s) {badt}."
        raise ValueError(msg) from None
 """
@@ -769,7 +769,7 @@ divs : int, list of float in range [0.0, 1.0]
     The subintervals to include. If `int`, the number of equal-duration subintervals
     each interval will be divided into. If a list, the values should be in the range
     [0.0, 1.0] and express proportions of the duration of each interval for which
-    subinterval timepoints will be created. For example, `[0.25, 0.50, 0.75]` yield
+    subinterval timepoints will be created. For example, `[0.25, 0.50, 0.75]` yields
     timepoints at 25%, 50%, and 75% of each input interval.
 
 ts : list of str or list of numeric scalar/list/Series/arrays
@@ -809,7 +809,7 @@ Note
 
 Example
 -------
-In this example we have a dataframe produced by `phon.tg_to_df()`, and `phon.merge_tiers()` which has columns for each `phone` and it's starting and ending times (t1,t2).  We use the Pandas function `query` to get a subset dataframe that just has vowels in it, and then use `phon.explode_intervals()` to add new rows specifying the time points at 20%, 50% and 80% of the way through each vowel.
+In this example we have a dataframe produced by `phon.tg_to_df()`, and `phon.merge_tiers()` which has columns for each `phone` and its starting and ending times (t1,t2).  We use the Pandas function `query` to get a subset dataframe that just has vowels in it, and then use `phon.explode_intervals()` to add new rows specifying the time points at 20%, 50% and 80% of the way through each vowel.
 
 .. code-block:: Python
 
@@ -958,7 +958,7 @@ formants dataframe and adds measurements at the desired observation times in the
     :alt: The first few rows of a 'vowels' dataframe with formant measurements added by `phon.interpolate_measures()`
     :align: center
 
-    The first few rows of a 'vowels' dataframe with with formant measurements added by `phon.interpolate_measures()`        
+    The first few rows of a 'vowels' dataframe with formant measurements added by `phon.interpolate_measures()`        
     '''
 
     interp_ts = interp_ts if interp_df is None else interp_df[interp_ts]

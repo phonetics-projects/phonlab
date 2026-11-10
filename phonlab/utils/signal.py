@@ -5,9 +5,8 @@ def loadsig(path, chansel=[], offset=0.0, duration=None, fs=None, dtype=np.float
     """
     Load signal(s) from an audio file.
 
-    By default audio samples are returned at the same sample rate as the input file.
-    and channels
-    are returned along the first dimension of the output array `y`.
+    By default audio samples are returned at the same sample rate as the input file, and each channel is
+    returned as a separate one-dimensional array (see Returns).
 
 Parameters
 ==========
@@ -45,7 +44,7 @@ Load a stereo audio file, report the sampling rate of the file, and plot the lef
 
 .. code-block:: Python
 
-    left, right, fs = loadsig('stereo.wav', chansel=[0,1])
+    left, right, fs = phon.loadsig('stereo.wav', chansel=[0,1])
     print(fs)
     plt.plot(left);
     
@@ -53,7 +52,7 @@ To load a one channel (mono) file, you can do this:
 
 .. code-block:: Python
 
-    x,fs = loadsig('mono.wav',chansel=[0])
+    x,fs = phon.loadsig('mono.wav',chansel=[0])
     print(fs,len(x))
     plt.plot(x)
 
@@ -61,7 +60,7 @@ In this example we load channels from a wav file that has an unknown number of c
 
 .. code-block:: Python
 
-    chans = loadsig('threechan.wav', fs=12000)
+    chans = phon.loadsig('threechan.wav', fs=12000)
     fs = chans.pop()     # Remove sample rate from end of the list of channels
     print(len(chans))      # the number of channels
     plt.plot(chans[-1])    # plot the last of the channels

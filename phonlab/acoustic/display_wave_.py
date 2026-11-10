@@ -23,13 +23,13 @@ Parameters
         by default (ax=None) a new matplotlib figure will be created.
 
     ylabel : string (default "Amplitude")
-        The function is used to plot an audio waveform, so the default y-axis label is "Amplitude".  However, this function can be use to plot any time series.
+        The function is used to plot an audio waveform, so the default y-axis label is "Amplitude".  However, this function can be used to plot any time series.
 
     font_size : integer (default 14)
         Size of the text in the figure's labels and tick labels.
         
     **kwargs : keyword arguments
-        key word arguments will be passed to pyplot.plot()
+        keyword arguments will be passed to pyplot.plot()
 
 Returns
 =======

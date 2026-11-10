@@ -81,16 +81,16 @@ def DPPT_formants(x,fs, pre=0, l=0.03, s=0.01, deltaF=1100, n=6):
     References
     ----------
 
-    B. Bozkurt, B. Doval, C.D. Alessandro, T. Dutoit (2004) Improved differential phase spectrum processing for formant tracking. InterSpeech ICSLP, 8th International Conference on Spoken Language Processing, Jeju Island, Korea.
+    B. Bozkurt, B. Doval, C. d'Alessandro, T. Dutoit (2004) Improved differential phase spectrum processing for formant tracking. InterSpeech ICSLP, 8th International Conference on Spoken Language Processing, Jeju Island, Korea.
     
     L. A. Chistovich, V.V Lublinskaya (1979) The 'center of gravity' effect in vowel spectra and critical distance between the formants: Psychoacoustical study of the perception of vowel-like stimuli. `Hearing Research`, 1, 185-195. 
 
     Examples
     --------
 
-    This code block shows a call to phon.track_formants_DPPT() and also shows a call to LPC formant tracking, the
+    This code block shows a call to phon.DPPT_formants() and also shows a call to LPC formant tracking, the
     default method in phon.track_formants(), and uses phon.sgram, and seaborn pointplot() to plot the estimated
-    formant frequences on the spectrogram.
+    formant frequencies on the spectrogram.
 
     .. code-block:: Python
     
@@ -107,7 +107,7 @@ def DPPT_formants(x,fs, pre=0, l=0.03, s=0.01, deltaF=1100, n=6):
         sns.pointplot(dflpc,x='sec',y='F3',linestyle='none',native_scale=True,marker=".",color=dot_color)
         sns.pointplot(dflpc,x='sec',y='F4',linestyle='none',native_scale=True,marker=".",color=dot_color)
 
-        df = phon.track_formants_DPPT(x,fs,deltaF=1100)
+        df = phon.DPPT_formants(x,fs,deltaF=1100)
 
         dot_color = "darkblue"
         sns.pointplot(df,x='sec',y='F1',linestyle='none',native_scale=True,marker=".",color=dot_color)
@@ -123,7 +123,7 @@ def DPPT_formants(x,fs, pre=0, l=0.03, s=0.01, deltaF=1100, n=6):
        :align: center
 
        Plotting the formants found by `track_formants()` (light blue dots) and those found by 
-       `track_formants_DPPT()` (dark blue dots) on the spectrogram of the utterance.
+       `DPPT_formants()` (dark blue dots) on the spectrogram of the utterance.
 
 
     '''

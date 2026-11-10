@@ -50,7 +50,7 @@ The columns in the returned dataframe are for each frame of audio:
 
 References
 ==========
-    G. de Krom (1993) A Cepstrum-Based Technique for Determining a Harmonics-to-Noise Ratio in Speech Signals. `Jounral of Speech and Hearing Research` 36,254-266.
+    G. de Krom (1993) A Cepstrum-Based Technique for Determining a Harmonics-to-Noise Ratio in Speech Signals. `Journal of Speech and Hearing Research` 36,254-266.
 
 
 Example
@@ -61,7 +61,7 @@ Example
     example_file = AUDIO/ 'sf3_cln.wav'
     x,fs = phon.loadsig(example_file,chansel=[0])
 
-    df = HNR(x,fs, target_time=2.1)  # get diagnostic plots for the spectrum at time 2.1 seconds.
+    df = phon.HNR(x,fs, target_time=2.1)  # get diagnostic plots for the spectrum at time 2.1 seconds.
 
 
 This example shows diagnostic plots of the spectrum (top panel) and cepstrum (bottom panel) of a frame of audio

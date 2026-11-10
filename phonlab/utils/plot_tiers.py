@@ -27,7 +27,7 @@ Parameters
         a list of matplotlib axes where vertical black lines at label boundaries (t1 and t2) will be marked.  
 
     span_time: float or list of floats (default None)
-        a time value (in seconds), or a list of time values, used to choose label intervals that will be highlighted by color shading overlaid on the axes in `mark_in_plot`.  Each interval that contains one of the times is shaded.  By default the color of the shading is blue, and the alpha of the shading is 0.2.  These defaults can be changed by keyword arguments that will be passed to the pyplot functin `axvspan()`.
+        a time value (in seconds), or a list of time values, used to choose label intervals that will be highlighted by color shading overlaid on the axes in `mark_in_plot`.  Each interval that contains one of the times is shaded.  By default the color of the shading is blue, and the alpha of the shading is 0.2.  These defaults can be changed by keyword arguments that will be passed to the pyplot function `axvspan()`.
 
     vertical_place: float (default 0.5)
         relative vertical location of the label in the axes.  0 = centered at the bottom of the axes, and 1 = centered at the top.
@@ -60,7 +60,7 @@ Example
 The first example illustrates the use of `phon.make_figure()`, `phon.sgram()` and `phon.plot_tier()` to produce a figure.
 
 The same start and end times are passed to sgram() and plot_tier(), and the phone tier is plotted with segment boundaries 
-in the spectrogram, and with one particular phone highlighed (the one that includes time 1.5 seconds)
+in the spectrogram, and with one particular phone highlighted (the one that includes time 1.5 seconds)
 
 
 .. code-block:: Python
@@ -98,7 +98,7 @@ in the spectrogram, and with one particular phone highlighed (the one that inclu
     Plotting textgrid information with a spectrogram.
 
 
-The second example shows that plot_tier() can be used to add lables directly to a spectrogram (or any other matplotlib axes).
+The second example shows that plot_tier() can be used to add labels directly to a spectrogram (or any other matplotlib axes).
 
 .. code-block:: Python
 
@@ -160,12 +160,12 @@ The second example shows that plot_tier() can be used to add lables directly to 
 
 def make_figure(height_ratios = [1,1,5], figsize=(5, 2), dpi=72, **fig_kw):
     """
-Create a matplotlib figure with axes to be filled with calls to plotting functions like `phon.sgram()` `phon.display_wave()`, and `phon.plot_tier()`.  The first version of this function was written by Martin Oberg at UBC.
+Create a matplotlib figure with axes to be filled with calls to plotting functions like `phon.sgram()`, `phon.display_wave()`, and `phon.plot_tier()`.  The first version of this function was written by Martin Oberg at UBC.
 
 Parameters
 ==========
     height_ratios: array of numbers, default = [1,1,5]
-        This list determines the number of axes that will be included in the figure, and determines their relative heights.  The default list prepares a figure that will have two narrow axes at the top (like textgrid tiers) and one five-time taller axes for plotting a spectrogram.  Note that when height_ratios is "1" the axis labeling is turned off for the axes.
+        This list determines the number of axes that will be included in the figure, and determines their relative heights.  The default list prepares a figure that will have two narrow axes at the top (like textgrid tiers) and one five times taller axes for plotting a spectrogram.  Note that when height_ratios is "1" the axis labeling is turned off for the axes.
 
     figsize : 2-tuple of floats,  default  = (5, 2)
         The `figsize` parameter value to pass to the `plt.Figure` constructor.

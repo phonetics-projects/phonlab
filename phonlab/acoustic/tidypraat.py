@@ -83,8 +83,8 @@ def formant_to_df(obj, num, ts=None, unit='HERTZ', include_bw=False, tcol='sec')
         
          f2df = phon.formant_to_df(fmnt, [2], unit='bark')  # or just the second formant
               
-         f1df.to_csv('formants.csv', sep='\t', header=True, index=False) # save to csv
-         f1df.to_pickle('formants.zip')
+         f12df.to_csv('formants.csv', sep='\\t', header=True, index=False) # save to csv
+         f12df.to_pickle('formants.zip')
     
     """
     
@@ -129,7 +129,7 @@ def pitch_to_df(obj, ts=None, unit='HERTZ', interpolation='LINEAR', tcol='sec'):
         The unit in which pitch values are returned. Lower case versions of the units are allowed. See Praat's `Pitch_enums.h` file for defined values.
 
     interpolation : str 'LINEAR' (default), 'NEAREST'
-        The type of interpolation to use when returning values. Lower case versions of the units are allowed. See Praat's `Pitch.cpp` and Vector_enums.h` files for defined values.
+        The type of interpolation to use when returning values. Lower case versions of the values are allowed. See Praat's `Pitch.cpp` and `Vector_enums.h` files for defined values.
 
     tcol : str (default 'sec') or None
         The label of the time column in the output dataframe, 'sec' by default. If None, no time column is added to the dataframe.
@@ -154,8 +154,8 @@ def pitch_to_df(obj, ts=None, unit='HERTZ', interpolation='LINEAR', tcol='sec'):
 
          ##  Now you can use all of the Pandas functions with your Praat data
 
-         hzdf.to_csv('hzpitch.csv', sep='\t', header=True, index=False)
-         hzdf.to_pickle('melpitch.zip')
+         hzdf.to_csv('hzpitch.csv', sep='\\t', header=True, index=False)
+         hzdf.to_pickle('hzpitch.zip')
          
     """
     
@@ -187,7 +187,7 @@ def intensity_to_df(obj, ts=None, interpolation='CUBIC', tcol='sec'):
         If None (default), then the Intensity object's `ts` times are used to query for intensity measurements. These are the centers of the analysis frames. The Intensity object's values can also be queried at specific times by providing `ts` as an Iterable of floats, such as a numpy array or Python list. If `ts` is a dataframe, the column labelled by the `tcol` parameter is used for the time values and the intensity measures are concatenated to the dataframe.
 
     interpolation : str 'CUBIC' (default), 'NEAREST', 'LINEAR', 'SINC70', 'SINC700'
-        The type of interpolation to use when returning values. Lower case versions of the units are allowed. See Praat's `Intensity.cpp` and `Vector_enums.h` files for defined values.
+        The type of interpolation to use when returning values. Lower case versions of the values are allowed. See Praat's `Intensity.cpp` and `Vector_enums.h` files for defined values.
 
     tcol : str (default 'sec') or None
         The label of the time column in the output dataframe, 'sec' by default. If None, no time column is added to the dataframe.
@@ -210,8 +210,8 @@ def intensity_to_df(obj, ts=None, interpolation='CUBIC', tcol='sec'):
 
          ## Now you can use all of the Pandas functions with your Praat data
     
-         spldf.to_csv('intensity.csv', sep='\t', header=True, index=False)
-         splddf.to_pickle('intensity.zip')
+         spldf.to_csv('intensity.csv', sep='\\t', header=True, index=False)
+         spldf.to_pickle('intensity.zip')
     """
     
     tpts = _check_and_get_tparams(obj, ts, tcol)
@@ -232,20 +232,20 @@ def mfcc_to_df(obj, num, ts=None, tcol='sec', include_energy=True):
     Parameters
     ==========
 
-    obj : Formant obj
+    obj : MFCC obj
         An MFCC object produced by parselmouth.Sound('wavefile.wav').to_mfcc().
 
     num : int
         The number of MFCC coefficients which will be calculated and returned in the columns labelled `c1` ... `cN`, where N is `num`. See the `include_energy` param for `c0`.
 
     ts : DataFrame, Iterable of floats, or None (default)
-        If None (default), then the Formant object's `ts` times are used to query for formant measurements. These are the centers of the analysis frames. The Formant object's values can also be queried at specific times by providing an Iterable of floats, such as a numpy array or Python list.
+        If None (default), then the MFCC object's `ts` times are used to query for MFCC values. These are the centers of the analysis frames. The Formant object's values can also be queried at specific times by providing an Iterable of floats, such as a numpy array or Python list.
 
     tcol : str (default 'sec') or None
         The label of the time column in the output dataframe, 'sec' by default. If None, no time column is added to the dataframe.
 
     include_energy : bool (default True)
-        If True, include the zeroth cepstral coefficient in the column labelled`c0`. For an MFCC object this value relates to energy.
+        If True, include the zeroth cepstral coefficient in the column labelled `c0`. For an MFCC object this value relates to energy.
 
     Returns
     =======
@@ -266,7 +266,7 @@ def mfcc_to_df(obj, num, ts=None, tcol='sec', include_energy=True):
 
          # Now you can use all of the Pandas functions with your Praat data
 
-         mdf.to_csv('mfcc.csv', sep='\t', header=True, index=False)
+         mdf.to_csv('mfcc.csv', sep='\\t', header=True, index=False)
          mdf.to_pickle('mfcc.zip')
     """
     

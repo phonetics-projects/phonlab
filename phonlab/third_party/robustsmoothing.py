@@ -20,7 +20,7 @@ Parameters
 ----------
 
 y : numeric or logical array
-    A uniformly-sampled array of input data array to be smoothed. **y** can be any N-D noisy array (time series, images, 3D data,...). Non-finite data (NaN or Inf) are treated as missing values.
+    A uniformly-sampled array of input data to be smoothed. **y** can be any N-D noisy array (time series, images, 3D data,...). Non-finite data (NaN or Inf) are treated as missing values.
 
 isrobust: logical, default = False
     Use robust algorithm to minimize the influence of outlying data
@@ -72,7 +72,7 @@ exitflag: logical
 References
 ----------
 
-D. Garcia (2010) Robust smoothing of gridded data in one and higher dimensions with missing values. `Computational Statistics & Data Analysis` **54** , 1187-1178. http://www.biomecardio.com/publis/csda10.pdf
+D. Garcia (2010) Robust smoothing of gridded data in one and higher dimensions with missing values. `Computational Statistics & Data Analysis` **54** , 1167-1178. http://www.biomecardio.com/publis/csda10.pdf
 
 D. Garcia (2011) A fast all-in-one method for automated post-processing of PIV data. `Exp Fluids`, **50** , 1247-1259. http://www.biomecardio.com/publis/expfluids11.pdf
 

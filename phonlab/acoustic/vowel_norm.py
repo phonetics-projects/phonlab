@@ -2,7 +2,7 @@ import pandas as df
 import numpy as np
 
 def get_deltaF(df, return_value = "deltaF"):
-    '''Calcuate the delta F vocal tract length factor from formant values in a dataframe **df**.  The estimate is more stable when the dataframe contains a representative set of vowels spoken by the talker (see Johnson, 2020).
+    '''Calculate the delta F vocal tract length factor from formant values in a dataframe **df**.  The estimate is more stable when the dataframe contains a representative set of vowels spoken by the talker (see Johnson, 2020).
 
 Parameters
 ==========
@@ -30,7 +30,7 @@ Example
 .. code-block:: Python
 
     fmtsdf = phon.track_formants(x,fs)
-    VTL = phon.get_deltaf(fmtsdf,return_value='VTL')
+    VTL = phon.get_deltaF(fmtsdf,return_value='VTL')
 
     '''
     deltaf = np.nanmean([[df['F1']/0.5],[df['F2']/1.5],[df['F3']/2.5],[df['F4']/3.5]])
@@ -111,7 +111,7 @@ df: DataFrame
     The input dataframe must contain columns labeled 'F1/∆F', 'F2/∆F', 'F3/∆F', and 'F4/∆F'.  See `phon.track_formants()` and 
     `phon.deltaF_norm()`.  These should be data from a single speaker.
 deltaf: float
-    The new deltaF value that will be used to calcuate the non-normalized values from the Fx/∆F normalized values.
+    The new deltaF value that will be used to calculate the non-normalized values from the Fx/∆F normalized values.
 
 Returns
 -------

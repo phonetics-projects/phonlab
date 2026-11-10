@@ -43,10 +43,10 @@ def get_mbs(x,fs, f0median, width = 1.4):
 # GCI function
 
 def gci_sedreams(x,fs,f0median=170, target_fs = 16000, order=None, cthresh=0.0):
-    '''Identify Glottal Closure instances (GCI) using Drugman & Dutoit's (2009) `sedreams` algorithm which 
+    '''Identify glottal closure instants (GCI) using Drugman & Dutoit's (2009) `sedreams` algorithm which 
 was published as a Matlab function in the Covarep repository.   The function also returns f0 and vocal jitter 
 based on the derived GCI estimates.  Two parameters are given here which were not a part of the original 
-implementation.  Based on a comment in D&D(2009), the function includes a process to choose different LPC 
+implementation.  Based on a comment in D&D (2009), the function includes a process to choose different LPC 
 orders for different f0medians.  
 
     .. code-block:: Python
@@ -59,7 +59,7 @@ orders for different f0medians.
             elif f0median<300: order = low_order-4
             else: order = low_order-6
 
-If you don't explicitly specify and LPC order one will be chosen for you.  This differs from D&D in that 
+If you don't explicitly specify an LPC order one will be chosen for you.  This differs from D&D in that 
 they just used order=18 for everything.  This doesn't seem to change much in the operation of this function.
 
 The other additional parameter is a threshold for peaks in the residual function. Changing this parameter 
@@ -81,9 +81,9 @@ Parameters
     target_fs : int, default=16000
         the sampling rate of the returned residual and mbs waveforms.
     order : int, default = None
-        By default the order used in LPC analysis (to calculate the LPC residual signal) is based on the values of target_fs and F0median.  Drugmand & Dutoit (2009) used order=18.
+        By default the order used in LPC analysis (to calculate the LPC residual signal) is based on the values of target_fs and F0median.  Drugman & Dutoit (2009) used order=18.
     cthresh: float, default = 0.1
-        A peak in the LPC residual must be greater than this thresholf value to be considered a glottal closure instant.  The residual is amplitude normalized to the range [0,1], so 0.1 is 10% of the amplitude range.
+        A peak in the LPC residual must be greater than this threshold value to be considered a glottal closure instant.  The residual is amplitude normalized to the range [0,1], so 0.1 is 10% of the amplitude range.
 
 Returns
 =======
@@ -92,7 +92,7 @@ Returns
     mbs : ndarray
         A waveform the same length as the input **x** containing the "Mean Based Signal"
     resid : ndarray
-        A waveforem the same length as the input **x** containing the LPC residual signal.
+        A waveform the same length as the input **x** containing the LPC residual signal.
 
 Note
 ====
@@ -100,8 +100,8 @@ The columns in the returned DataFrame are:
     * sec - the time points (in seconds) of each glottal closure instant. These are the GCI times.
     * f0 - pitch of voicing, which is `1/t`, where `t` is the glottal period - the duration between adjacent GCI times.
     * jitter - the relative discrepancy between adjacent glottal period durations (call them t1 and t2). The value is calculated as `j = 2 * |0.5 - t1/(t1+t2)|`. This results in values on a scale from 0 (adjacent periods (t) are equal in duration), to 1 (the theoretical limit of jitter).  A value of 0.5 means that t1 is twice (or 1/2) as long as t2.  This corresponds to 1/2 of Praat's "local jitter" measurement (which is scaled from 0 to 2).
-    * soe - strength of excitation (SOE)is the height of the LPC residual peak for each GCI
-    * shimmer - relative discrepancy between adjacent glottal SOE, measured in dB with the formula: shimmer = 20*log(soe[i+1]/soe[i])
+    * soe - strength of excitation (SOE) is the height of the LPC residual peak for each GCI
+    * shimmer - relative discrepancy between adjacent glottal SOE, measured in dB with the formula: shimmer = 20*log10(soe[i+1]/soe[i])
 
 References
 ==========
@@ -113,16 +113,16 @@ References
 Example
 =======
 
-The example here shows glottal closure instances for a small 40 millisecond window in one of the exaample audio files.
+The example here shows glottal closure instants for a small 40 millisecond window in one of the example audio files.
 
     .. code-block:: Python
     
         example_file = importlib.resources.files('phonlab') / 'data/example_audio/im_twelve.wav'
         x,fs = phon.loadsig(example_file, fs=16000,chansel=[0])
-        f0df = phon.get_f0_B93(x,fs)
+        f0df = phon.get_f0(x,fs)
         f0med = np.nanmedian(f0df.f0)
 
-        gci_df, mbs,resid = gci_sedreams(x,fs,f0med, cthresh = 0.01)
+        gci_df, mbs,resid = phon.gci_sedreams(x,fs,f0med, cthresh = 0.01)
 
         times = np.array(range(len(x)))/fs  # construct a time axis for plotting
         start = 1.8                         # choose a chunk

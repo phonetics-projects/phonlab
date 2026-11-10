@@ -32,9 +32,9 @@ def centerpass(x, center, bw, fs):
 # this function takes a chunk of waveform and returns a frequency spectrum
 # sec is the size of the chunk in seconds
 def get_rhythm_spectrum(x,fs): 
-    """Return a rhythm spectrum - ala Tilsen & Johnson, 2008
+    """Return a rhythm spectrum - à la Tilsen & Johnson, 2008
 
-    This approach to measuring rythmicity was described by Tilsen and Johnson (2008).  The code here and in `rhythmogram` is a translation and extension of Tilsen's Matlab code.  This function takes a chunk of waveform (best if it is 4 seconds long) and computes a spectrum of the bandpass filtered amplitude envelope.  It finds periodicity in the amplitude envelope and returns a spectrum in the range from **f** to 7 Hz, tracking components in the amplitude envelope that repeat at low frequency.  The lowest frequency represented **f** is determined from the duration of the waveform in **x**, which should be at least 4 seconds for accurate detection of slow rhythmic components.s
+    This approach to measuring rhythmicity was described by Tilsen and Johnson (2008).  The code here and in `rhythmogram` is a translation and extension of Tilsen's Matlab code.  This function takes a chunk of waveform (best if it is 4 seconds long) and computes a spectrum of the bandpass filtered amplitude envelope.  It finds periodicity in the amplitude envelope and returns a spectrum in the range from **f** to 7 Hz, tracking components in the amplitude envelope that repeat at low frequency.  The lowest frequency represented **f** is determined from the duration of the waveform in **x**, which should be at least 4 seconds for accurate detection of slow rhythmic components.
 
     Parameters
     ==========
@@ -95,9 +95,9 @@ def get_rhythm_spectrum(x,fs):
     return (freq[i],powsd[i]) 
     
 def rhythmogram(x,fs):
-    """Return a rhythm spectrogram - ala Tilsen & Johnson, 2008
+    """Return a rhythm spectrogram - à la Tilsen & Johnson, 2008
 
-The approach to measuring rythmicity that is implemented by this function was described by Tilsen and Johnson (2008).  The code here and in `get_rhythm_spectrum` is a translation and extension of Tilsen's Matlab code.  This function takes a buffer of audio and computes spectra of the amplitude envelope of the bandpass [100 - 1500Hz] filtered signal. Spectra are computed twice a second (i.e. the step size is 0.5 seconds) over windows that are 4 seconds long. It finds periodicity in the amplitude envelope and returns a spectrogram with a frequency range from 1 to 7 Hz, tracking components that repeat at intervals of once per second down to a repetition rate of 140 ms.
+The approach to measuring rhythmicity that is implemented by this function was described by Tilsen and Johnson (2008).  The code here and in `get_rhythm_spectrum` is a translation and extension of Tilsen's Matlab code.  This function takes a buffer of audio and computes spectra of the amplitude envelope of the bandpass [100 - 1500Hz] filtered signal. Spectra are computed twice a second (i.e. the step size is 0.5 seconds) over windows that are 4 seconds long. It finds periodicity in the amplitude envelope and returns a spectrogram with a frequency range from 1 to 7 Hz, tracking components that repeat at intervals of once per second down to a repetition rate of 140 ms.
     
 Parameters
 ----------
@@ -116,7 +116,7 @@ Returns
         the frequency axis of the rhythmogram, in Hz   
         
     Sxx : ndarray, two-dimensional
-        the amplidude values of the rhythmogram, axis 1 is time, axis 0 is frequency
+        the amplitude values of the rhythmogram, axis 0 is time, axis 1 is frequency
 
 
 References
@@ -145,7 +145,7 @@ Example
          
          plt.imshow(Sxx_thresh.T[:,s:e], aspect='auto', extent = extent, 
                origin='lower',cmap="coolwarm",interpolation="spline36")
-         plt.set(xlabel="Time (sec)", ylabel="Frequency (Hz)")
+         plt.gca().set(xlabel="Time (sec)", ylabel="Frequency (Hz)")
 
 .. figure:: images/rhythmogram.png
        :scale: 40 %

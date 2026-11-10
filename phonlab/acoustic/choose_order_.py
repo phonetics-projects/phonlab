@@ -4,9 +4,9 @@ from scipy.signal import lfilter,windows
 from ..acoustic.amp_env import amplitude_envelope
 
 def choose_order(x,fs,l=0.03, base = 'BIC', verbose=False):
-    '''The most impactful parameter in LPC formant tracking is the 'order',the number of LPC coefficients to use in calculating a fit to the spectrum.  Many authors propose a rule of thumb having to do with the expected number of formants in the analyzed frequency range: namely that the order should 2*nf + 2 (two times the number of formants expected in the frequency range of the analysis [0, fs/2] plus 2). 
+    '''The most impactful parameter in LPC formant tracking is the 'order', the number of LPC coefficients to use in calculating a fit to the spectrum.  Many authors propose a rule of thumb having to do with the expected number of formants in the analyzed frequency range: namely that the order should be 2*nf + 2 (two times the number of formants expected in the frequency range of the analysis [0, fs/2] plus 2). 
     
-This function instead tests a number of different values of LPC order and returns the order value that results in the lowest Bayesian Information Criterion (BIC).  The proceedure is to (1) select a 30 ms (by default) frame of audio waveform samples around the time of the peak amplitude in the band-limited (120Hz to 3000Hz, or to 90% of the Nyquist frequency if that is lower) amplitude envelope of `x`, (2) then calculate LPC coeffients and BIC for each of several lpc orders (from fs/1000 - 2 to fs/1000 + 6) for that frame, and then (3) return the best order based on how well the LPC analysis fits the audio spectrum.
+This function instead tests a number of different values of LPC order and returns the order value that results in the lowest Bayesian Information Criterion (BIC).  The procedure is to (1) select a 30 ms (by default) frame of audio waveform samples around the time of the peak amplitude in the band-limited (120Hz to 3000Hz, or to 90% of the Nyquist frequency if that is lower) amplitude envelope of `x`, (2) then calculate LPC coefficients and BIC for each of several lpc orders (from fs/1000 - 2 to fs/1000 + 6) for that frame, and then (3) return the best order based on how well the LPC analysis fits the audio spectrum.
     
 If `base` is 'BIC', the function returns the lpc order that produces the lowest Bayesian Information Criterion of the LPC residual as a function of the number of LPC coefficients.  
 
@@ -17,7 +17,7 @@ The frequency band and the range of orders that are tested assume speech.  For o
 Parameters
 ----------
     x : ndarray
-        a one-dimensional numpy arry with audio waveform samples 
+        a one-dimensional numpy array with audio waveform samples 
     fs : int
         the sampling frequency of *x*
     l : float (default=0.03)

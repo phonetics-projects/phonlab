@@ -606,7 +606,7 @@ def tvlp_warmup_numba(verbose=True):
 
     Parameters
     ==========
-    verbose: string, default='True'
+    verbose : bool, default = True
     
     """
     if verbose:
@@ -624,7 +624,7 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
                   norm='l2', qcp=True, step=0.01, nformants=4, f0median=200, pre=0.95,
                   min_freq=None, max_bandwidth=800, use_parallel=False, verbose=False):
     """
-    This formant tracking function implements the time-varying, pitch synchronous, method that was described by Gowda et al. (2020).  The most important innovation of this method is that it smooths the Linear Prediction coefficients over time, providing a continuity constraint at the level of the LP coefficients. The second most important feature of the method is that (like Robust LPC) the method can optionally weight the audio samples pitch synchronously so the LP coefficients are caluculated from the glottal closed phase where the assumptions of LPC analysis are better met.  The third innovation, which also seems to be both the most computationally costly and least important for good formant tracking, is that the LP coefficients can be calculated minimizing the L1 norm (city-block) norm rather than the default L2 norm (Euclidian distance).  The L1 norm is much slower than the L2 norm and results in almost no change in the derived formant frequencies.   
+    This formant tracking function implements the time-varying, pitch synchronous, method that was described by Gowda et al. (2020).  The most important innovation of this method is that it smooths the Linear Prediction coefficients over time, providing a continuity constraint at the level of the LP coefficients. The second most important feature of the method is that (like Robust LPC) the method can optionally weight the audio samples pitch synchronously so the LP coefficients are calculated from the glottal closed phase where the assumptions of LPC analysis are better met.  The third innovation, which also seems to be both the most computationally costly and least important for good formant tracking, is that the LP coefficients can be calculated minimizing the L1 (city-block) norm rather than the default L2 norm (Euclidean distance).  The L1 norm is much slower than the L2 norm and results in almost no change in the derived formant frequencies.   
 
     This Python implementation is a translation (done with extensive help from the AI model Claude) of Gowda's ftrack matlab code.  It uses numba for just-in-time (JIT) compilation of machine code, and parallelization of some loops which dramatically increases the speed of processing.  However, the first call to the function includes the compilation of the JIT code (on a typical laptop this can be several seconds). Subsequent calls to `TVLP_formants()` will use the compiled JIT code and be much faster than the first call.  However, in some situations you may want to separate the compilation from the first call to `TVLP_formants()`. Therefore a helper function `tvlp_warmup_numba()` is provided.  The helper function can be called at the beginning of a session to compile the JIT code, and then all subsequent calls to TVLP_formants() will be accelerated by the numba functions.
     

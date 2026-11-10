@@ -130,7 +130,7 @@ def order(n1, n2, n3, n4):
 
 def dominant_frequency(y):
     '''dominant_frequency() return the dominant frequency in the inverse filtered waveform.
-    This function uses fft, where Watenabe's IFC tracker used zero crossing
+    This function uses fft, where Watanabe's IFC tracker used zero crossing
     rate to estimate the dominant frequency in the waveform (after filtering
     out all of the other formants).
 
@@ -240,7 +240,7 @@ def _zc_frequency2_core(y, fs, loop, f_no, in_freq, du1, du2):
     return freq
 
 def zc_frequency(x, fs, loop, f_no, in_freq, spkr):
-    ''' zc_frequency - a direct copy of Watenabe/Ueda's zero crossing c code to determine 
+    ''' zc_frequency - a direct copy of Watanabe/Ueda's zero crossing c code to determine 
     the dominant frequency in y.  This method calculates the weighted mean of the zero-crossing
     period distribution in the frame.
 
@@ -574,7 +574,7 @@ def track_pitch_lpc(x, fs, a, pitch_range):
 
 
 def get_rms_amplitude(y):
-    '''get_rms_amplitude() -- calculate RMS amplidude over a frame of an auditory waveform.  
+    '''get_rms_amplitude() -- calculate RMS amplitude over a frame of an auditory waveform.  
     You can also use this function with numpy.apply_along_axis()
     
         rms = np.apply_along_axis(get_rms_amplitude, 1, y)
@@ -590,7 +590,7 @@ def get_rms_amplitude(y):
      
 def IFC_process_frame(x,fs, spkr,f0_range,filterbank):
     '''IFC_tracking() find formant frequencys, RMS amplitude, and f0 in a 20ms chunk of audio waveform.
-    Formants are found using the Inverse Filter Control (IFC) method of Watenabe (2001), Ueda et al. (2007). 
+    Formants are found using the Inverse Filter Control (IFC) method of Watanabe (2001), Ueda et al. (2007). 
     RMS amplitude is measured after removing energy in the region of F5 and F6. Pitch (f0) is found by 
     autocorrelation of the inverse filtered signal after we have found the formants.
 
@@ -1072,13 +1072,13 @@ def get_LPC_lr(x,fs, frame_length,p):
     return A,t
 
 def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0, verbose = False):
-    '''LPC_tracking() uses the Librosa implemenation of linear predictive coding 
+    '''LPC_tracking() uses the Librosa implementation of linear predictive coding 
 (Markel & Gray) to find the vowel formant frequencies in a sound file, or array of audio samples.  Formant freqquencies are found from the LPC coefficients using polynomial root solving.  The function also uses the LPC coefficients to inverse filter the waveform and then calculate f0 (voice pitch) from the quasi glottal waveform using autocorrelation. The peak autocorrelation values are normalized and returned as a voicing score between 0 and 1.  Finally, the RMS amplitude of the waveform in each frame of audio is also returned.  A dataframe of measurements is returned with data at intervals of 10ms.  
  
     Input
         sig - the name of a sound file, or an array of audio samples
         chan - if the audio in sound is stereo, which channel should be analyzed? Default: 0
-        preemphasis - factor of a preemphasis factor (0-1). Default: 1.0
+        preemphasis - the preemphasis factor (0-1). Default: 1.0
         sample_rate - the sampling rate of sound if it is an array - will be resampled to 12,000 Hz
         f0_range - the lowest and highest values to consider in pitch tracking.  Default is [63,400]
         lpc_order - pass a value of -1 to have the function call choose_order() to determine the best
@@ -1206,15 +1206,15 @@ def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, verb
 def track_formants(x,fs, method='lpc', preemphasis = 1.0, 
                    f0_range = [63,400], speaker = 0, 
                    order= -1, verbose = False):
-    """***Depricated - use one of the ###_formants() functions***
+    """***Deprecated - use one of the ###_formants() functions***
     
 Computes the vowel formant values in audio of speech.
     
 The function uses either LPC analysis or the IFC method to calculate vowel formants (the resonant frequencies of the vocal tract) and then returns a dataframe of measurements (formants, f0, voicing, and amplitude) at 10ms intervals for the duration of sound.
 
-The IFC option uses the Watenabe/Ueda Inverse Filter Control method of vowel formant tracking (Watenabe, 2001; Ueda et al., 2007).  This method can be quite a bit more accurate than LPC, but is also substantially slower. In addition to calculating formants, the function uses the estimated formant frequencies to inverse filter the waveform and then calculate f0 (voice pitch) from the quasi glottal waveform using autocorrelation. The peak autocorrelation values are normalized and returned as a voicing score between 0 and 1.  Finally, the RMS amplitude of the preemphasised waveform is also returned.  
+The IFC option uses the Watanabe/Ueda Inverse Filter Control method of vowel formant tracking (Watanabe, 2001; Ueda et al., 2007).  This method can be quite a bit more accurate than LPC, but is also substantially slower. In addition to calculating formants, the function uses the estimated formant frequencies to inverse filter the waveform and then calculate f0 (voice pitch) from the quasi glottal waveform using autocorrelation. The peak autocorrelation values are normalized and returned as a voicing score between 0 and 1.  Finally, the RMS amplitude of the preemphasised waveform is also returned.  
 
-The LPC option uses the Librosa implemenation of Burg's (1975) autocorrelation method for linear predictive coding and then polynomial root solving to find the vowel formant frequencies. The function also uses the LPC coefficients to inverse filter the waveform and then calculate f0 (voice pitch) from the quasi glottal waveform using autocorrelation. The peak autocorrelation value of each frame is also returned.  Finally, the RMS amplitude of the waveform is also returned.  
+The LPC option uses the Librosa implementation of Burg's (1975) autocorrelation method for linear predictive coding and then polynomial root solving to find the vowel formant frequencies. The function also uses the LPC coefficients to inverse filter the waveform and then calculate f0 (voice pitch) from the quasi glottal waveform using autocorrelation. The peak autocorrelation value of each frame is also returned.  Finally, the RMS amplitude of the waveform is also returned.  
 
 Parameters
 ==========
@@ -1225,7 +1225,7 @@ fs : int
     the sampling rate of the audio in **x** 
 
 preemphasis : float, default = 1.0
-    factor of a preemphasis factor (0-1).
+    the preemphasis factor (0-1).
 
 f0_range : list, default = [63,400]
     the lowest and highest values to consider in pitch tracking.
@@ -1276,7 +1276,7 @@ References
 
 J. P. Burg (1975) `Maximum entropy spectral analysis`, Ph.D. dissertation, Dep. Geophys., Stanford Univ., Stanford, CA.
 
-A. Watenabe (2001) `Formant estimation method using inverse-filter control`. IEEE Trans. Speech Audio Processing, **9**, 317-326.
+A. Watanabe (2001) `Formant estimation method using inverse-filter control`. IEEE Trans. Speech Audio Processing, **9**, 317-326.
 
 Y. Ueda, T. Hamakawa, T. Sakata, S. Hario, & A. Watanabe (2007) `A real-time formant tracker based on the inverse filter control method`. Acoustical Science and Technology,  **28** (4), 271–274. https://doi.org/10.1250/ast.28.271
 

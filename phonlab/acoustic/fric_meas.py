@@ -33,7 +33,7 @@ def hz2bark(hz):
 
 def bark2hz(bark):
     '''
-    Convert frequency in Hz to Bark using the Schroeder 1977 formula::
+    Convert frequency in Bark to Hz using the Schroeder 1977 formula::
 
         Hz(b) = 650 * sinh(b/7)
 
@@ -130,7 +130,7 @@ def fricative(x,fs,t,w=0.02,NW=4,order=12):
     In addition to reporting the spectral moments (COG, SD, skew, and kurtosis) of the multitaper spectrum (from `compute_mt_sgram()`, using DPSS tapers from `scipy.signal.windows.dpss()`), `fricative()` finds the "main peak" in the fricative spectrum.  For fricatives with a resonant cavity, this is the lowest resonance of the cavity.  
     For those with no resonance the main peak frequency may be more a property of the source function.
      
-    The main peak heuristic is to start by looking the in the spectrum above 300 Hz, for the lowest frequency peak that is at least 50% of the amplitude range, separated from the nearest peak by at least 500Hz, and prominent by 8bB above the next nearest peak (see the **scipy.signal.find_peaks()** documentation).  If no peak is found, relax the prominence constraint, then the amplitude constraint, and then both. 
+    The main peak heuristic is to start by looking in the spectrum above 300 Hz, for the lowest frequency peak that is at least 50% of the amplitude range, separated from the nearest peak by at least 500Hz, and prominent by 8 dB above the next nearest peak (see the **scipy.signal.find_peaks()** documentation).  If no peak is found, relax the prominence constraint, then the amplitude constraint, and then both. 
 
 Parameters
 ==========
@@ -146,7 +146,7 @@ Parameters
     NW : float, default = 4
         the time-bandwidth product of the multitaper analysis.  The bandwidth (smoothness) of the spectrum is 2*NW/`w` Hz (400 Hz with the defaults), and about 2*NW-1 tapers are averaged to stabilize the estimate.  To keep the same smoothness when `w` is changed, scale `NW` in proportion to `w`.
     order : integer or None, default = 12
-        determines the number of points in the FFT of the spectrum (2**`order` points, at least as many as in the window).  The value, `None`, uses no zero padding, so the spectrum has a point every 1/`w` Hz (50 Hz with the default window).  A larger value, such as 12, gives a spectrum with finer frequency spacing (for peak finding), but no more frequency resolution.
+        determines the number of points in the FFT of the spectrum (2**`order` points, at least as many as in the window).  The value, `None`, uses no zero padding, so the spectrum has a point every 1/`w` Hz (50 Hz with the default window).  A larger value, such as 14, gives a spectrum with finer frequency spacing (for peak finding), but no more frequency resolution.
 
 
 Returns
@@ -193,7 +193,7 @@ References
 
     C. Shadle (2023) Alternatives to moments for characterizing fricatives: Reconsidering Forrest et al. (1988). `J. Acoust. Soc. Am.` 153 (2): 1412–1426. https://doi.org/10.1121/10.0017231
 
-    C. Shadle, W-R. Chen, L.L. Koenig, J.L. Preston (2023) Refining and extending measures for fricative spectra, with special attention to the high-frequency range. `J. Acoust. Soc. Am.` 154 (3): 1932–1944. https://doi-org.libproxy.berkeley.edu/10.1121/10.0021075
+    C. Shadle, W-R. Chen, L.L. Koenig, J.L. Preston (2023) Refining and extending measures for fricative spectra, with special attention to the high-frequency range. `J. Acoust. Soc. Am.` 154 (3): 1932–1944. https://doi.org/10.1121/10.0021075
 
 
 
@@ -248,7 +248,7 @@ def tandem_fric(x,fs,t,w=0.02,NW=4,total=0.04,step=0.002):
     In addition to reporting the spectral moments (COG, SD, skew, and kurtosis) of a "tandem" multitaper spectrum (multitaper spectra from `compute_mt_sgram()`, using DPSS tapers from `scipy.signal.windows.dpss()`, averaged across closely spaced windows by `tandem_spectrum()`), `tandem_fric()` finds the "main peak" in the fricative spectrum.  For fricatives with a resonant cavity, this is the lowest resonance of the cavity.  
     For those with no resonance the main peak frequency may be more a property of the source function.
      
-    The main peak heuristic is to start by looking the in the spectrum above 300 Hz, for the lowest frequency peak that is at least 50% of the amplitude range, separated from the nearest peak by at least 500Hz, and prominent by 8bB above the next nearest peak (see the **scipy.signal.find_peaks()** documentation).  If no peak is found, relax the prominence constraint, then the amplitude constraint, and then both. 
+    The main peak heuristic is to start by looking in the spectrum above 300 Hz, for the lowest frequency peak that is at least 50% of the amplitude range, separated from the nearest peak by at least 500Hz, and prominent by 8 dB above the next nearest peak (see the **scipy.signal.find_peaks()** documentation).  If no peak is found, relax the prominence constraint, then the amplitude constraint, and then both. 
 
 Parameters
 ==========
@@ -313,7 +313,7 @@ References
 
     C. Shadle (2023) Alternatives to moments for characterizing fricatives: Reconsidering Forrest et al. (1988). `J. Acoust. Soc. Am.` 153 (2): 1412–1426. https://doi.org/10.1121/10.0017231
 
-    C. Shadle, W-R. Chen, L.L. Koenig, J.L. Preston (2023) Refining and extending measures for fricative spectra, with special attention to the high-frequency range. `J. Acoust. Soc. Am.` 154 (3): 1932–1944. https://doi-org.libproxy.berkeley.edu/10.1121/10.0021075
+    C. Shadle, W-R. Chen, L.L. Koenig, J.L. Preston (2023) Refining and extending measures for fricative spectra, with special attention to the high-frequency range. `J. Acoust. Soc. Am.` 154 (3): 1932–1944. https://doi.org/10.1121/10.0021075
 
 
 

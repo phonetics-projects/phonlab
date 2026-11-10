@@ -135,9 +135,9 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
             a 1D array of audio samples
         fs : int
             the sampling rate of samples in x.  The audio will be resampled to 12000 Hz for analysis, 
-            so choose the order paramter with this in mind.
+            so choose the order parameter with this in mind.
         order : integer (default = -1)
-            Number of LPC coefficients, passed to RLPC_formant().  The default of -1 lets choose_order() 
+            Number of LPC coefficients, passed to RLPC_formants().  The default of -1 lets choose_order() 
             determine the value; values of 16-18 gave equivalent results in the nasometer comparison (larger 
             values, 22 and up, were worse).  
         analysis_band : list, default = (100,1200)
@@ -152,7 +152,7 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
         step : float, default = 0.005
             the interval (in seconds) between successive formant measurements.
         lift : float, default = 0.002
-            The cepstral smoothing filtering coefficient (in seconds).  Compenents that have a period 
+            The cepstral smoothing filtering coefficient (in seconds).  Components that have a period 
             longer than the `lift` value will be removed from the signal. This is used in cepstral 
             smoothing to remove source spectral characteristics and keep vocal tract filter effects. 
             The default value of 2 ms means that cepstral components lower than 500 Hz will be removed.  
@@ -212,11 +212,11 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
 
         audio_dir = importlib.resources.files('phonlab') / 'data/example_audio'
         example_file = audio_dir / 'FR_bon_beau.wav'
-        x,fs = loadsig(example_file,chansel=[0])
+        x,fs = phon.loadsig(example_file,chansel=[0])
 
         st = 0.41
 
-        nasdf = nasality(x,fs, slice_time=st, verbose=True)
+        nasdf = phon.nasality(x,fs, slice_time=st, verbose=True)
         
         # --------  plot -----------
         ax = phon.sgram(x,fs,tf=5000)[0]
@@ -373,8 +373,8 @@ def nasalance(filename, nasal_channel = 'left',
             The starting time for the diagnostic plot.
         end: float (default = -1.0)
             The end time of the diagnostic plot (-1 means to the end of the file)
-        step: fload (default = 0.005)
-            The intervals between sucessive nasalance measurements in the output dataframe.
+        step: float (default = 0.005)
+            The intervals between successive nasalance measurements in the output dataframe.
     
     Returns
     =======

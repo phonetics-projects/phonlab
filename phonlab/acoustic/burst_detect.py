@@ -41,7 +41,7 @@ Returns
 Example
 =======
    
-In this example we open a sound file with `phon.loasig()`, prepare it for the burst detector with `phon.prep_audio()` and then search for the best candidate for a stop release burst in the interval from time 1.5 seconds to time 2.0 seconds.  The return value `b_time` is the location of the burst in seconds, and `b_score` is a measure of the burst prominence.  The `sgram()` plot in this example illustrates the use of `start` and `end` to produce a spectrogram of a specified portion of signal.
+In this example we open a sound file with `phon.loadsig()`, prepare it for the burst detector with `phon.prep_audio()` and then search for the best candidate for a stop release burst in the interval from time 1.5 seconds to time 2.0 seconds.  The return value `b_time` is the location of the burst in seconds, and `b_score` is a measure of the burst prominence.  The `sgram()` plot in this example illustrates the use of `start` and `end` to produce a spectrogram of a specified portion of signal.
 
 .. code-block:: Python
 
@@ -51,9 +51,9 @@ In this example we open a sound file with `phon.loasig()`, prepare it for the bu
      t1 = 1.5
      t2 = 2
     
-     b_time, b_score = phon.burst(x,fs,t1,t2,fs)  # find a stop burst in the span from t1 to t2
+     b_time, b_score = phon.burst(x,fs,t1,t2)  # find a stop burst in the span from t1 to t2
     
-     ax1,f,t,Sxx = phon.sgram(x,fs_in=fs,start=t1, end=t2)
+     ax1,f,t,Sxx = phon.sgram(x,fs,start=t1, end=t2)
      ax1.axvline(b_time,color="red")
 
 .. figure:: images/burst.png

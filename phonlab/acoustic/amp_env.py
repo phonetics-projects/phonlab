@@ -5,9 +5,9 @@ from ..utils.prep_audio_ import prep_audio
 def amplitude_envelope(x, fs, bounds = [], target_fs=22050, cutoff=30, order=2 ):
     """ Get the amplitude envelope of an audio signal.  
     
-    This routine rectifies the audio signal and then low pass filters it.  This is different from calculating an RMS amplitude contour because it gives an amplitude measurement at each point in the audio rather than measuring amplitude in discrete windows.  The filter is scipy.signal.sosfiltfilt()- a very stable filter that introduces no phase shift in the ouput waveform.
+    This routine rectifies the audio signal and then low pass filters it.  This is different from calculating an RMS amplitude contour because it gives an amplitude measurement at each point in the audio rather than measuring amplitude in discrete windows.  The filter is scipy.signal.sosfiltfilt() - a very stable filter that introduces no phase shift in the output waveform.
 
-    If `bounds` is supplied (eg. `bounds = [100,2600]`) then a bandpass filter with the low and high frequency edges specified in `bounds` will be applied.  
+    If `bounds` is supplied (e.g., `bounds = [100,2600]`) then a bandpass filter with the low and high frequency edges specified in `bounds` will be applied.  
 
     Parameters
     ==========
@@ -16,7 +16,7 @@ def amplitude_envelope(x, fs, bounds = [], target_fs=22050, cutoff=30, order=2 )
     fs : int
         the sampling frequency of the audio in **x** (in Hz)
     bounds : list, default = []
-        a list (length 2) with the low and high edges of a bandpass filter.  By default the function calculates the amplitude envelope for the full band from 0Hz to 11025 Hz (or whatever is the Nyquist frequency (1/2 of the target sampling rate).
+        a list (length 2) with the low and high edges of a bandpass filter.  By default the function calculates the amplitude envelope for the full band from 0Hz to 11025 Hz (or whatever is the Nyquist frequency, 1/2 of the target sampling rate).
     target_fs : int, default = 22050
         the desired sampling frequency of the output array
     cutoff : float, default = 30

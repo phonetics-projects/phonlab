@@ -17,7 +17,7 @@ def compute_sgram(x,fs,w,s=0.001,order=13):
     s : float, default=0.001
         The time (in seconds) between adjacent spectra in the spectrogram. 
     order : integer, default = 13
-        This parameter determines the number of points in the FFT analysis that produces the spectrogram.  The number of points will be a power of 2 (2**order) and should be larder than the number of points in the analysis window (which is w*fs).
+        This parameter determines the number of points in the FFT analysis that produces the spectrogram.  The number of points will be a power of 2 (2**order) and should be larger than the number of points in the analysis window (which is w*fs).
 
     Returns
     ======= 

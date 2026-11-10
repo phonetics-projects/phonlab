@@ -49,7 +49,7 @@ Parameters
     fix_polarity: boolean, default = False
         Apply a heuristic to ensure that positive pressure in an acoustic waveform is represented as a positive value.
 
-    outtype : string {"float", "int"), default = "float"
+    outtype : string {"float", "int"}, default = "float"
         The "int" waveform is 16 bit integers - in the range from [-32768, 32767].
         The "float" waveform is 32 bit floating point numbers - in the range from [-1, 1].
         When converting to integers, samples outside of [-1, 1] are clipped and a warning is issued.
@@ -73,7 +73,7 @@ By default, this function will return audio with a sampling rate of 32 kHz and s
 Example
 =======
 Open a sound file and prepare it for acoustic analysis.  By default, prep_audio() will 
-resample the audio to a sampling rate of 32000, and scale the waveform to use the full range.
+resample the audio to a sampling rate of 32000, and scale the peak amplitude to -1 dBFS.
 In this example, we have also asked the function to apply a preemphasis factor of 1 (about 6dB/octave).
 
 .. code-block:: Python

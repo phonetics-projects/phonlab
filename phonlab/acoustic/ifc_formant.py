@@ -354,7 +354,7 @@ def IFC_formants(x, fs, preemphasis = 0.94, speaker = 0,
                  parallel = True, verbose=False):
     """Computes vowel formant values in audio of speech using the Inverse Filter Control method.
 
-The function uses the Watenabe/Ueda Inverse Filter Control (IFC) method of vowel formant tracking (Watenabe, 2001; Ueda et al., 2007) to estimate the first four vowel formants (the resonant frequencies of the vocal tract) in 20 ms frames at 10 ms intervals.  The method can be quite a bit more accurate than LPC.  The analysis of the frames is accelerated by numba just in time (JIT) compilation into machine code, and the frames are analyzed in parallel on all available cores.  Therefore, the first call to `IFC_formants()` will be slower than subsequent calls, because of the time needed to compile (or load from the cache) the compiled functions.
+The function uses the Watanabe/Ueda Inverse Filter Control (IFC) method of vowel formant tracking (Watanabe, 2001; Ueda et al., 2007) to estimate the first four vowel formants (the resonant frequencies of the vocal tract) in 20 ms frames at 10 ms intervals.  The method can be quite a bit more accurate than LPC.  The analysis of the frames is accelerated by numba just in time (JIT) compilation into machine code, and the frames are analyzed in parallel on all available cores.  Therefore, the first call to `IFC_formants()` will be slower than subsequent calls, because of the time needed to compile (or load from the cache) the compiled functions.
 
 The function only measures formants.  For f0, voicing, and amplitude see `get_f0()`, `get_rms()`, and related functions.
 
@@ -402,7 +402,7 @@ The columns in the output dataframe are:
 References
 ==========
 
-A. Watenabe (2001) `Formant estimation method using inverse-filter control`. IEEE Trans. Speech Audio Processing, **9**, 317-326.
+A. Watanabe (2001) `Formant estimation method using inverse-filter control`. IEEE Trans. Speech Audio Processing, **9**, 317-326.
 
 Y. Ueda, T. Hamakawa, T. Sakata, S. Hario, & A. Watanabe (2007) `A real-time formant tracker based on the inverse filter control method`. Acoustical Science and Technology,  **28** (4), 271–274. https://doi.org/10.1250/ast.28.271
 

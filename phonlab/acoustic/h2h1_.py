@@ -55,9 +55,9 @@ Example
 
         x,fs = phon.prep_audio(x, fs, target_fs=16000, pre = 0, quiet=True)  # resample, scale
         resid,fs = phon.lpcresidual(x,fs)
-        f0df = phon.get_f0_ac(x,fs)
+        f0df = phon.get_f0_acd(x,fs)
 
-        df = h2h1(resid,fs,f0df)  # <- using information from lpcresidual(), and get_f0_ac()
+        df = phon.h2h1(resid,fs,f0df)  # <- using information from lpcresidual(), and get_f0_acd()
 
         # ---- Now plot the results -------
         ret = phon.sgram(x,fs,cmap="Grays") # draw a spectrogram of the sound

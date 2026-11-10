@@ -3,8 +3,8 @@ import numpy as np
 def sigcor_noise(x,fs, flip_rate = 0.5, start=0, end = -1):
     """Add signal correlated noise to an audio file. 
     
-    The function takes a filename and returns a numpy array that contains the signal 
-    with added signal correlated noise.  This by done by flipping the polarity of samples 
+    The function takes an array of audio samples and returns a numpy array that contains the signal 
+    with added signal correlated noise.  This is done by flipping the polarity of samples 
     randomly. Note that flip_rate of 0 means no change, and 1 means flip the polarity of all of the 
     samples, 0.5 means randomly flip the polarity of 1/2 of the samples (imagine flipping a coin for 
     each sample, heads leave it as it was, tails multiply it by -1).  So, the maximum "noise" is 
@@ -13,7 +13,7 @@ def sigcor_noise(x,fs, flip_rate = 0.5, start=0, end = -1):
     Parameters
     ----------
         x : ndarray
-            An one-dimensional array of audio samples. 
+            A one-dimensional array of audio samples. 
         fs : int
             the sampling frequency of the audio samples in **x**
         flip_rate : float, 0 <= flip_rate <= 1.0, default = 0.5 

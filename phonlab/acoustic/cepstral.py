@@ -38,7 +38,7 @@ Returns
 
 References
 ==========
-    B. P. Bogert, M. J. R. Healy, and J. W. Tukey, (1963) `The Quefrency Alanysis [sic] of Time Series for Echoes: Cepstrum, Pseudo Autocovariance, Cross-Cepstrum and Saphe Cracking, `Proceedings of the Symposium on Time Series Analysis` (M. Rosenblatt, Ed) Chapter 15, 209-243. New York: Wiley.
+    B. P. Bogert, M. J. R. Healy, and J. W. Tukey, (1963) The Quefrency Alanysis [sic] of Time Series for Echoes: Cepstrum, Pseudo Autocovariance, Cross-Cepstrum and Saphe Cracking, `Proceedings of the Symposium on Time Series Analysis` (M. Rosenblatt, Ed) Chapter 15, 209-243. New York: Wiley.
 
     '''
     x = np.asarray(x, dtype=np.float32)  # see dtype note below
@@ -96,7 +96,7 @@ Parameters
     l : float, default = 0.04
         Length of analysis windows.  The default is 40 milliseconds.
     s : float, default = 0.005
-        Step size, of hops between analysis windows. The default is 5 milliseconds.  If smoothing==True, the step size
+        Step size, of hops between analysis windows. The default is 5 milliseconds.  If `smooth` is non-zero, the step size
         is reduced to 0.002 (2 millisecond).
     return_Sxx : boolean, default = False
         flag to request to return the cepstrogram (produced by `compute_cepstrogram()`) instead of returning an analysis 
@@ -132,13 +132,13 @@ the period of the voicing fundamental.
 
 References
 ==========
-    J. Hillenbrand, R.A. Houde (1996) Acoustic Correlates of Breathy Vocal Quality: Dysphonic Voices and Continuous Speech `Journal of Speech and Hearing Science Research`, 39, 311-321.
+    J. Hillenbrand, R.A. Houde (1996) Acoustic Correlates of Breathy Vocal Quality: Dysphonic Voices and Continuous Speech. `Journal of Speech and Hearing Research`, 39, 311-321.
 
     B. P. Bogert, M. J. R. Healy, and J. W. Tukey, (1963) The Quefrency Alanysis [sic] of Time Series for Echoes: Cepstrum, Pseudo Autocovariance, Cross-Cepstrum and Saphe Cracking, `Proceedings of the Symposium on Time Series Analysis` (M. Rosenblatt, Ed) Chapter 15, 209-243. New York: Wiley.
 
 Example
 =======
-This example plots the cepstral peak prominence in a recording of "the Soviet Union" example recording. Note the decrease in cpp, during the creaky last syllable.
+This example plots the cepstral peak prominence in a recording of "the Soviet Union" example recording. Note the decrease in cpp during the creaky last syllable.
 
 .. code-block:: Python
 
@@ -297,7 +297,7 @@ Parameters
         Length of analysis windows.  The default is 40 milliseconds.  The actual size of the analysis windows will 
         be the smallest power of 2 that is greater than or equal to this length in samples.
     lift : float, default = 0.003
-        The filtering coefficient (in seconds).  Compenents that have a period longer than the `lift` value will be 
+        The filtering coefficient (in seconds).  Components that have a period longer than the `lift` value will be 
         removed from the signal.  The default value of 3 ms means that cepstral components lower than 333Hz will be
         removed.  Smaller values of this parameter lead to more smoothing, and larger values lead to less spectral 
         smoothing.
@@ -312,17 +312,17 @@ Returns
         A two dimensional numpy array with cepstrally smoothed spectral magnitudes at these timepoints and frequencies.  The spectrum at time point `i` is found at Exx[:,i].
     freqS : ndarray
         The frequency axis for the raw spectral array, Sxx.
-    Sxx : nd array
+    Sxx : ndarray
         A two dimensional numpy array with raw spectral magnitudes, before smoothing.  A narrow band spectrogram.
-    quef : nd array
+    quef : ndarray
         A one dimensional numpy array with quefrency values (in ms) corresponding to axis 1 of the cepstra array, Cxx.
-    Cxx : nd array
+    Cxx : ndarray
         A two dimensional numpy array of cepstra at the time points in sec.
 
 
 References
 ==========
-    B. P. Bogert, M. J. R. Healy, and J. W. Tukey, (1963) `The Quefrency Alanysis [sic] of Time Series for Echoes: Cepstrum, Pseudo Autocovariance, Cross-Cepstrum and Saphe Cracking, `Proceedings of the Symposium on Time Series Analysis` (M. Rosenblatt, Ed) Chapter 15, 209-243. New York: Wiley.
+    B. P. Bogert, M. J. R. Healy, and J. W. Tukey, (1963) The Quefrency Alanysis [sic] of Time Series for Echoes: Cepstrum, Pseudo Autocovariance, Cross-Cepstrum and Saphe Cracking, `Proceedings of the Symposium on Time Series Analysis` (M. Rosenblatt, Ed) Chapter 15, 209-243. New York: Wiley.
 
 .. code-block:: Python
 
@@ -333,23 +333,23 @@ References
         
     x,fs = phon.loadsig(example_file,chansel=[0])
 
-    freq, ts, Exx, Sxx, quef, Cxx = phon.cepstral_smooth(x, fs, lift=0.0022)
+    ts, freqE, Exx, freqS, Sxx, quef, Cxx = phon.cepstral_smooth(x, fs, lift=0.0022)
 
     # ------ plot spectra at a particular time point -------
 
     slice_time = 1.4
     i = np.argmin(np.abs(ts-slice_time))  # find the index of the spectral slice
 
-    plt.plot(freq,Exx[:,i], color='blue')
-    plt.plot(freq1,Sxx[:,i],alpha=0.2,color='gray')
+    plt.plot(freqE,Exx[:,i], color='blue')
+    plt.plot(freqS,Sxx[:,i],alpha=0.2,color='gray')
 
 
 .. figure:: images/cepstral_smooth.png
     :scale: 50 %
-    :alt: A ceptrally smoothed spectrum taken at time 1.4 in file sf3_cln.wav
+    :alt: A cepstrally smoothed spectrum taken at time 1.4 in file sf3_cln.wav
     :align: center
 
-    A ceptrally smoothed spectrum taken at time 1.4 in file sf3_cln.wav, in comparison with the unsmoothed FFT spectrum.
+    A cepstrally smoothed spectrum taken at time 1.4 in file sf3_cln.wav, in comparison with the unsmoothed FFT spectrum.
 
     '''
     target_fs = int(tf*2)

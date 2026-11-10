@@ -25,7 +25,7 @@ def LPC_formants(x, fs, preemphasis = 0.94, order = -1,
                  max_bw = 800, s = 0.01, l = 0.03, verbose=False):
     """Computes vowel formant values in audio of speech using linear predictive coding (LPC).
 
-The function uses the Librosa implemenation of Burg's (1975) method for linear predictive coding and then polynomial root solving of the LPC coefficients to find the vowel formant frequencies (the resonant frequencies of the vocal tract) and their bandwidths in overlapping frames (by default 30 ms long, at 10 ms intervals).
+The function uses the Librosa implementation of Burg's (1975) method for linear predictive coding and then polynomial root solving of the LPC coefficients to find the vowel formant frequencies (the resonant frequencies of the vocal tract) and their bandwidths in overlapping frames (by default 30 ms long, at 10 ms intervals).
 
 The function only measures formants and their bandwidths.  For f0, voicing, and amplitude see `get_f0()`, `get_rms()`, and related functions.
 
@@ -104,10 +104,10 @@ Track formants in a file with LPC analysis, which by default will try to pick th
 
 .. figure:: images/LPC_formants.png
    :scale: 50%
-   :alt: a spectrogram with the estimated vowel formants marked with blue dots 
+   :alt: a spectrogram with the estimated vowel formants marked with red dots 
    :align: center
 
-   Plotting the formants found by `track_formants(... method='ifc')`, on the spectrogram of the utterance.
+   Plotting the formants found by `LPC_formants()`, on the spectrogram of the utterance.
 
 """
 

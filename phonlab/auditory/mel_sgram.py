@@ -6,7 +6,7 @@ import numpy as np
 def mel_to_Hz(m):
     """Converts frequencies in `m` from the mel scale to linear scale using the following formula::
 
-    Hz(m) = 700 * exp(m/1127) - 1
+    Hz(m) = 700 * (exp(m/1127) - 1)
 
   Args:
     m: An array of frequencies in the mel scale.
@@ -18,7 +18,7 @@ def mel_to_Hz(m):
     return 700 * (np.exp(m / 1127) - 1.0)
 
 def Hz_to_mel(f):
-    """Converts frequencies in `f` in Hertz to the mel scale with the following forumula::
+    """Converts frequencies in `f` in Hertz to the mel scale with the following formula::
     
     mel(f) = 1127  * log(1.0 + f/700)
 
@@ -54,11 +54,11 @@ def linear_to_mel_weight_matrix(num_mel_bins=80,
                                 sample_rate=16000,
                                 lower_edge_hertz=80.0,
                                 upper_edge_hertz=7600.0):
-    """Returns a matrix to warp linear scale spectrograms to the 'mel scale <https://en.wikipedia.org/wiki/Mel_scale>'.  This is code adapted from the TensorFlow package.
+    """Returns a matrix to warp linear scale spectrograms to the `mel scale <https://en.wikipedia.org/wiki/Mel_scale>`_.  This is code adapted from the TensorFlow package.
     
 Returns a weight matrix that can be used to re-weight a matrix containing `num_spectrogram_bins` linearly sampled frequency information from `[0, sample_rate / 2]` into `num_mel_bins` frequency information from `[lower_edge_hertz, upper_edge_hertz]` on the mel scale.
 
-In the returned matrix, all the triangles (filterbanks) have a theorical peak value of 1.0 when the center frequency of the mel band matches a spectrogram bin center frequency.
+In the returned matrix, all the triangles (filterbanks) have a theoretical peak value of 1.0 when the center frequency of the mel band matches a spectrogram bin center frequency.
 
 For example, the returned matrix `A` can be used to right-multiply a spectrogram `S` of shape `[frames, num_spectrogram_bins]` of linear scale spectrum values (e.g. STFT magnitudes) to generate a "mel spectrogram" `M` of shape `[frames, num_mel_bins]`.
 
@@ -70,7 +70,7 @@ The matrix can be used with `numpy.dot` to convert a spectrogram of linear-scale
 
       - S has shape [..., num_spectrogram_bins].
       - M has shape [..., num_mel_bins].
-      - M = np.dot(S, A, 1)
+      - M = np.dot(S, A)
 
 Parameters
 ==========
@@ -118,7 +118,7 @@ Raises
     return(mel_weights_matrix.T)
 
 def compute_mel_sgram(x,fs, step_sec = 0.01):
-    """Compute a Mel frequenc spectrogram of the signal in **x**.  This function is adapted from the code example given in the documentation for the `tensorflow` function `mfccs_from_log_mel_spectrograms()`.
+    """Compute a Mel frequency spectrogram of the signal in **x**.  This function is adapted from the code example given in the documentation for the `tensorflow` function `mfccs_from_log_mel_spectrograms()`.
 
 Parameters
 ==========
@@ -134,13 +134,13 @@ Parameters
 
 Returns
 =======
-    sec : ndarray
-        a one dimensional array of time values, the time axis of the spectrogram
     mel_f : ndarray
         a one dimensional array of mel frequency values - the frequency axis of the spectrogram
+    sec : ndarray
+        a one dimensional array of time values, the time axis of the spectrogram
     mel_sgram: ndarray
-        A two-dimensional (time,frequency) array of amplitufe values.  The intervals between 
-        time slices is dependent on the **s** input parameter, by default 10 ms, and the 
+        A two-dimensional (time,frequency) array of amplitude values.  The interval between 
+        time slices is set by the **step_sec** input parameter, by default 10 ms, and the 
         frequencies are evenly spaced on the mel scale from 80 to 7600 Hz in 80 steps.
 
 Example
@@ -208,7 +208,7 @@ that to the tensor flow function to compute mel-frequency cepstral coefficients 
 # version that uses tensorflow routines
 
 def compute_mel_sgram_tf(x,fs, s=0.01):
-    """Compute a Mel frequenc spectrogram of the signal in **x**.  This function is 
+    """Compute a Mel frequency spectrogram of the signal in **x**.  This function is 
 slightly adapted from the code example given in the documentation for the `tensorflow`
 function `mfccs_from_log_mel_spectrograms()`.
 
@@ -233,7 +233,7 @@ Returns
     sec : ndarray
         a one dimensional array of time values, the time axis of the spectrogram
     mel_sgram: ndarray
-        A two-dimensional (time,frequency) array of amplitufe values.  The intervals between 
+        A two-dimensional (time,frequency) array of amplitude values.  The intervals between 
         time slices is dependent on the **s** input parameter, by default 10 ms, and the 
         frequencies are evenly spaced on the mel scale from 80 to 7600 Hz in 80 steps.
 

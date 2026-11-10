@@ -10,7 +10,7 @@ def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
     
     Extract fundamental frequency of voice (f0) and glottal open quotient (OQ) 
     at equally spaced intervals in a recording of electroglottography (a stereo 
-    file).  OQ is calcuated with the 'hybrid' method (Herbst, 2020). Preprocessing 
+    file).  OQ is calculated with the 'hybrid' method (Herbst, 2020). Preprocessing 
     filtering method follows Rothenberg (2002).
     
 
@@ -87,9 +87,9 @@ def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
     References
     ==========
 
-    C. T. Herbst (2020) Electroglottography − An Update. *Journal of Voice* , **34** (4), pp. 503-526.
+    C. T. Herbst (2020) Electroglottography − An Update. *Journal of Voice*, **34** (4), pp. 503-526.
 
-    M. Rothenberg (2002) Correcting low-frequency phase distortion in electroglottograph waveforms. *Journal of Voice* , **16** (1), 32-36. 
+    M. Rothenberg (2002) Correcting low-frequency phase distortion in electroglottograph waveforms. *Journal of Voice*, **16** (1), 32-36. 
     
 
     Example
@@ -99,7 +99,7 @@ def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
     
      file = "F1_bha24_1.wav"  # a stereo file with audio in channel 0 and egg in 1
      egg,audio,fs = phon.loadsig(file, chansel=[1,0])  # fool with `chansel`
-     oqdf = phon.egg2oq(egg,fs)  # return open quotient data
+     oqdf = phon.egg_to_oq(egg,fs)  # return open quotient data
 
     See the example ipython notebook for the code used to generate this figure
 
@@ -108,7 +108,7 @@ def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
        :alt: a figure showing acoustic waveform, EGG signal, and calculated OQ and f0
        :align: center
 
-       Calculate Open Quotient and f0 from ElectroGlottoGraphic data
+       Calculate open quotient and f0 from electroglottographic data
 
        ..
 

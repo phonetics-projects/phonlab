@@ -70,7 +70,7 @@ Example
 
     x, fs = phon.loadsig(example_file, chansel=[0])
     IFCdf = phon.track_formants(x, fs, method='ifc', speaker=2)
-    Voicingdf = phon.vad(x, fs)
+    Voicingdf = phon.VAD(x, fs)
     merged = phon.align_timeseries(IFCdf, Voicingdf, ts='sec')
 
     # only some columns, keeping (and renaming) any that duplicate column names

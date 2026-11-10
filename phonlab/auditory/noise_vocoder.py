@@ -45,7 +45,7 @@ def octave_spaced_frequencies(low, high):
 
 def third_octave_bands(low = 100, high=5000):
     """Compute cutoff frequencies for 1/3 octave bands, the centers are spaced
-    one octave apart
+    one third of an octave apart
 
     Parameters
     ==========
@@ -126,7 +126,7 @@ def vocode(x, fs, bands, target_fs = None):
     """ 
 Noise vocoding - replace sound with bandpassed noise, using a bank of filters defined by bands.
 
-This module is based on the excellent vocoder notebook published by Alexandre Chabot-Leclerc ([@AlexChabotL](http://twitter.com/alexchabotl)).   https://github.com/achabotl/vocoder.git
+This module is based on the excellent vocoder notebook published by Alexandre Chabot-Leclerc (`@AlexChabotL <http://twitter.com/alexchabotl>`_).   https://github.com/achabotl/vocoder.git
 
 Keith Johnson added the "Shannon" vocoding scheme and altered some of the functions to be a little more general, and also converted the filtering to use sos coefficients, which improved the numerical stability of the code. 
         
@@ -137,14 +137,14 @@ x : ndarray
 fs : int
     the sampling frequency of the audio samples in **x**.
 bands : list
-    A list of n bandpass filter lower/upper cut off freqs (n,2), as returned by third_octive_bands() or shannon_bands()
+    A list of n bandpass filter lower/upper cut off freqs (n,2), as returned by third_octave_bands() or shannon_bands()
 target_fs : int, default None
-    the desired frequency of the resulting vocoded signal.  **None** keeps the rate at the value passed in **fs**.
+    the desired sampling frequency of the resulting vocoded signal.  **None** keeps the rate at the value passed in **fs**.
         
 Returns
 =======
 y : ndarray
-    an array of samples, the same length as **sig**
+    an array of samples, the same length as **x**
 fs : int
     the sampling frequency of **y**
 

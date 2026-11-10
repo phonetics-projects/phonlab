@@ -133,7 +133,7 @@ References
 ----------
 
 D. Garcia (2010) Robust smoothing of gridded data in one and higher dimensions with missing values.
-`Computational Statistics & Data Analysis` **54** , 1187-1178. http://www.biomecardio.com/publis/csda10.pdf
+`Computational Statistics & Data Analysis` **54** , 1167-1178. http://www.biomecardio.com/publis/csda10.pdf
 
 Examples
 --------
@@ -163,7 +163,7 @@ Examples
 
 .. figure:: images/smoothing.png
        :scale: 40 %
-       :alt: left panel shows regular smoothgin of a cosine corrupted by occasional doubled values, the right panel shows the result of using robust smoothing in smooth1d()
+       :alt: left panel shows regular smoothing of a cosine corrupted by occasional doubled values, the right panel shows the result of using robust smoothing in smooth1d()
        :align: center
 
        Comparing regular smoothing with robust smoothing with pitch doubling in phon.smooth1d()

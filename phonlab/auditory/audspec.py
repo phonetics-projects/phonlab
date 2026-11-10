@@ -6,7 +6,7 @@ import scipy.stats as stats
 from ..utils.prep_audio_ import prep_audio
 
 class Audspec(object):
-    """ Create an an Audspec object; analysis parameters and routines for creating auditory spectrograms.
+    """ Create an Audspec object; analysis parameters and routines for creating auditory spectrograms.
 
     Parameters
     ==========
@@ -36,10 +36,10 @@ class Audspec(object):
          
          Hz_extent = (min(aud.time_axis), max(aud.time_axis),
                min(aud.fft_freqs), max(aud.fft_freqs))  # time and frequency values for sgram.
-         ax[0].imshow(20*np.log10(aud.sgram.T),origin='lower', aspect='auto', interpolotion="spline36",
+         ax[0].imshow(20*np.log10(aud.sgram.T),origin='lower', aspect='auto', interpolation="spline36",
                   extent=Hz_extent, cmap = plt.cm.Greys)
          ax[0].set(xlabel="Time (sec)", ylabel="Frequency (Hz)")
-         ax[1].imshow(aud.zgram.T,origin='lower', aspect='auto', interpolotion="spline36",
+         ax[1].imshow(aud.zgram.T,origin='lower', aspect='auto', interpolation="spline36",
                   extent=aud.extent, cmap = plt.cm.Purples)
          ax[1].set(xlabel="Time (sec)", ylabel="Frequency (Bark)")
          fig.tight_layout()
@@ -67,7 +67,7 @@ class Audspec(object):
        :alt: The "sharpgram" auditory representation
        :align: center
 
-       (top) The "sharpgram" auditory representation.
+       The "sharpgram" auditory representation.
 
     Another auditory representation emphasizes temporal changes in the audiogram.  In the `Audspec` class this is referred to as a `tgram`.
 
@@ -85,7 +85,7 @@ class Audspec(object):
        :alt: The "tgram" auditory representation, showing the gradient of change in critical bands
        :align: center
 
-       (top) The "tgram" auditory representation, showing the gradient of change in critical bands.
+       The "tgram" auditory representation, showing the gradient of change in critical bands.
 
 
     Methods and Attributes in an Audspec object

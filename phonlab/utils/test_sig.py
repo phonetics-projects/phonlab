@@ -26,7 +26,7 @@ Parameters
 
 Returns
 =======
-    out: ndarry 
+    out: ndarray 
         a one-dimensional numpy array of length `dur` * `fs`
 
 Raises

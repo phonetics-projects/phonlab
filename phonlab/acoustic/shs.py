@@ -65,7 +65,6 @@ Example
 
     example_file = AUDIO / 'sf3_cln.wav'
     x,fs = phon.loadsig(example_file,chansel=[0])
-    ttime = 2.101
 
     df = phon.get_f0_shs(x,fs, shr_threshold=0.2, target_time=2.1)
 
@@ -73,10 +72,10 @@ This example shows diagnostic plots from the get_f0_shs() function. The top left
  
 .. figure:: images/shs.png
     :scale: 60 %
-    :alt: Diagnostic plots of the log spectrum to 1200Hz, and the harmonic and submonic spectra, and in the bottom left panel shows the difference between them.
+    :alt: Diagnostic plots of the log spectrum to 1200Hz, and the harmonic and subharmonic spectra, and in the bottom left panel shows the difference between them.
     :align: center  
 
-    Diagnostic plots from shs_pitch().
+    Diagnostic plots from get_f0_shs().
 
 
 .. figure:: images/shs_pitch.png
@@ -263,7 +262,7 @@ This example shows diagnostic plots from the shr_pitch() function. The top left 
  
 .. figure:: images/shr.png
     :scale: 60 %
-    :alt: Diagnostic plots of the log spectrum to 1000Hz, and the harmonic and submonic spectra, and in the bottom left panel shows the difference between them.
+    :alt: Diagnostic plots of the log spectrum to 1000Hz, and the harmonic and subharmonic spectra, and in the bottom left panel shows the difference between them.
     :align: center  
 
     Diagnostic plots from shr_pitch().

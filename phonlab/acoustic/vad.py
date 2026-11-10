@@ -39,7 +39,7 @@ def VAD(y, fs, f0_range=[63, 400], s=0.005, threshold=0.8):
 
     The voicing decision is a logistic regression on two measurements made in each frame: the level of
     the amplitude envelope in a low frequency band (80-800 Hz), and cepstral peak prominence
-    (a measure of perodicity). The coefficients were trained against EGG voicing by
+    (a measure of periodicity). The coefficients were trained against EGG voicing by
     `examples/train_vad.py`.
 
     Training results found agreement between VAD() and egg_to_oq() of 92.2% on [-voice]

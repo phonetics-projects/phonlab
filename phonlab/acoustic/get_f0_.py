@@ -18,7 +18,7 @@ def get_rms(y, fs, s=0.005, l=0.04, scale=False):
         y : ndarray
             A one-dimensional array of audio samples
         fs : int
-            Sampling rate of **x**
+            Sampling rate of **y**
         scale : boolean, default = False
             optionally scale the rms amplitude to maximum peak.
 
@@ -51,14 +51,14 @@ def get_rms(y, fs, s=0.005, l=0.04, scale=False):
 def get_f0(y, fs, f0_range = [63,400], s= 0.005):
     """Track the fundamental frequency of voicing (f0), using autocorrelation
 
-    This function implements the autocorrelation method described in Boersma (1993). where 
+    This function implements the autocorrelation method described in Boersma (1993), where 
     the autocorrelation function is normalized by the autocorrelation of the 
     analysis window. The raw best fit frame-by-frame values are returned -- that is, this 
     function does not follow Boersma (1993) in using the Viterbi algorithm to choose the 
     optimal path among f0 candidates.
 
     The Harmonics-to-Noise ratio (HNR) in each frame is estimated from the peak of the 
-    autocorreation function (c) as `10 * log10(c/(1-c))`.
+    autocorrelation function (c) as `10 * log10(c/(1-c))`.
 
 
     Parameters
@@ -66,7 +66,7 @@ def get_f0(y, fs, f0_range = [63,400], s= 0.005):
         y : ndarray
             A one-dimensional array of audio samples
         fs : int
-            Sampling rate of **x**
+            Sampling rate of **y**
         f0_range : list of two integers, default = [63,400]
             The lowest and highest values to consider in pitch tracking.
         s : float, default = 0.005
@@ -196,7 +196,7 @@ Parameters
     y : string or ndarray
         A one-dimensional array of audio samples
     fs : int
-        Sampling rate of **x**
+        Sampling rate of **y**
     f0_range : list of two integers, default = [60,400]
         The lowest and highest values to consider in pitch tracking. This algorithm is quite sensitive to the values given in this setting.
     isResidual : Boolean, default = False
@@ -275,7 +275,7 @@ def get_f0_ac(y, fs, f0_range = [60,400], l=0.05, s=0.005):
         y : ndarray
             A one-dimensional array of audio samples
         fs : int
-            Sampling rate of **x**
+            Sampling rate of **y**
         f0_range : list of two integers, default = [63,400]
             The lowest and highest values to consider in pitch tracking.
         l : float, default = 0.05
@@ -377,10 +377,10 @@ def f0_from_harmonics(f_p,i,h,nh):
 def get_f0_acd(y, fs,  f0_range=[60,400], l=0.05, s=0.005, prom=5, min_height = 0.6, test_time=-1):
     """Track the fundamental frequency of voicing, using a frequency domain method.
 
-This function implements the 'approximate common denominator" algorithm proposed by Aliik, Mihkla and Ross (1984), which was an improvement on the method proposed by Duifuis, Willems and Sluyter (1982).  The algorithm finds candidate harmonic peaks in the spectrum, and chooses a value of f0 that best predicts the harmonic pattern.  One feature of this method is that it reports a voice quality measure (the difference in the amplitudes of harmonic 1 and harmonic 2).
+This function implements the 'approximate common denominator' algorithm proposed by Allik, Mihkla and Ross (1984), which was an improvement on the method proposed by Duifhuis, Willems and Sluyter (1982).  The algorithm finds candidate harmonic peaks in the spectrum, and chooses a value of f0 that best predicts the harmonic pattern.  One feature of this method is that it reports a voice quality measure (the difference in the amplitudes of harmonic 1 and harmonic 2).
 
-Probability of voicing is given from a logistic regression formula using `rms`, the `h2h1` ratio, and Duifuis et al.'s harmonicity criterion `C`  to predict the voicing state as determined by EGG data using the function `phonlab.egg_to_oq()` over the 10 speakers in the ASC corpus of Mandarin speech. The prediction of the EGG voicing decision was about 86% correct.
-Aliik et al. (1984) used a cutoff of C < 3.5 as a voicing threshold.
+Probability of voicing is given from a logistic regression formula using `rms`, the `h2h1` ratio, and Duifhuis et al.'s harmonicity criterion `C`  to predict the voicing state as determined by EGG data using the function `phonlab.egg_to_oq()` over the 10 speakers in the ASC corpus of Mandarin speech. The prediction of the EGG voicing decision was about 86% correct.
+Allik et al. (1984) used a cutoff of C < 3.5 as a voicing threshold.
 
 Parameters
 ==========
@@ -395,7 +395,7 @@ Parameters
     s : float, default = 0.005
         "Hop" interval between successive analysis windows. The default is 5 milliseconds
     prom : numeric, default = 5 dB
-        In deciding whether a peak in the spectrum is a possible harmonic, this prominence value is passed to scipy.find_peaks().  A larger value means that the spectral peak must be more prominent to be considered as a possible harmonic peak, and thus the algorithm is less likely to report pitch values when the parameter is given a high value.  In general, 20 is a high value, and 3 is low.
+        In deciding whether a peak in the spectrum is a possible harmonic, this prominence value is passed to scipy.signal.find_peaks().  A larger value means that the spectral peak must be more prominent to be considered as a possible harmonic peak, and thus the algorithm is less likely to report pitch values when the parameter is given a high value.  In general, 20 is a high value, and 3 is low.
     min_height: numeric, default = 0.6
         As a proportion of the range between the lowest amplitude in the spectrum and the highest, only peaks above `min_height` will be considered to be harmonics. The value that is passed to find_peaks() is: `amplitude_min + min_height*(amplitude_range)`. 
 
@@ -418,7 +418,7 @@ References
 
 J. Allik, M. Mihkla, J. Ross (1984) Comment on "Measurement of pitch in speech: An implementation of Goldstein's theory of pitch perception" [JASA 71, 1568 (1982)].  `JASA` 75(6), 1855-1857.
 
-H. Duifhuis & L.F. Willems (1982) Measurement of pitch in speech: An implementation of Goldstein's theory of pitch perception.  `JASA` 71(6), 1568-1580.
+H. Duifhuis, L.F. Willems & R.J. Sluyter (1982) Measurement of pitch in speech: An implementation of Goldstein's theory of pitch perception.  `JASA` 71(6), 1568-1580.
 
 Example
 =======
