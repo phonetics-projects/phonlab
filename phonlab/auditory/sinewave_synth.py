@@ -9,7 +9,7 @@ def sine_synth(formant_data, x, fs, target_fs=16000, voiceless="copy",
 
 Note
 ====
-The input dataframe is usually produced by :func:`phonlab.track_formants` and in any case should have these columns:
+The input dataframe is usually produced by :func:`phonlab.LPC_formants` and in any case should have these columns:
 
             * sec : Time (seconds) of the frames. 
             * F1,F2,F3,F4:  Frequencies (Hz) of the lowest four vowel formants, in the frames. 
@@ -44,7 +44,7 @@ beginning and end of the audio.
 Parameters
 ==========
     formant_data :  dataframe
-        a pandas dataframe with speech analysis data as produced by phonlab.track_formants()
+        a pandas dataframe with speech analysis data as produced by phonlab.LPC_formants()
 
     x : ndarray
         the 1-D array of audio samples that was analyzed to produce formant_data. Its amplitude envelope is imposed on the synthesized signal.
@@ -90,7 +90,7 @@ Example
 .. code-block:: Python
 
      x,fs = phon.loadsig("sf3_cln.wav",chansel=[0]) 
-     fmtsdf = phon.track_formants(x,fs)    # track the formants
+     fmtsdf = phon.LPC_formants(x,fs)    # track the formants
      y,fs = phon.sine_synth(fmtsdf,x,fs)   # produce the sinewave synthesis
      scipy.io.wavfile.write('sf3_cln_sinewave.wav', fs, y)  # save wav file
 

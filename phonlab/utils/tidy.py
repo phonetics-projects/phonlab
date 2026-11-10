@@ -936,7 +936,7 @@ Example
 -------
 TextGrid information is in a dataframe `vdf`, which has a column `obs_t` of times at which we 
 would like to have formant measurements from the data in file 'im_twelve.csv' (produced by 
-`phon.track_formants()`).  The function `phon.interpolate_measures()` extracts data from the 
+`phon.LPC_formants()`).  The function `phon.interpolate_measures()` extracts data from the 
 formants dataframe and adds measurements at the desired observation times in the textgrid dataframe.
 
 .. code-block:: Python

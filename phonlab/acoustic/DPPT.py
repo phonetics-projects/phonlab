@@ -88,8 +88,8 @@ def DPPT_formants(x,fs, pre=0, l=0.03, s=0.01, deltaF=1100, n=6):
     Examples
     --------
 
-    This code block shows a call to phon.DPPT_formants() and also shows a call to LPC formant tracking, the
-    default method in phon.track_formants(), and uses phon.sgram, and seaborn pointplot() to plot the estimated
+    This code block shows a call to phon.DPPT_formants() and also shows a call to LPC formant tracking with
+    phon.LPC_formants(), and uses phon.sgram, and seaborn pointplot() to plot the estimated
     formant frequencies on the spectrogram.
 
     .. code-block:: Python
@@ -99,7 +99,7 @@ def DPPT_formants(x,fs, pre=0, l=0.03, s=0.01, deltaF=1100, n=6):
 
         ret = phon.sgram(x,fs, tf=6000, cmap="Reds")  # plot the spectrogram
 
-        dflpc = phon.track_formants(x,fs)
+        dflpc = phon.LPC_formants(x,fs)
 
         dot_color = 'dodgerblue'
         sns.pointplot(dflpc,x='sec',y='F1',linestyle='none',native_scale=True,marker=".",color=dot_color)
@@ -122,7 +122,7 @@ def DPPT_formants(x,fs, pre=0, l=0.03, s=0.01, deltaF=1100, n=6):
        :alt: a spectrogram with the estimated vowel formants marked with light and dark blue dots 
        :align: center
 
-       Plotting the formants found by `track_formants()` (light blue dots) and those found by 
+       Plotting the formants found by `LPC_formants()` (light blue dots) and those found by 
        `DPPT_formants()` (dark blue dots) on the spectrogram of the utterance.
 
 

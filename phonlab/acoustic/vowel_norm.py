@@ -8,7 +8,7 @@ Parameters
 ==========
 
 df: DataFrame
-    The input dataframe must contain columns for F1, F2, F3, and F4.  See phon.track_formants()
+    The input dataframe must contain columns for F1, F2, F3, and F4.  See phon.LPC_formants() or phon.IFC_formants()
 
 return_value: string, default = "deltaF"
     By default the `deltaF` normalization factor is returned. Normalized formant values are `Fn/deltaF`.  If you specify `return_value = "VTL"`, then the function will return the estimated vocal tract length as `VTL=35300/(2*∆F)`, where 35300 is the speed of sound (cm/sec) in warm air.
@@ -29,7 +29,7 @@ Example
 
 .. code-block:: Python
 
-    fmtsdf = phon.track_formants(x,fs)
+    fmtsdf = phon.LPC_formants(x,fs)
     VTL = phon.get_deltaF(fmtsdf,return_value='VTL')
 
     '''
@@ -47,7 +47,7 @@ Parameters
 ==========
 
 df: DataFrame
-    The input dataframe must contain columns for F1, F2, F3, and F4.  See phon.track_formants().  If multiple dataframes from different talkers have been combined into a large multitalker data frame, then there should be a column identifying the speaker for each row, and the name of this column should be passed as the `groupby` input variable.
+    The input dataframe must contain columns for F1, F2, F3, and F4.  See phon.LPC_formants() or phon.IFC_formants().  If multiple dataframes from different talkers have been combined into a large multitalker data frame, then there should be a column identifying the speaker for each row, and the name of this column should be passed as the `groupby` input variable.
 
 groupby: string, default=None
     If `df` contains data from more than one talker, the talker identity should be indicated in a column and the name of that column passed in this input variable.
@@ -70,7 +70,7 @@ Example
 
 .. code-block:: Python
 
-    fmtsdf = phon.track_formants(x,fs)
+    fmtsdf = phon.LPC_formants(x,fs)
     phon.deltaF_norm(fmtsdf)  # add normalized formant columns
     fmtsdf.head()  # now there are five new columns in the dataframe
 
@@ -108,7 +108,7 @@ This simulates changing the length of the speaker's vocal tract.
 Parameters
 ----------
 df: DataFrame
-    The input dataframe must contain columns labeled 'F1/∆F', 'F2/∆F', 'F3/∆F', and 'F4/∆F'.  See `phon.track_formants()` and 
+    The input dataframe must contain columns labeled 'F1/∆F', 'F2/∆F', 'F3/∆F', and 'F4/∆F'.  See `phon.LPC_formants()`, `phon.IFC_formants()` and 
     `phon.deltaF_norm()`.  These should be data from a single speaker.
 deltaf: float
     The new deltaF value that will be used to calculate the non-normalized values from the Fx/∆F normalized values.

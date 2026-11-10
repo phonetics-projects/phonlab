@@ -69,13 +69,14 @@ Example
 .. code-block:: Python
 
     x, fs = phon.loadsig(example_file, chansel=[0])
-    IFCdf = phon.track_formants(x, fs, method='ifc', speaker=2)
+    IFCdf = phon.IFC_formants(x, fs, speaker=2)
     Voicingdf = phon.VAD(x, fs)
     merged = phon.align_timeseries(IFCdf, Voicingdf, ts='sec')
 
     # only some columns, keeping (and renaming) any that duplicate column names
-    merged = phon.align_timeseries(IFCdf, Voicingdf, other_columns=['f0', 'amp'],
-                                   ignore_duplicates=False)
+    f0df = phon.get_f0(x, fs)
+    merged = phon.align_timeseries(merged, f0df, other_columns=['f0', 'rms'],
+                                   ignore_duplicates=False)   # the new f0 column is named f0_2
     '''
     other_ts = ts if other_ts is None else other_ts
     if other_columns is None:
