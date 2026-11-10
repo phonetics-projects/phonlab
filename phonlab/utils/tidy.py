@@ -746,20 +746,23 @@ Read phone and word tiers from a textgrid.
        raise ValueError(msg) from None
 """
 
+    # `get_indexer` returns -1 for any `outer_ts` value with no `inner_ts` value
+    # within `tolerance`. Test for those directly rather than catching the
+    # KeyError they cause downstream: that KeyError is also raised when
+    # `inner_ts` has an index that is not a 0-based range, which is not a
+    # tolerance problem and must not be reported as one.
     idx = pd.Index(inner_ts).get_indexer(outer_ts, method='nearest', tolerance=tolerance)
-    try:
-        return inner_ts[idx].values
-    except KeyError:
-        # `badpos` holds positions, so `outer_ts` must be indexed positionally
-        # here: plain [] on a Series looks up labels and raises KeyError for
-        # any index that is not a 0-based range.
-        badpos = np.where(idx == -1)[0]
+    badpos = np.where(idx == -1)[0]
+    if len(badpos) > 0:
+        # `badpos` and `idx` hold positions, so both series are indexed
+        # positionally here: plain [] on a Series looks up labels instead.
         bad_outer_ts = pd.Series(outer_ts)
         raise ValueError(
             'Boundaries out of tolerance in `outer_ts`.',
             list(bad_outer_ts.iloc[badpos]),
             list(bad_outer_ts.index[badpos])
         )
+    return pd.Series(inner_ts).iloc[idx].values
 
 def explode_intervals(divs, ts=['t1', 't2'], df=None, prefix='obs_'):
     '''
