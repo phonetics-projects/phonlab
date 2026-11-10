@@ -46,8 +46,9 @@ __all__ += ["hz2bark",
             "fricative",
             "tandem_fric"]
 
-from .acoustic.gci import gci_sedreams
-__all__ += ["gci_sedreams"]
+from .acoustic.gci import gci, gci_sedreams
+__all__ += ["gci",
+            "gci_sedreams"]
 
 from .acoustic.get_HNR import HNR
 __all__ += ["HNR"]

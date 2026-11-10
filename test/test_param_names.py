@@ -1,7 +1,9 @@
 """The step (``step``) and window length (``length``) parameters have the same names in every function.
 
-The older names (``s``, ``l``, ``w``, ``hop_dur``, ``step_sec``, ``step_size`` and ``frame_duration_sec``)
-still work by keyword, with a DeprecationWarning.
+The pre-emphasis factor is always ``preemph``.
+
+The older names (``s``, ``l``, ``w``, ``hop_dur``, ``step_sec``, ``step_size``, ``frame_duration_sec``, ``pre`` and
+``preemphasis``) still work by keyword, with a DeprecationWarning.
 """
 import importlib.resources as res
 import inspect
@@ -18,7 +20,7 @@ import phonlab as phon  # noqa: E402
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
-OLD_NAMES = {"s", "l", "w", "hop_dur", "step_sec", "step_size", "frame_duration_sec"}
+OLD_NAMES = {"s", "l", "w", "hop_dur", "step_sec", "step_size", "frame_duration_sec", "pre", "preemphasis"}
 # s is not a step in these functions: it is the smoothing parameter
 SMOOTHERS = {"smooth1d", "smoothn"}
 
@@ -157,6 +159,52 @@ def test_old_name_frame_duration_sec_still_works():
     with pytest.warns(DeprecationWarning, match=r"'frame_duration_sec' parameter has been renamed 'length'"):
         result = _run(phon.TVLP_formants, x, 8000, frame_duration_sec=0.1, step=0.02, **kw)
     assert _same(result, expected)
+
+
+# ---- the pre-emphasis factor is always `preemph` ----
+
+PREEMPH_FUNCTIONS = ["DPPT_formants", "IFC_formants", "LPC_formants", "RLPC_formants", "TVLP_formants",
+                     "cepstral_smooth", "nasality", "prep_audio", "sgram", "track_formants"]
+
+
+@pytest.mark.parametrize("name", PREEMPH_FUNCTIONS)
+def test_preemph_parameter_name(name):
+    assert "preemph" in inspect.signature(getattr(phon, name)).parameters
+
+
+PREEMPH_CASES = [
+    ("prep_audio", dict(preemph=0.9), dict(pre=0.9)),
+    ("LPC_formants", dict(preemph=0.9), dict(preemphasis=0.9)),
+    ("RLPC_formants", dict(preemph=0.9), dict(preemphasis=0.9)),
+    ("IFC_formants", dict(preemph=0.9), dict(preemphasis=0.9)),
+    ("DPPT_formants", dict(preemph=0.5), dict(pre=0.5)),
+    ("DPPT_formants", dict(preemph=0.5), dict(preemphasis=0.5)),
+    ("cepstral_smooth", dict(preemph=0.9), dict(preemphasis=0.9)),
+    ("track_formants", dict(preemph=0.9), dict(preemphasis=0.9)),
+]
+
+
+@pytest.mark.parametrize("name,new,old", PREEMPH_CASES, ids=[f"{c[0]}-{list(c[2])[0]}" for c in PREEMPH_CASES])
+def test_old_preemph_names_still_work(audio, name, new, old):
+    x, fs = audio
+    func = getattr(phon, name)
+    expected = _run(func, x, fs, **new)
+    with pytest.warns(DeprecationWarning, match=r"has been renamed 'preemph'"):
+        result = _run(func, x, fs, **old)
+    assert _same(result, expected)
+
+
+def test_old_preemph_names_still_work_nasality_and_tvlp():
+    x = phon.test_signal("sawtooth", fs=8000, dur=0.6, freq=120)
+    kw = dict(tf=3000, order=8, use_parallel=False, length=0.1, step=0.02)
+    expected = _run(phon.TVLP_formants, x, 8000, preemph=0.9, **kw)
+    with pytest.warns(DeprecationWarning, match=r"'pre' parameter has been renamed 'preemph'"):
+        result = _run(phon.TVLP_formants, x, 8000, pre=0.9, **kw)
+    assert _same(result, expected)
+    x12 = np.random.default_rng(0).standard_normal(24000)
+    with pytest.warns(DeprecationWarning, match=r"'preemphasis' parameter has been renamed 'preemph'"):
+        old = phon.nasality(x12, 12000, preemphasis=0.9)
+    assert _same(old, phon.nasality(x12, 12000, preemph=0.9))
 
 
 def test_audspec_old_names():

@@ -304,7 +304,7 @@ def test_lpc_formants_window_is_gaussian_and_scales_with_l():
 
 def test_lpc_formants_rejects_bad_times():
     x, fs = _vowelish()
-    with pytest.raises(ValueError, match="must be positive"):
+    with pytest.raises(ValueError, match="positive number of seconds"):
         phon.LPC_formants(x, fs, order=12, step=0, verbose=False)
     with pytest.raises(ValueError, match="must be positive"):
         phon.LPC_formants(x, fs, order=12, length=-0.02, verbose=False)
@@ -313,8 +313,8 @@ def test_lpc_formants_rejects_bad_times():
 def test_ifc_formants_default_preemphasis_is_0_94():
     x, fs = _vowelish()
     pd.testing.assert_frame_equal(phon.IFC_formants(x, fs, verbose=False),
-                                  phon.IFC_formants(x, fs, preemphasis=0.94, verbose=False))
-    assert not phon.IFC_formants(x, fs, preemphasis=1.0, verbose=False).equals(
+                                  phon.IFC_formants(x, fs, preemph=0.94, verbose=False))
+    assert not phon.IFC_formants(x, fs, preemph=1.0, verbose=False).equals(
         phon.IFC_formants(x, fs, verbose=False))
 
 
@@ -386,8 +386,8 @@ def test_nasality_a1h1_is_nan_where_f1_is_missing(monkeypatch):
 def _prepared_example(duration=1.0):
     """example audio prepared as nasality() prepares it: 12 kHz, pre-emphasis, peak scaled again after pre-emphasis"""
     x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0], duration=duration)
-    xp, fsp = phon.prep_audio(x, fs, target_fs=12000, scale=True, pre=0.96)
-    xp, fsp = phon.prep_audio(xp, fsp, target_fs=fsp, scale=True, pre=0.0)
+    xp, fsp = phon.prep_audio(x, fs, target_fs=12000, scale=True, preemph=0.96)
+    xp, fsp = phon.prep_audio(xp, fsp, target_fs=fsp, scale=True, preemph=0.0)
     return x, fs, xp, fsp
 
 
@@ -396,7 +396,7 @@ def test_cepstral_smooth_matches_frame_by_frame_fft_reference():
     x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0], duration=0.5)
     for lift in (0.0015, 0.003):
         ts, freqE, Exx, freqS, Sxx, quef, Cxx = phon.cepstral_smooth(x, fs, tf=5000, length=0.04, lift=lift)
-        xp, fsp = phon.prep_audio(x, fs, target_fs=10000, pre=0.0, verbose=False)
+        xp, fsp = phon.prep_audio(x, fs, target_fs=10000, preemph=0.0, verbose=False)
         _, _, S = phon.compute_sgram(xp, fsp, 0.04, 0.005)
         nl = int(lift * fsp)
         for j in (0, S.shape[1] // 2, S.shape[1] - 1):
@@ -407,7 +407,8 @@ def test_cepstral_smooth_matches_frame_by_frame_fft_reference():
             np.testing.assert_allclose(Exx[:, j], ref, rtol=0, atol=1e-3)
             np.testing.assert_allclose(Cxx[:, j], c, rtol=0, atol=1e-3)
         assert Exx.shape == Cxx.shape == (len(quef), len(ts))
-        assert freqE[-1] == pytest.approx(fsp / 2)
+        assert freqE[0] == 0 and freqE[-1] == pytest.approx(fsp / 2, rel=1e-4)   # at k*fs/(2*nbins-1)
+        assert quef[1] == pytest.approx(1000 / fsp)    # the quefrency axis is in ms, as in compute_cepstrogram()
 
 
 def test_cepstral_smooth_rejects_unusable_lift():
@@ -420,8 +421,8 @@ def test_nasality_band_limited_sd_matches_full_spectrum_computation():
     # SD is computed only at frequencies in the analysis band; compare with the full-spectrum calculation
     x, fs, xp, fsp = _prepared_example()
     df = phon.nasality(x, fs)
-    t, freq, Exx, freqS, Sxx, _, _ = phon.cepstral_smooth(xp, fsp, step=0.005, length=0.03, tf=6000, preemphasis=0.0, lift=0.002)
-    fmt, A = phon.RLPC_formants(xp, fsp, step=0.005, length=0.03, tf=6000, preemphasis=0.0, order=-1)
+    t, freq, Exx, freqS, Sxx, _, _ = phon.cepstral_smooth(xp, fsp, step=0.005, length=0.03, tf=6000, preemph=0.0, lift=0.002)
+    fmt, A = phon.RLPC_formants(xp, fsp, step=0.005, length=0.03, tf=6000, preemph=0.0, order=-1)
     Lxx = -20 * np.log10(np.abs(np.fft.rfft(A, n=Exx.shape[0] * 2 - 1)).T)   # constant gain terms drop out of SD
     lo, hi = np.argmin(abs(freq - 100)), np.argmin(abs(freq - 1200))
     L, E = Lxx[lo:hi], Exx[lo:hi]
@@ -508,7 +509,7 @@ def test_ifc_formants_float32_matches_float64():
     from phonlab.acoustic import ifc_formant
     from phonlab.utils.prep_audio_ import prep_audio
     x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0])
-    y, fs = prep_audio(x, fs, target_fs=12000, pre=0.94, verbose=False)
+    y, fs = prep_audio(x, fs, target_fs=12000, preemph=0.94, verbose=False)
     assert y.dtype == np.float32
     _, r32 = ifc_formant._ifc_analyze(y, fs, 1, True)
     _, r64 = ifc_formant._ifc_analyze(y.astype(np.float64), fs, 1, True)

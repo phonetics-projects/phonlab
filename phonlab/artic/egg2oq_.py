@@ -3,8 +3,10 @@ import numpy as np
 import librosa
 import pandas as pd
 from ..utils.deprecation import renamed_kwargs
+from ..utils.validate import positive_step, step_samples
 
 @renamed_kwargs(hop_dur='step')
+@positive_step
 def egg_to_oq(x, fs, step = 0.005, f0_range = [60,400],
            hp_cut = 70, hp_order = 8, threshold=0.43, norm_window=0.7, center=True,
            egg_norm_window=None, floor=True, floor_window=0.3, peak_height=0.5, diagnostics=False):
@@ -25,7 +27,7 @@ def egg_to_oq(x, fs, step = 0.005, f0_range = [60,400],
             the sampling rate of **x**
         step : float, default = 0.005
             interval in seconds between frames (0.005 seconds = 5 milliseconds)
-        f0_range : list of two integers, default = [63,400]
+        f0_range : list of two integers, default = [60,400]
             The lowest and highest allowed values of f0.
         hp_cut : int, default = 70 
             highpass filter cut frequency (in Hz) (Rothenberg, 2002)
@@ -118,7 +120,7 @@ def egg_to_oq(x, fs, step = 0.005, f0_range = [60,400],
     """
     window_length = (1.0/f0_range[0]) * 1.5 
     win = int(window_length*fs)  # window for the longest period 
-    hop = int(step*fs)  # 5ms hop
+    hop = step_samples(step, fs)  # 5ms hop
  
     # highpass filter the egg signal
     coefs = scipy.signal.butter(hp_order, hp_cut, fs=fs, btype='highpass', output='sos')
@@ -145,13 +147,15 @@ def egg_to_oq(x, fs, step = 0.005, f0_range = [60,400],
     eggmax, eggmin = local_range(egg, norm_window if egg_norm_window is None else egg_norm_window)
     deggmax, deggmin = local_range(degg, norm_window)
     if np.ndim(eggmax) > 0:
-        eggmax = np.where(eggmax/np.max(egg) < 0.05, np.max(egg), eggmax)  # require some minimal egg activity
+        with np.errstate(divide='ignore', invalid='ignore'):   # (np.max(egg) is 0 if there is no signal)
+            eggmax = np.where(eggmax/np.max(egg) < 0.05, np.max(egg), eggmax)  # require some minimal egg activity
 
     egg_range = np.asarray(eggmax - eggmin)   # local scale of the EGG, kept for diagnostics
 
-    egg = (egg - eggmin)/(eggmax-eggmin)  # range normalization
-    drange = deggmax - deggmin
-    degg = (degg - deggmin)/drange
+    with np.errstate(divide='ignore', invalid='ignore'):   # a stretch with no signal at all has a range of 0: its values are NaN
+        egg = (egg - eggmin)/(eggmax-eggmin)  # range normalization
+        drange = deggmax - deggmin
+        degg = (degg - deggmin)/drange
     if floor:
         floor = 0.2 if floor is True else floor
         quiet = egg_rms < floor*np.std(egg_filtered)       # little EGG signal here: noise would be magnified by the normalization
@@ -168,9 +172,8 @@ def egg_to_oq(x, fs, step = 0.005, f0_range = [60,400],
             glottal[i] = -1
 
     frames = librosa.util.frame(glottal, frame_length=win, hop_length=hop, axis=0)
-    frame_rate = 1/step
     
-    sec = np.array([(i/frame_rate)+(window_length/2) for i in range(frames.shape[0])])  # get times of frames
+    sec = np.arange(frames.shape[0]) * hop / fs + window_length/2  # get times of frames
     f0 = np.full(frames.shape[0],np.nan)
     OQ = np.full(frames.shape[0],np.nan)
     voiced = np.zeros(frames.shape[0],dtype=bool)

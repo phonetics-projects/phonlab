@@ -1,4 +1,6 @@
 import numpy as np
+from ..utils.validate import positive_step, step_samples
+from ..utils.deprecation import renamed_kwargs
 from scipy.signal import find_peaks,windows
 import pandas as pd
 
@@ -53,7 +55,7 @@ def _slice_diagnostic_plot(x, fs, idx, step, length, lift, A_row, gain, F1, SD_i
 with h1 and a1 marked.  Only this one frame is analyzed, and its spectra are computed over the whole frequency range.  
 `x` is the prepared audio that was analyzed by nasality().'''
     import matplotlib.pyplot as plt
-    hop, win = int(fs*step), int(fs*length)
+    hop, win = step_samples(step, fs), int(fs*length)
     _, freqS, Sxx = compute_sgram(x[idx*hop: idx*hop + win], fs, length, step)   # one frame
     freq, Exx, _ = _smooth_sgram(Sxx, fs, lift)
     Sxx, Exx = Sxx[:, 0], Exx[:, 0]
@@ -91,8 +93,10 @@ with h1 and a1 marked.  Only this one frame is analyzed, and its spectra are com
     ax3.axvline(analysis_band[1],color='gray', linestyle="dashed")
 
 
+@renamed_kwargs(preemphasis='preemph')
+@positive_step
 def nasality(x,fs, order=-1, analysis_band=(100,1200),
-             preemphasis = 0.96, length=0.03, step=0.005, lift=0.002, slice_time=-1, verbose=False,
+             preemph = 0.96, length=0.03, step=0.005, lift=0.002, slice_time=-1, verbose=False,
              index_smoothing=24, calibration="fixed", voicing_threshold=0.5, reference=None):
 
     '''This function returns measures of nasality for voiced speech in a single (mono) recording: the 
@@ -142,7 +146,7 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
             values, 22 and up, were worse).  
         analysis_band : list, default = (100,1200)
             Compute the spectral difference over this frequency band (in Hz)
-        preemphasis : float, default = 0.96
+        preemph : float, default = 0.96
             factor to tilt the spectrum up (emphasizing higher frequencies) [0-1].  Values of 0.9-0.98 gave
             similar results; with no pre-emphasis the gain-calibrated SD was much worse.
         length : float, default = 0.03
@@ -256,13 +260,13 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
         vad = VAD(x, fs)    # voicing probability, from the audio at its original sampling rate
     
     x,fs = prep_audio(x, fs, target_fs=target_fs,  
-                      scale=True, pre = preemphasis,
+                      scale=True, preemph = preemph,
                       verbose = verbose)  # resample to target_fs
 
     # Pre-emphasis comes after scaling in prep_audio(), so scale the audio again.  This puts the narrow-band
     # spectra on the same amplitude scale as the audio that RLPC_formants() analyzes (it scales its input in the
     # same way), which the LPC gain relies on when the LPC and acoustic spectra are compared in the diagnostic plot.
-    x,fs = prep_audio(x, fs, target_fs=fs, scale=True, pre=0.0)
+    x,fs = prep_audio(x, fs, target_fs=fs, scale=True, preemph=0.0)
 
     # -------- get narrow-band spectra (dB) -----------------
     if verbose:
@@ -276,7 +280,7 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
     # this call is why RLPC is different from other xxx_formants() functions.  In this function
     # we need both the fmtdf and the A matrix
     fmtdf, A =  RLPC_formants(x, fs, step=step, length=length, tf = top_freq, 
-                                      preemphasis=0.0, order=order, verbose=verbose)
+                                      preemph=0.0, order=order, verbose=verbose)
     if Sxx.shape[1] != A.shape[0]:
         raise RuntimeError(f"nasality(): {Sxx.shape[1]} spectra but {A.shape[0]} LPC frames; analysis frames do not line up")
 
@@ -336,7 +340,7 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
     else:
         ref = reference if reference is not None else {"SD": (3.86, 1.26), "a1h1": (10.56, 5.28)}
         if reference is None and (index_smoothing != 24 or tuple(analysis_band) != (100, 1200)
-                                  or length != 0.03 or lift != 0.002 or preemphasis != 0.96):
+                                  or length != 0.03 or lift != 0.002 or preemph != 0.96):
             import warnings
             warnings.warn("nasality(): the default reference means and standard deviations were measured with the "
                           "default analysis parameters; nas_index may be mis-scaled with the parameters used here")
@@ -348,6 +352,7 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
     return df
 
 # --------- function phon.nasalance() ------------
+@positive_step
 def nasalance(filename, nasal_channel = 'left',
               diagnostic_plot = False,
               start=0, end=-1, step=0.005):
@@ -435,7 +440,7 @@ def nasalance(filename, nasal_channel = 'left',
         display_wave(nasalance,fs,start=start,end=end, ax = ax, color="blue")
 
     # median nasalance in non-overlapping frames of `step` seconds
-    flen = int(round(step*fs))
+    flen = int(step_samples(step, fs))
     nframes = len(nasalance)//flen
     med = np.median(nasalance[:nframes*flen].reshape(nframes, flen), axis=1)
     sec = (np.arange(nframes) + 0.5) * flen / fs

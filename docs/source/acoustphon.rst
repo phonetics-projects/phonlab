@@ -43,7 +43,7 @@ Voice Quality
 -------------
 .. autofunction:: phonlab.VAD
 .. autofunction:: phonlab.lpcresidual
-.. autofunction:: phonlab.gci_sedreams
+.. autofunction:: phonlab.gci
 .. autofunction:: phonlab.compute_cepstrogram
 .. autofunction:: phonlab.CPP
 .. autofunction:: phonlab.HNR

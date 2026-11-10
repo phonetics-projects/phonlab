@@ -8,10 +8,10 @@ from scipy import linalg
 from ..utils.prep_audio_ import prep_audio
 from ..acoustic.lpc_residual import lpcresidual
 from ..utils.deprecation import renamed_kwargs
-
-np.seterr(divide="ignore")
+from ..utils.validate import positive_step, step_samples
 
 @renamed_kwargs(s='step', l='length')
+@positive_step
 def get_rms(y, fs, step=0.005, length=0.04, scale=False):
     """Measure the time-varying root mean square (RMS) amplitude of the signal in **y**.
 
@@ -39,7 +39,7 @@ def get_rms(y, fs, step=0.005, length=0.04, scale=False):
     frame_length = int(fs * length) 
     half_frame = frame_length//2
     frame_length = half_frame * 2 + 1    # odd number in frame  
-    hop = int(fs * step)  # number of samples between frames
+    hop = step_samples(step, fs)  # number of samples between frames
 
     rms = feature.rms(y=y,frame_length=frame_length, hop_length=hop,center=False)[0]
     tiny = np.finfo(rms.dtype).tiny
@@ -55,6 +55,7 @@ def get_rms(y, fs, step=0.005, length=0.04, scale=False):
 
 
 @renamed_kwargs(s='step')
+@positive_step
 def get_f0(y, fs, f0_range = [63,400], step= 0.005):
     """Track the fundamental frequency of voicing (f0), using autocorrelation
 
@@ -107,11 +108,11 @@ def get_f0(y, fs, f0_range = [63,400], step= 0.005):
 
     """
     x, fs = prep_audio(y, fs, target_fs = None, 
-                       pre = 0.0, scale = True, 
+                       preemph = 0.0, scale = True, 
                        verbose=False)  
     
     # ---- setup constants and global variables -----
-    hop = int(fs * step)  # number of samples between frames
+    hop = step_samples(step, fs)  # number of samples between frames
     s_lag = int((1/f0_range[1])*fs) # shortest lag
     l_lag = int((1/f0_range[0])*fs) # longest lag
     frame_length = int(l_lag * 3)  # room for 3 periods (6 for HNR)
@@ -186,7 +187,14 @@ def SRH(Sxx,fs,f0_range):
     return f0,SRHval
 
 
+def _median_f0(f0,SRHval):
+    """median f0 of the frames with an SRH below 0.1 (0 if there are none, as in a pure tone, so the range is not adjusted)"""
+    below = f0[SRHval<0.1]
+    return int(np.median(below)) if len(below) else 0
+
+
 @renamed_kwargs(s='step', l='length')
+@positive_step
 def get_f0_srh(y, fs, f0_range = [60,400], isResidual = False, length = 0.06, step=0.005, vthresh=0.07):
     """Track the fundamental frequency of voicing (f0), using a frequency domain method.
 
@@ -224,7 +232,7 @@ Note
 The columns in the returned dataframe are for each frame of audio:
     * sec - time at the midpoint of each frame
     * f0 - estimate of the fundamental frequency
-    * rms - rms amplitude in the band from 0 to 5 kHz
+    * rms - rms amplitude in the whole band, from 0 to 8 kHz (the audio is resampled to 16 kHz)
     * srh - value of SRH (normalized sum of the residual harmonics)
 
 References
@@ -234,12 +242,12 @@ T. Drugman, A. Alwan (2011) Joint robust voicing detection and pitch estimation 
 
     """
     x,fs = prep_audio(y, fs, target_fs=16000, 
-                      pre = 0, verbose=False) 
+                      preemph = 0, verbose=False) 
 
     frame_length = int(fs * length)  # frame size in samples
     half_frame = frame_length//2
     frame_length = half_frame * 2 + 1    # odd number in frame  
-    hop = int(fs * step)  # number of samples between frames
+    hop = step_samples(step, fs)  # number of samples between frames
     
     # ----- get rms amplitude from audio wav -------------
     rms = feature.rms(y=x,frame_length=frame_length,hop_length=hop,center=False)
@@ -249,7 +257,7 @@ T. Drugman, A. Alwan (2011) Joint robust voicing detection and pitch estimation 
     if isResidual:
         resid = x
     else:
-        resid,fs = lpcresidual(x,fs)  # get the lpc residual signal
+        resid,fs = lpcresidual(x,fs,gain='speech')  # get the lpc residual signal
 
     w = windows.hamming(frame_length)
     frames = util.frame(resid,frame_length=frame_length, hop_length=hop,axis=0)    
@@ -259,7 +267,7 @@ T. Drugman, A. Alwan (2011) Joint robust voicing detection and pitch estimation 
     Sxx = np.divide(Sxx.T,linalg.norm(Sxx,axis=-1)).T    # amplitude normalized
 
     f0,SRHval =  SRH(Sxx,fs,f0_range)
-    F0med = int(np.nanmedian(np.where(SRHval<0.1,f0,np.nan)))
+    F0med = _median_f0(f0,SRHval)
 
     oldF0med,iters = 0, 0  # iterate once to adjust the pitch range
     while F0med != oldF0med and iters<1 and np.max(SRHval) > 0.1:
@@ -267,7 +275,7 @@ T. Drugman, A. Alwan (2011) Joint robust voicing detection and pitch estimation 
         iters += 1
         f0_range = [f0_range[0], int(F0med) + 100]  # only adjusting the top end of the range (a new list: don't change the caller's)
         f0,SRHval =  SRH(Sxx,fs,f0_range)  # recalculate
-        F0med = int(np.nanmedian(np.where(SRHval<0.1,f0,np.nan)))
+        F0med = _median_f0(f0,SRHval)
     
     # ---- get the time at the center of each frame ---------------
     sec = (np.array(range(frames.shape[0])) * hop + half_frame).astype(int)/fs
@@ -275,6 +283,7 @@ T. Drugman, A. Alwan (2011) Joint robust voicing detection and pitch estimation 
     return DataFrame({'sec': sec, 'f0':f0, 'rms':rms, 'srh':SRHval})
 
 
+@positive_step
 def get_f0_ac(y, fs, f0_range = [60,400], length=0.05, step=0.005):
     """Track the fundamental frequency of voicing (f0), using autocorrelation.
 
@@ -307,7 +316,7 @@ def get_f0_ac(y, fs, f0_range = [60,400], length=0.05, step=0.005):
         * c - value of the peak autocorrelation found in the frame
     """
     x, fs = prep_audio(y, fs, target_fs = 32000, 
-                       pre = 0, verbose=False)  
+                       preemph = 0, verbose=False)  
 
     short = fs//f0_range[1]  # period of highest allowable frequency - shortest lag
     long = fs//f0_range[0]  # period of lowest allowable frequency - longest lag
@@ -316,7 +325,7 @@ def get_f0_ac(y, fs, f0_range = [60,400], length=0.05, step=0.005):
     half_frame = frame_length//2
     frame_length = half_frame * 2 + 1    # odd number in frame  
 
-    hop = int(fs * step)  # number of samples between frames
+    hop = step_samples(step, fs)  # number of samples between frames
 
     rms = feature.rms(y=x,frame_length=frame_length, hop_length=hop,center=False)[0]
     tiny = np.finfo(rms.dtype).tiny
@@ -385,6 +394,7 @@ def f0_from_harmonics(f_p,i,h,nh):
     return C,mean_f0 
     
 @renamed_kwargs(s='step', l='length')
+@positive_step
 def get_f0_acd(y, fs,  f0_range=[60,400], length=0.05, step=0.005, prom=5, min_height = 0.6, test_time=-1):
     """Track the fundamental frequency of voicing, using a frequency domain method.
 
@@ -470,14 +480,14 @@ Example
     down_fs = nh*400  # down sample frequency
     
     x, fs = prep_audio(y, fs, target_fs = down_fs, 
-                       scale = True, pre=0,verbose=False)
+                       scale = True, preemph=0,verbose=False)
     
     N = 1024    # FFT size
 
     frame_len = int(fs*length)  # 40 ms frame
     half_frame = frame_len//2
     frame_length = half_frame * 2 + 1    # odd number in frame  
-    hop = int(fs*step)  # stride between frames
+    hop = step_samples(step, fs)  # stride between frames
     noverlap = frame_len - hop   # points of overlap between successive frames
 
     while (frame_len > N): N = N * 2  # increase fft size if needed
@@ -530,6 +540,7 @@ Example
                 n = len(peaks)
             else:
                 n = nh
+            import matplotlib.pyplot as plt
             plt.plot(f,spec)
             plt.vlines(f[peaks[0:n]],np.min(spec),np.max(spec))
             plt.axhline(height)
@@ -538,7 +549,7 @@ Example
             print(f"median difference between adjacent peaks {np.median(np.ediff1d(f[peaks[0:n]])):0.2f}")
             print(f"frequency of the lowest peak {f[peaks[0]]:0.2f}")
             print(f'mean prominence: {np.mean(props["prominences"][0:n]):0.3f} mean peak: {np.mean(props["peak_heights"][0:n]):0.3f}')
-            print(f"height = {height:0.2f},max={np.max(spec):0.2f}, min={np.min(spec):0.2f}, c={best_c}")
+            print(f"height = {height:0.2f},max={np.max(spec):0.2f}, min={np.min(spec):0.2f}, c={c[idx]}")
             print(f"time = {test_time}, f0 = {f0[idx]:0.2f}, h1h2 = {h1h2[idx]:0.2f}")
 
     return DataFrame({'sec': ts, 'f0':f0, 'rms':rms, 'h1h2':h1h2, 'C':c})

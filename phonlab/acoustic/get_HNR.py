@@ -5,8 +5,10 @@ from librosa import util
 from numpy.fft import rfft, irfft
 from pandas import DataFrame
 from ..utils.deprecation import renamed_kwargs
+from ..utils.validate import positive_step, step_samples
 
 @renamed_kwargs(s='step', l='length')
+@positive_step
 def HNR(x,fs, f0_range = [64,400], length= 0.06, step=0.005, target_time = None):
     '''Compute the Harmonics-to-Noise Ratio using the Cepstrum-Based method given by de Krom (1993).
 The matlab implementation by Yen-Liang Shue (2009) which is a part of the VoiceSauce collection of 
@@ -80,7 +82,7 @@ at time 2.1 seconds in the file 'sf3_cln.wav'. In the top panel we see the log m
                       scale=True, fix_polarity=True)
     
     frame_length = int(length*fs)
-    hop = int(step*fs)
+    hop = step_samples(step, fs)
     half_frame = frame_length//2
     frame_length = half_frame * 2 + 1    # odd number in frame
     #NFFT = int(2**(np.ceil(np.log(frame_length)/np.log(2)))*2)

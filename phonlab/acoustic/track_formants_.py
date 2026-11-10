@@ -7,6 +7,7 @@ import functools
 from numba import njit, prange
 from pandas import DataFrame
 from ..utils.prep_audio_ import prep_audio
+from ..utils.deprecation import renamed_kwargs
 from ..acoustic.choose_order_ import choose_order
 
 # constants and global variables
@@ -1071,14 +1072,14 @@ def get_LPC_lr(x,fs, frame_length,p):
     A = librosa.lpc(frames, order=p,axis= -1)
     return A,t
 
-def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0, verbose = False):
+def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemph = 1.0, verbose = False):
     '''LPC_tracking() uses the Librosa implementation of linear predictive coding 
 (Markel & Gray) to find the vowel formant frequencies in a sound file, or array of audio samples.  Formant freqquencies are found from the LPC coefficients using polynomial root solving.  The function also uses the LPC coefficients to inverse filter the waveform and then calculate f0 (voice pitch) from the quasi glottal waveform using autocorrelation. The peak autocorrelation values are normalized and returned as a voicing score between 0 and 1.  Finally, the RMS amplitude of the waveform in each frame of audio is also returned.  A dataframe of measurements is returned with data at intervals of 10ms.  
  
     Input
         sig - the name of a sound file, or an array of audio samples
         chan - if the audio in sound is stereo, which channel should be analyzed? Default: 0
-        preemphasis - the preemphasis factor (0-1). Default: 1.0
+        preemph - the preemphasis factor (0-1). Default: 1.0
         sample_rate - the sampling rate of sound if it is an array - will be resampled to 12,000 Hz
         f0_range - the lowest and highest values to consider in pitch tracking.  Default is [63,400]
         lpc_order - pass a value of -1 to have the function call choose_order() to determine the best
@@ -1098,13 +1099,13 @@ def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0, verb
     if verbose: print(f"LPC_tracking(), with order set to {order}, and pitch range {f0_range}")
 
     x, fs = prep_audio(x, fs, target_fs = SR, scale = True,
-                       pre = 0, verbose= verbose)
+                       preemph = 0, verbose= verbose)
     
     rms = librosa.feature.rms(y=x,frame_length=frame_length, 
                               hop_length=step,center=False) # get rms amplitude
     rms = 20*np.log10(rms[0])
    
-    if (preemphasis > 0): y = np.append(x[0], x[1:] - preemphasis * x[:-1])  # now apply pre-emphasis
+    if (preemph > 0): y = np.append(x[0], x[1:] - preemph * x[:-1])  # now apply pre-emphasis
     else: y=x
         
     if order<0:  # guess the correct LPC order
@@ -1148,7 +1149,7 @@ def LPC_tracking(x, fs, f0_range = [63,400], order = -1, preemphasis = 1.0, verb
     return df
 
 
-def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, verbose = False, jit = None, parallel = None):
+def IFC_tracking(x, fs, preemph = 0.94, f0_range = [63,400], speaker=0, verbose = False, jit = None, parallel = None):
     '''IFC_tracking() -- inverse filter control formant tracking of a whole waveform; see track_formants().
     For method 'ifc', jit (default: the module constant IFC_JIT) sends all frames through the compiled
     IFC_process_frames(), on all cores unless parallel is False (default: IFC_PARALLEL); otherwise, and
@@ -1160,14 +1161,14 @@ def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, verb
         print(f"IFC_tracking(), using method {g_method}, with speaker set to {speaker}, and pitch range {f0_range}")
 
     x, fs = prep_audio(x, fs, target_fs = SR, scale = True, 
-                       pre = 0, verbose = verbose) 
+                       preemph = 0, verbose = verbose) 
 
     rms = librosa.feature.rms(y=x,frame_length=frame_length, 
                               hop_length=step,center=False) # get rms amplitude
     rms = 20*np.log10(rms[0])
 
     # apply preemphasis
-    y, fs = prep_audio(x,fs,pre=preemphasis,target_fs=fs,verbose=False) 
+    y, fs = prep_audio(x,fs,preemph=preemph,target_fs=fs,verbose=False) 
 
     if g_method == "ifc" and jit:
         # method 'ifc': every frame through the compiled analysis at once (see IFC_process_frames())
@@ -1203,7 +1204,8 @@ def IFC_tracking(x, fs, preemphasis = 0.94, f0_range = [63,400], speaker=0, verb
 
     return df
 
-def track_formants(x,fs, method='lpc', preemphasis = 1.0, 
+@renamed_kwargs(preemphasis='preemph')
+def track_formants(x,fs, method='lpc', preemph = 1.0, 
                    f0_range = [63,400], speaker = 0, 
                    order= -1, verbose = False):
     """***Deprecated - use one of the ###_formants() functions***
@@ -1224,7 +1226,7 @@ x : array
 fs : int
     the sampling rate of the audio in **x** 
 
-preemphasis : float, default = 1.0
+preemph : float, default = 1.0
     the preemphasis factor (0-1).
 
 f0_range : list, default = [63,400]
@@ -1326,10 +1328,10 @@ the spectrogram of `x`, and the seaborn graphics package is used to add the form
     globals()['g_method'] = method
     
     if method == 'lpc':
-        df = LPC_tracking(x, fs, preemphasis = preemphasis, 
+        df = LPC_tracking(x, fs, preemph = preemph, 
                           f0_range=f0_range, order=order, verbose=verbose)
     else: 
-        df = IFC_tracking(x, fs, preemphasis = preemphasis, 
+        df = IFC_tracking(x, fs, preemph = preemph, 
                           f0_range=f0_range, speaker=speaker,verbose=verbose)
 
     return df

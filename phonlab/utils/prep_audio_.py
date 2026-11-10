@@ -3,12 +3,14 @@ import warnings
 
 import numpy as np
 from scipy.signal import resample_poly
+from .deprecation import renamed_kwargs
 
 # peak amplitude (as a fraction of full scale, 1.0) that scale=True normalizes to: -1 dBFS
 DEFAULT_PEAK = 0.89125
 
 
-def prep_audio(x, fs, target_fs=32000, pre = 0, scale = True, 
+@renamed_kwargs(pre='preemph')
+def prep_audio(x, fs, target_fs=32000, preemph = 0, scale = True, 
                add_tiny_noise = True, outtype = "float", pad_to = 0.0,
                fix_polarity = False, verbose = False):
     """Prepare an array of audio waveform samples for acoustic analysis. 
@@ -25,7 +27,7 @@ Parameters
         The desired sampling rate of the audio samples that will be returned by the function.  
         Set **target_fs = None** if you don't want to change the sampling rate.
 
-    pre : float, default = 0
+    preemph : float, default = 0
         how much high frequency preemphasis to apply (between 0 and 1).
 
     scale: boolean or float, default = True
@@ -79,7 +81,7 @@ In this example, we have also asked the function to apply a preemphasis factor o
 .. code-block:: Python
 
     y,fs = phon.loadsig("sound.wav",chansel=[0])
-    x,fs = phon.prep_audio(y, fs, pre=1)
+    x,fs = phon.prep_audio(y, fs, preemph=1)
 
 Take the right channel, and resample to 16,000 Hz
 
@@ -136,10 +138,10 @@ Take the right channel, and resample to 16,000 Hz
         if verbose:
             print(f"Prep Audio: Padding signal to a multiple of {pad_to} sec ({frame_len} samples), which involves adding {extra_samples} extra samples.")
 
-    if (pre > 0):
+    if (preemph > 0):
         if verbose:
-            print(f"Prep Audio: apply preemphasis factor {pre}")
-        y = np.append(x2[0], x2[1:] - pre * x2[:-1])  # apply pre-emphasis
+            print(f"Prep Audio: apply preemphasis factor {preemph}")
+        y = np.append(x2[0], x2[1:] - preemph * x2[:-1])  # apply pre-emphasis
     else:
         y = x2
 

@@ -46,7 +46,7 @@ In this example we open a sound file with `phon.loadsig()`, prepare it for the b
 .. code-block:: Python
 
      x,fs = phon.loadsig("sf3_cln.wav", chansel=[0])
-     x,fs = phon.prep_audio(x,fs, target_fs=16000, pre=0.94) 
+     x,fs = phon.prep_audio(x,fs, target_fs=16000, preemph=0.94) 
     
      t1 = 1.5
      t2 = 2
@@ -65,7 +65,7 @@ In this example we open a sound file with `phon.loadsig()`, prepare it for the b
 
 """
     y,fs = prep_audio(x, fs, target_fs=16000, scale=True,
-                      pre=0.0, verbose=False)  # resample to 16kHz
+                      preemph=0.0, verbose=False)  # resample to 16kHz
     
     n_fft = 1024
     w_cands = np.zeros((3,2))  # [,0] are scores, and [,1] are times
@@ -77,7 +77,7 @@ In this example we open a sound file with `phon.loadsig()`, prepare it for the b
 
     step = int(fs*0.005)   # 5 ms between spectra
 
-    y = x[int(start*fs):int(end*fs)]  # section of waveform to search
+    y = y[int(start*fs):int(end*fs)]  # section of the (resampled) waveform to search
 
     if (np.max(y)+np.min(y) < 0): y = -y  # set polarity of the waveform
 

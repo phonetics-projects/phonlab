@@ -6,6 +6,7 @@ from pandas import DataFrame
 from ..utils.prep_audio_ import prep_audio
 from ..acoustic.choose_order_ import choose_order
 from ..utils.deprecation import renamed_kwargs
+from ..utils.validate import positive_step, step_samples
 
 # constants
 SR = 12000                     # sampling rate of the analysis
@@ -22,8 +23,9 @@ def _analysis_window(frame_length, fs, length):
 
 
 
-@renamed_kwargs(s='step', l='length')
-def LPC_formants(x, fs, preemphasis = 0.94, order = -1, 
+@renamed_kwargs(s='step', l='length', preemphasis='preemph')
+@positive_step
+def LPC_formants(x, fs, preemph = 0.94, order = -1, 
                  max_bw = 800, step = 0.01, length = 0.03, verbose=False):
     """Computes vowel formant values in audio of speech using linear predictive coding (LPC).
 
@@ -39,7 +41,7 @@ x : array
 fs : int
     the sampling rate of the audio in **x**.  The audio will be resampled to 12,000 Hz for analysis, so choose the order parameter with this in mind.
 
-preemphasis : float, default = 0.94
+preemph : float, default = 0.94
     value of a high frequency preemphasis (spectral tilt) factor (0-1).
 
 order : int, default = -1
@@ -52,15 +54,15 @@ step : float, default = 0.01
     the interval (in seconds) between successive formant measurements.
 
 length : float, default = 0.03
-    the duration (in seconds) of analysis frames.  This is also the frame duration that `choose_order()` uses when `order` is -1.  Each frame is multiplied by a Gaussian window whose standard deviation is `l`/4.5, so the window spans the whole frame, with the ends at 2.25 standard deviations from the center (a weight of 0.08, like a Hamming window).  The window scales with `l`.
+    the duration (in seconds) of analysis frames.  This is also the frame duration that `choose_order()` uses when `order` is -1.  Each frame is multiplied by a Gaussian window whose standard deviation is `length`/4.5, so the window spans the whole frame, with the ends at 2.25 standard deviations from the center (a weight of 0.08, like a Hamming window).  The window scales with `length`.
 
-quiet : boolean, default = True
-    False means print progress or warning messages
+verbose : boolean, default = False
+    True means print progress messages
 
 Returns
 =======
 df : dataframe
-    a pandas dataframe with formant and bandwidth measurements at 0.01 sec intervals.
+    a pandas dataframe with formant and bandwidth measurements at `step` second intervals (every 0.01 sec by default).
 
 Raises
 ======
@@ -113,18 +115,18 @@ Track formants in a file with LPC analysis, which by default will try to pick th
 
 """
 
-    if step <= 0 or length <= 0:
-        raise ValueError(f"LPC_formants(): step ({step}) and length ({length}) must be positive")
+    if length <= 0:   # (`step` is checked by @positive_step)
+        raise ValueError(f"LPC_formants(): length ({length}) must be positive")
 
     if verbose: 
         print(f"LPC_formants(), with order set to {order}")
 
     x, fs = prep_audio(x, fs, target_fs = SR,  # downsample
-                       pre = preemphasis,  # no preemphasis
+                       preemph = preemph,  # no preemphasis
                        scale = True, verbose = verbose) 
     
     frame_length = int(fs*length)  # samples in a frame
-    hop = int(fs*step)          # number of samples between frames
+    hop = step_samples(step, fs)          # number of samples between frames
     if len(x) < frame_length:
         raise ValueError(f"LPC_formants(): audio is shorter than one {frame_length}-sample frame")
 

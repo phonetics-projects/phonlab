@@ -134,7 +134,7 @@ def test_int_clipping_from_preemphasis_warns():
     """Pre-emphasis applied after scaling can push the peak over full scale."""
     nyquist = np.tile([1.0, -1.0], 500)   # pre-emphasis of 1.0 doubles the amplitude of this signal
     with pytest.warns(UserWarning, match="clipped"):
-        y, _ = prep_audio(nyquist, FS, target_fs=None, scale=0, pre=1.0, outtype="int")
+        y, _ = prep_audio(nyquist, FS, target_fs=None, scale=0, preemph=1.0, outtype="int")
     assert np.max(np.abs(y)) == 32767
 
 

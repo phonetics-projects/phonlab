@@ -3,6 +3,7 @@ import numpy as np
 from .amp_env import amplitude_envelope
 from .cepstral import CPP
 from ..utils.deprecation import renamed_kwargs
+from ..utils.validate import positive_step
 
 # Low frequency band (Hz) whose amplitude envelope is a predictor of voicing, and the logistic
 # regression coefficients of the voicing decision.  Both were fit by examples/train_vad.py against
@@ -22,6 +23,7 @@ def band_db(x, fs, sec, bounds, target_fs=12000):
     return db[np.minimum((np.asarray(sec) * fs_env).astype(int), len(db) - 1)]
 
 
+@positive_step
 def vad_features(y, fs, f0_range=[63, 400], step=0.005):
     """Measure the predictors used by `VAD()`: `cpp` (from `CPP()`) and `amp` (from `band_db()`).
 
@@ -36,6 +38,7 @@ def vad_features(y, fs, f0_range=[63, 400], step=0.005):
 
 
 @renamed_kwargs(s='step')
+@positive_step
 def VAD(y, fs, f0_range=[63, 400], step=0.005, threshold=0.8):
     """Voice activity detection: the probability that each frame of audio is voiced.
 

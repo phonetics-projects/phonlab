@@ -68,6 +68,7 @@ def _tandem_fric(x, fs):
 
 
 def _cases():
+    np.random.seed(1234)  # f0df and resid below are made here, with prep_audio()'s random noise in zero samples
     x, fs = _clip()
     xs, _ = _clip(dur=0.4)  # shorter clip for the slow trackers
     xl, fsl = phon.loadsig(str(Path(__file__).parent / "s1202a.wav"),
@@ -88,7 +89,7 @@ def _cases():
         "burst": lambda: phon.burst(x, fs, 0.1, 0.2),
         "fricative": lambda: _fricative(x, fs),
         "tandem_fric": lambda: _tandem_fric(x, fs),
-        "gci_sedreams": lambda: phon.gci_sedreams(x, fs),
+        "gci": lambda: phon.gci(x, fs),
         "get_f0": lambda: phon.get_f0(x, fs),
         "get_f0_acd": lambda: phon.get_f0_acd(x, fs),
         "get_f0_shs": lambda: phon.get_f0_shs(x, fs),
@@ -141,7 +142,7 @@ def _get_cases():
 @pytest.mark.parametrize("name", [
     "CPP", "compute_cepstrogram", "cepstral_smooth", "DPPT_formants", "HNR",
     "RLPC_formants", "TVLP_formants", "choose_order", "amplitude_envelope",
-    "burst", "fricative", "tandem_fric", "gci_sedreams", "get_f0", "get_f0_acd",
+    "burst", "fricative", "tandem_fric", "gci", "get_f0", "get_f0_acd",
     "get_f0_shs", "get_f0_srh", "get_rms", "h2h1", "lpcresidual",
     "get_rhythm_spectrum", "rhythmogram", "compute_sgram",
     "compute_mel_sgram", "nasality", "track_formants_lpc",
@@ -150,9 +151,10 @@ def _get_cases():
     "sine_synth", "test_signal_sine", "smoothn", "freq_scales", "tg_to_df",
 ])
 def test_golden(name, request):
-    np.random.seed(1234)
+    cases = _get_cases()   # (built on the first call, which calls some of the functions) before the random generators are seeded,
+    np.random.seed(1234)   # so that the first test to run is not different from the others
     random.seed(1234)
-    result = flatten(_get_cases()[name]())
+    result = flatten(cases[name]())
     path = GOLDEN / f"{name}.npz"
 
     if request.config.getoption("--update-golden"):
@@ -181,7 +183,7 @@ def test_ifc_formants_matches_track_formants_golden():
     """IFC_formants() must reproduce the formants stored for track_formants(method='ifc')
     (same clip, same frames); its output has no rms/f0/c columns."""
     x, fs = _clip()
-    df = phon.IFC_formants(x, fs, preemphasis=1.0, verbose=False)  # the preemphasis track_formants() uses
+    df = phon.IFC_formants(x, fs, preemph=1.0, verbose=False)  # the preemphasis track_formants() uses
     assert list(df.columns) == ["sec", "F1", "F2", "F3", "F4"]
     with np.load(GOLDEN / "track_formants_ifc.npz", allow_pickle=True) as g:
         for c in df.columns:
@@ -204,7 +206,7 @@ def test_lpc_formants_matches_track_formants_golden(monkeypatch):
     monkeypatch.setattr(lpc_formant, "_analysis_window",
                         lambda n, fs, l: scipy.signal.windows.hamming(n))  # the window track_formants() uses
     x, fs = _clip()
-    df = phon.LPC_formants(x, fs, preemphasis=1.0, length=0.02, verbose=False)
+    df = phon.LPC_formants(x, fs, preemph=1.0, length=0.02, verbose=False)
     with np.load(GOLDEN / "track_formants_lpc.npz", allow_pickle=True) as g:
         fcols = [c[2:] for c in g.files if c[2:] in ("F1", "F2", "F3", "F4")]
         assert list(df.columns) == ["sec"] + fcols + [f"BW{i}" for i in range(1, len(fcols)+1)]

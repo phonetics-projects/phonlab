@@ -71,7 +71,7 @@ def test_invalid_lpc_bound():
 @pytest.mark.parametrize("f0", [5, 15, 25])
 def test_lpcresidual_finite_for_low_f0_voice_at_12k(f0):
     # A low-F0 voice with no energy above ~700 Hz, analyzed at fs=12000 with order 14
-    # (as gci_sedreams() does inside TVLP_formants() with the default tf=6000). With
+    # (as gci() does inside TVLP_formants() with the default tf=6000). With
     # numba-compiled librosa.lpc in float32, some frames get garbage coefficients, which
     # used to make the entire residual NaN.
     fs = 12000
@@ -86,12 +86,84 @@ def test_lpcresidual_telephone_band_speech(name):
     # Speech with no energy above 4 kHz (8 kHz audio upsampled to 16 kHz, which is what
     # lpcresidual() does by default with telephone recordings) gives invalid float32 LPC
     # fits in some frames. Those frames used to dominate the residual and crush the rest
-    # of it to ~0, so gci_sedreams(cthresh=0.01) rejected nearly all GCIs.
+    # of it to ~0, so gci(cthresh=0.01) rejected nearly all GCIs.
     x, fs = phon.loadsig(str(AUDIO / name), chansel=[0], fs=16000)
     tel = resample_poly(resample_poly(x.astype(float), 1, 2), 2, 1)
     resid, _ = lr.lpcresidual(tel, fs, fs, order=18)
     assert np.isfinite(resid).all()
     assert np.mean(np.abs(resid) < 1e-6) < 0.01
-    wide, _, _ = phon.gci_sedreams(x, fs, f0median=150, target_fs=fs, cthresh=0.01)
-    narrow, _, _ = phon.gci_sedreams(tel, fs, f0median=150, target_fs=fs, cthresh=0.01)
+    wide, _, _ = phon.gci(x, fs, f0median=150, target_fs=fs, cthresh=0.01)
+    narrow, _, _ = phon.gci(tel, fs, f0median=150, target_fs=fs, cthresh=0.01)
     assert len(narrow) >= 0.5 * len(wide)
+
+
+# ---- the `gain` and `normalize` parameters ----
+
+def _sf3():
+    import importlib.resources as res
+    x, fs = phon.loadsig(res.files("phonlab") / "data" / "example_audio" / "sf3_cln.wav", chansel=[0])
+    return x, fs
+
+
+def _level_db(s, n=640):
+    return np.array([20 * np.log10(np.sqrt(np.mean(s[i:i + n] ** 2)) + 1e-9) for i in range(0, len(s) - n, n)])
+
+
+def test_gain_speech_makes_the_residual_level_follow_the_speech_level():
+    x, fs = _sf3()
+    xs, _ = phon.prep_audio(x, fs, target_fs=16000, preemph=0)
+    speech = _level_db(xs)
+    follows = np.corrcoef(_level_db(phon.lpcresidual(x, fs, gain="speech")[0]), speech)[0, 1]
+    raw = np.corrcoef(_level_db(phon.lpcresidual(x, fs, gain=None)[0]), speech)[0, 1]
+    assert follows > 0.95 and raw < 0.9      # the raw prediction error is much smaller than the speech in voiced stretches
+
+
+def test_gain_speech_is_the_default():
+    x, fs = _sf3()
+    np.random.seed(0)   # prep_audio() puts random noise in zero samples
+    a = phon.lpcresidual(x, fs)[0]
+    np.random.seed(0)
+    np.testing.assert_array_equal(a, phon.lpcresidual(x, fs, gain="speech")[0])
+
+
+def test_normalize_false_is_the_residual_without_the_peak_scaling():
+    x, fs = _sf3()
+    for gain in ("speech", None):
+        np.random.seed(0)
+        unnorm, _ = phon.lpcresidual(x, fs, gain=gain, normalize=False)
+        np.random.seed(0)
+        norm, _ = phon.lpcresidual(x, fs, gain=gain)
+        assert np.max(np.abs(norm)) == pytest.approx(1.0)
+        np.testing.assert_allclose(norm, unnorm / np.max(np.abs(unnorm)), rtol=1e-4, atol=1e-6)
+
+
+def test_raw_residual_resynthesizes_the_audio():
+    """With gain=None, normalize=False the residual is the prediction error: the LPC filters turn it back into speech."""
+    from librosa import util, lpc
+    from scipy.signal import lfilter, windows
+    from phonlab.acoustic.lpc_residual import overlap_add
+    x, fs = _sf3()
+    resid, rfs = phon.lpcresidual(x, fs, gain=None, normalize=False)
+    xs, _ = phon.prep_audio(x, fs, target_fs=16000, preemph=0, fix_polarity=True)
+    N, hop = 640, 80
+    frames = util.frame(xs.astype(np.float64), frame_length=N, hop_length=hop, axis=0)
+    A = lpc(frames, order=18)
+    w = windows.get_window("cosine", N, fftbins=False)
+    wsum = np.pad(w, (0, 0)).reshape(-1, hop).sum(axis=0).max() if N % hop == 0 else None
+    out = np.stack([lfilter([1.0], A[i], resid[i * hop:i * hop + N]) for i in range(len(frames))])
+    y = overlap_add(out, hop, w) / wsum
+    a, b = N, (len(frames) - 1) * hop
+    snr = 10 * np.log10(np.sum(xs[a:b] ** 2) / np.sum((xs[a:b] - y[a:b]) ** 2))
+    assert snr > 15
+
+
+def test_bad_gain_is_an_error():
+    x, fs = _sf3()
+    with pytest.raises(ValueError, match="gain must be"):
+        phon.lpcresidual(x, fs, gain="unit")
+
+
+def test_silence_gives_a_finite_residual():
+    for gain in ("speech", None):
+        r, _ = phon.lpcresidual(np.zeros(16000), 16000, gain=gain)
+        assert np.isfinite(r).all()

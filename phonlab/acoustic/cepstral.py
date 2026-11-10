@@ -1,14 +1,16 @@
 from ..utils.prep_audio_ import prep_audio
 from ..acoustic.sgram_ import compute_sgram
 import numpy as np
-from librosa import util, stft, amplitude_to_db, frames_to_time
+from librosa import util
 from scipy import fft
 from pandas import DataFrame
-from scipy.signal import windows,filtfilt
+from scipy.signal import windows
 from scipy.ndimage import gaussian_filter1d
 from ..utils.deprecation import renamed_kwargs
+from ..utils.validate import positive_step, step_samples
 
 @renamed_kwargs(s='step', l='length')
+@positive_step
 def compute_cepstrogram(x,fs, dBscale=True, length= 0.04, step=0.005):
     '''Compute a `cepstrogram` of an audio signal.  Cepstral analysis was introduced by Bogert et al. (1963).  
 Sounds (such as voiced vowels) that have a harmonic structure, with peaks of amplitude at integral multiples of
@@ -45,7 +47,7 @@ References
     '''
     x = np.asarray(x, dtype=np.float32)  # see dtype note below
     frame_length = int(length*fs)
-    hop = int(step*fs)
+    hop = step_samples(step, fs)
     half_frame = round(frame_length/2)
     frame_length = half_frame * 2 + 1    # odd number in frame
     NFFT = int(2**(np.ceil(np.log(frame_length)/np.log(2))))
@@ -53,7 +55,6 @@ References
     frames = util.frame(x,frame_length=frame_length, hop_length=hop,axis=0)
 
     nb = frames.shape[0]
-    f = frames.shape[1]
     w = windows.hann(frame_length).astype(np.float32)
 
     # workers=-1 lets scipy's fft spread the (fully independent, one per frame) transforms
@@ -74,6 +75,7 @@ References
     return(quef, ts, Ceps)
 
 @renamed_kwargs(s='step', l='length')
+@positive_step
 def CPP(x,fs, target_fs = 16000, smooth=2, norm=True, dBscale=True, f0_range = [60,400], length= 0.04, step=0.005):
     '''Measure Cepstral Peak Prominence - an acoustic measure that has been shown to be highly correlated with 
 perceived breathy vocal quality (Hillenbrand & Houde, 1996).  This implementation drew inspiration and ideas from 
@@ -94,26 +96,19 @@ Parameters
         to the cepstrum and measuring the height of the peak above the fit line.
     dBscale : boolean, default = True
         Scale the cepstrum in dB
-    f0_range : an array of two numbers, default=[50,500]
+    f0_range : an array of two numbers, default=[60,400]
         The expected range for f0.
     length : float, default = 0.04
         Length of analysis windows.  The default is 40 milliseconds.
     step : float, default = 0.005
-        Step size, of hops between analysis windows. The default is 5 milliseconds.  If `smooth` is non-zero, the step size
-        is reduced to 0.002 (2 millisecond).
-    return_Sxx : boolean, default = False
-        flag to request to return the cepstrogram (produced by `compute_cepstrogram()`) instead of returning an analysis 
-        dataframe.  If smoothing is requested the smoothed cepstrogram is returned.  The return values (instead of the 
-        dataframe described below) are then:
-        
-            * quef - A one dimensional numpy array with Quefrency values (in ms)
-            * sec - A one dimensional numpy array with frame time points (in seconds)
-            * Sxx - A two dimensional numpy array with cepstral magnitudes at these timepoints and quefrencies.
+        Step size, of hops between analysis windows. The default is 5 milliseconds.  If `smooth` is non-zero the 
+        `step` is ignored, and the step is 0.002 (2 milliseconds): the smoothing in time is only valid with the
+        finer time resolution.
 
 Returns
 =======
     df: pandas DataFrame  
-            measurements at 5 msec intervals.
+            measurements at `step` second intervals (every 5 msec by default, but every 2 msec if `smooth` is not 0).
 
 Note
 ====
@@ -163,7 +158,7 @@ This example plots the cepstral peak prominence in a recording of "the Soviet Un
 
     '''
     y,fs = prep_audio(x, fs, target_fs=target_fs, 
-                      pre=0.0, verbose=False)  # resample to 16kHz
+                      preemph=0.0, verbose=False)  # resample to 16kHz
 
     if smooth: step = 0.002  # faster framerate if smoothed
 
@@ -278,12 +273,16 @@ axis, the smoothed spectra and the cepstra (freqE, Exx, Cxx), as documented for 
     # cepstrum has 2*nbins-1 points, so bin k of the smoothed spectrum is at angle 2 pi k/(2 nbins-1).
     # Because only `lift` coefficients survive, this is evaluated directly (see _lifter_envelope()).
     Exx = _lifter_envelope(Cxx[:nl + 1], 2*np.pi*np.arange(nbins)/(2*nbins - 1))
-    freqE = np.arange(1, nbins + 1)*(fs/2)/nbins                                  # frequency axis
+    # Bin k of the smoothed spectrum is at the angle 2 pi k/(2 nbins-1) (see above), which is the frequency
+    # k*fs/(2 nbins-1).  (The first bin is at 0 Hz and the last one just below the Nyquist frequency.  Before 0.2.0
+    # the axis was shifted up by one bin, (k+1)*fs/(2 nbins), so it was off by up to 1 Hz.)
+    freqE = np.arange(nbins)*fs/(2*nbins - 1)                                      # frequency axis
     return freqE, Exx, Cxx
 
 
-@renamed_kwargs(s='step', l='length')
-def cepstral_smooth(x, fs, tf=5000, step=0.005, length=0.04, preemphasis=0.0, lift=0.003):
+@renamed_kwargs(s='step', l='length', preemphasis='preemph')
+@positive_step
+def cepstral_smooth(x, fs, tf=5000, step=0.005, length=0.04, preemph=0.0, lift=0.003):
     '''Smooth spectra by cepstral 'liftering' to remove the periodic source, leaving only the overall spectral envelope shape. 
 The implementation here borrows heavily from Seonju Kim's repository (https://github.com/hwang9u/pyceps).  
 
@@ -298,8 +297,8 @@ Parameters
     step : float, default = 0.005
         Step size, of hops between analysis windows. The default is 5 milliseconds.  
     length : float, default = 0.04
-        Length of analysis windows.  The default is 40 milliseconds.  The actual size of the analysis windows will 
-        be the smallest power of 2 that is greater than or equal to this length in samples.
+        Length of analysis windows.  The default is 40 milliseconds.  The windows are zero padded to 2**13 points
+        for the FFT (see `compute_sgram()`), which sets the number of points of the quefrency and frequency axes.
     lift : float, default = 0.003
         The filtering coefficient (in seconds).  Components that have a period longer than the `lift` value will be 
         removed from the signal.  The default value of 3 ms means that cepstral components lower than 333Hz will be
@@ -311,7 +310,8 @@ Returns
     sec : ndarray
         A one dimensional numpy array with frame time points (in seconds)
     freqE : ndarray
-        A one dimensional numpy array with frequency values (in Hz) for the smoothed spectral envelope, Exx.
+        A one dimensional numpy array with frequency values (in Hz) for the smoothed spectral envelope, Exx.  The
+        envelope has twice as many points as the raw spectrum, Sxx, from 0 Hz to just below the Nyquist frequency.
     Exx : ndarray
         A two dimensional numpy array with cepstrally smoothed spectral magnitudes at these timepoints and frequencies.  The spectrum at time point `i` is found at Exx[:,i].
     freqS : ndarray
@@ -319,7 +319,7 @@ Returns
     Sxx : ndarray
         A two dimensional numpy array with raw spectral magnitudes, before smoothing.  A narrow band spectrogram.
     quef : ndarray
-        A one dimensional numpy array with quefrency values (in ms) corresponding to axis 1 of the cepstra array, Cxx.
+        A one dimensional numpy array with quefrency values (in ms) corresponding to axis 0 of the cepstra array, Cxx.
     Cxx : ndarray
         A two dimensional numpy array of cepstra at the time points in sec.
 
@@ -359,15 +359,11 @@ References
     target_fs = int(tf*2)
     
     x,fs = prep_audio(x, fs, target_fs=target_fs, 
-                      pre=preemphasis, verbose=False) 
-
-    hop = int(fs*step)
-    frame_length = int(fs*length)
-    half_frame = frame_length//2
+                      preemph=preemph, verbose=False) 
 
     ts,freqS,Sxx = compute_sgram(x,fs,length,step)
                               
     freqE, Exx, Cxx = _smooth_sgram(Sxx, fs, lift)
-    quef = np.arange(Cxx.shape[0])/fs
+    quef = np.arange(Cxx.shape[0])/fs*1000   # in ms, as in compute_cepstrogram()
 
     return ts, freqE, Exx, freqS, Sxx, quef, Cxx

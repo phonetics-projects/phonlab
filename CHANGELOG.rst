@@ -35,8 +35,34 @@ Unreleased
 Breaking changes
 ~~~~~~~~~~~~~~~~
 
-* **sgram(): a step of zero or less is now an error.**  ``step`` (formerly ``s``) must be
-  a positive number of seconds.  Before, ``s=0`` was quietly replaced by the default.
+* **gci_sedreams() is now gci().**  The new name is shorter.  ``gci()`` is based on the ``sedreams``
+  function of COVAREP, as before, and the documentation now says so.  The old name still works, with a
+  ``DeprecationWarning``.
+* **TVLP_formants() makes sure that a frame holds two glottal pulses.**  With ``qcp=True`` (the default) a
+  ``length`` shorter than two periods of ``f0median`` (``2/f0median`` seconds) now gives a warning, and
+  ``length`` is set to ``2/f0median``.  Nothing changes with the defaults (``length=0.1``, ``f0median=200``).
+* **A ``step`` of zero or less is now an error in every function that has one.**  ``step``
+  (formerly ``s``) must be a positive number of seconds, and a ``ValueError`` is raised for
+  zero, a negative number, NaN or a value that is not a number.  Before, ``sgram()`` quietly
+  replaced ``s=0`` by the default, ``compute_mt_sgram()``, ``CPP()`` (with smoothing),
+  ``Audspec()``, ``lpcresidual()`` and ``tandem_fric()`` accepted it, and the other functions
+  failed with an obscure error from ``librosa`` or ``scipy``.
+* **lpcresidual() scales each frame of the residual to the energy of the audio frame.**  It had a line
+  for this, but the energy sums were over all the frames at once, which gave one number for the whole
+  file that the final peak normalization then removed, so it did nothing, and the residual was the plain
+  prediction error.  Now (``gain='speech'``, the default) each frame is scaled as in COVAREP's
+  ``lpcresidual.m``, so the level of the residual follows the level of the speech.  The residual
+  changes (correlation 0.8 with the old one), and so do the functions that use it:
+  ``gci()`` (the times of the glottal closures hardly change, but ``soe`` and ``shimmer`` do),
+  ``get_f0_srh()`` (the f0 of most frames is the same, a few frames change) and the ``h2h1()`` of a
+  residual made by ``lpcresidual()``.  ``lpcresidual(y, fs, gain=None)`` and
+  ``gci(x, fs, gain=None)`` give the old behavior.  ``TVLP_formants()`` uses ``gain=None`` for the glottal
+  closure instants of its pitch-synchronous analysis, so its results do not change.
+* **cepstral_smooth(): the quefrency axis is in ms and the frequency axis of the smoothed spectrum is
+  corrected.**  ``quef`` was in seconds, although the documentation (and ``compute_cepstrogram()``) say
+  ms, so it is now 1000 times larger.  ``freqE`` was shifted up by one bin: the smoothed spectrum was
+  evaluated at ``k*fs/(2*nbins-1)`` but labeled ``(k+1)*fs/(2*nbins)``, an error of up to 1 Hz.  The axis now starts at 0 Hz.
+  The values of the spectra are unchanged.  (``sgram(type='cepstral')`` uses this axis.)
 * **sgram(type='mel') and sgram(type='bark') use ``step``.**  Before, ``s`` was ignored
   for ``type='mel'`` (it needed ``step_sec``), and ``s`` was raised to at least 5 ms for
   ``type='bark'``.  Now ``step`` sets the step for every type, and the default step of
@@ -68,6 +94,13 @@ Deprecated
   - ``length`` (formerly ``w``): ``compute_mt_sgram()``, ``compute_sgram()``,
     ``fricative()`` and ``tandem_fric()``.  ``length`` (formerly ``frame_duration_sec``):
     ``TVLP_formants()``.
+  - **The pre-emphasis factor is always called** ``preemph``.  The functions had used ``pre``,
+    ``preemph`` and ``preemphasis``.  ``preemph`` (formerly ``pre``): ``prep_audio()``,
+    ``DPPT_formants()`` and ``TVLP_formants()``.  ``preemph`` (formerly ``preemphasis``):
+    ``IFC_formants()``, ``LPC_formants()``, ``RLPC_formants()``, ``cepstral_smooth()``,
+    ``nasality()`` and ``track_formants()``.  ``sgram()`` and ``Audspec.make_zgram()`` already used
+    ``preemph``.  The old names still work by keyword with a ``DeprecationWarning``, and positional
+    calls are not affected.
   - ``sgram()`` accepts ``step`` and ``length`` for every type of spectrogram.  The old
     names ``s``, ``step_sec``, ``step_size``, ``w`` and ``l`` still work.
   - ``smooth1d()`` and ``smoothn()`` keep their ``s``, which is the amount of smoothing and
@@ -76,6 +109,56 @@ Deprecated
 Fixed
 ~~~~~
 
+* ``compute_mel_sgram()`` now has the step and window that it documents at every sampling rate.
+  At rates where 64 ms is not a power of two number of samples (22050, 44100 and 48000 Hz, but
+  not 16000 or 32000) it used a window of the next power of two and a step that was too long (39 ms
+  for a requested 10 ms at 44100 Hz).  Results at 16000 Hz are unchanged, and ``sgram(type='mel')``
+  was not affected because it resamples to 16000 Hz.
+* **The step between frames is the same number of samples in every function.**  The functions
+  truncated ``step*fs`` to a whole number of samples (``int(0.29*100)`` is 28), and ``compute_sgram()``
+  truncated a difference of times, which gave a step one sample too long in about a quarter of the
+  combinations of sampling rate, ``length`` and ``step`` that I tried (for example ``length=0.03``,
+  ``step=0.01`` at 16000 Hz).  All of them now use the nearest whole number of samples.  Results change
+  by one sample in the frame spacing only where ``step*fs`` is not already a whole number.  A step
+  shorter than half a sample is now an error.  ``nasality()`` failed with "analysis frames do not
+  line up" at some steps, such as ``step=0.01`` at 12000 Hz.  ``egg_to_oq()`` now gives frame times
+  from the hop in samples.
+* **phonlab no longer changes numpy's error handling.**  Importing ``get_f0()`` (which happens when you first use any
+  of the ``get_f0`` functions) called ``np.seterr(divide="ignore")``, which silenced divide-by-zero warnings in
+  all of your code after that.  The values that phonlab computes do not change.  With speech the functions do not give
+  any floating point warnings without it.  The places where silence gave one (``choose_order()``, ``egg_to_oq()``
+  and ``rhythmogram()``) now handle it themselves, and ``get_f0_srh()`` of a pure tone, which
+  failed with ``cannot convert float NaN to integer``, works.
+* Docstrings that had not been updated: ``LPC_formants()`` (``l`` and a ``quiet`` parameter), ``tandem_fric()`` and
+  ``compute_mt_sgram()`` (``w``), ``TVLP_formants()`` (the defaults of ``nformants`` and ``use_parallel``), ``CPP()`` (a
+  ``return_Sxx`` parameter that does not exist, the default ``f0_range``, and the step of 0.002 s that is
+  used when ``smooth`` is not 0), ``egg_to_oq()`` (``f0_range``), ``get_f0_srh()`` (the band of ``rms``),
+  ``DPPT_formants()`` and ``cepstral_smooth()``.
+* ``h2h1()`` gave wrong values unless the residual was sampled at 16000 Hz.  It resampled the
+  residual to 16000 Hz but then filtered the original array, with a filter designed for 16000 Hz, so
+  the narrow-band filter was centered on the wrong frequency (the h2h1 values were off by about 17 dB on
+  average at 22050 and 44100 Hz).  ``lpcresidual()`` returns 16000 Hz audio by default, so
+  results of the usual ``lpcresidual()`` then ``h2h1()`` sequence are unchanged.
+* ``h2h1()`` no longer assumes that ``f0df`` is a complete, evenly spaced f0 analysis with the default index.
+  It took the window length from ``f0df['sec'][0]`` and the step from ``f0df['sec'][1] - f0df['sec'][0]``
+  rounded to the ms, so a dataframe that had been filtered (for example to the voiced frames), had another
+  index, or had a step such as 7.5 ms gave a ``KeyError`` or measurements in the wrong windows.  It now makes
+  one measurement in a window centered on the ``sec`` of each row.  It has a new parameter ``length``
+  (the window length, by default twice the first ``sec`` as before) for dataframes that do not start at
+  the first frame.  A row with no spectral peak is NaN.  The window now has exactly the length of the f0
+  analysis window and is centered on its time.  Before, the length was rounded to the ms (47 ms for a
+  window of 47.4 ms) and the window was centered a few samples early, so values for the ordinary
+  output of an f0 function change slightly (typically by about 0.25 dB, but by more in the few frames
+  where the choice of spectral peaks changes).
+* ``burst()`` found no burst (it returned ``(-1, 0)``) unless the audio had a sampling rate of 16000 Hz,
+  because it searched the original waveform with indices for the resampled one.
+* ``sgram()`` with both ``ax`` and ``slice_time`` raised ``UnboundLocalError``.  It now warns that the
+  slice is not drawn when an axes is passed in.
+* ``deltaF_norm()`` with both ``column`` and ``deltaF`` raised ``NameError``.  The ``deltaF`` is now used for
+  every talker.  The docstring called ``column`` ``groupby`` and said that the function changes the
+  dataframe in place and returns nothing, but it returns the dataframe (in place only without ``column``).
+* ``get_f0_acd(test_time=...)`` raised ``NameError`` (``plt`` and ``best_c`` were not defined).
+* ``split_speaker_df()`` raised ``NameError`` instead of warning when it found overlapping times.
 * ``get_f0_srh()`` no longer changes its ``f0_range`` argument.  It lowered the top of
   the list that was passed in, and so of its default, which made later calls in the same
   session use a narrower range than the first call.
@@ -84,6 +167,11 @@ Added
 ~~~~~
 
 * ``get_rms()`` documents its ``step`` and ``length`` parameters.
+* ``lpcresidual()`` has a ``gain`` parameter (``'speech'``, the default, or ``None`` for the plain
+  prediction error, which the LPC filters turn back into the audio, for use as the source in a
+  source-filter resynthesis), and a ``normalize`` parameter (``False`` keeps the level of the residual
+  instead of scaling its peak to 1).  ``gci()`` has the same ``gain`` parameter.
+
 
 
 0.1.0 (2026-11-09)

@@ -3,6 +3,7 @@ from librosa.util import frame
 import scipy.signal as signal
 import numpy as np
 from ..utils.deprecation import renamed_kwargs
+from ..utils.validate import positive_step, step_samples
 
 def mel_to_Hz(m):
     """Converts frequencies in `m` from the mel scale to linear scale using the following formula::
@@ -119,6 +120,7 @@ Raises
     return(mel_weights_matrix.T)
 
 @renamed_kwargs(step_sec='step')
+@positive_step
 def compute_mel_sgram(x,fs, step = 0.01):
     """Compute a Mel frequency spectrogram of the signal in **x**.  This function is adapted from the code example given in the documentation for the `tensorflow` function `mfccs_from_log_mel_spectrograms()`.
 
@@ -182,15 +184,17 @@ that to the tensor flow function to compute mel-frequency cepstral coefficients 
     fft_pow = 10
 
     frame_length = int(frame_length_sec*fs)
-    hop = int(step*fs)
+    hop = step_samples(step, fs)
     fft_length = int(2**fft_pow)
     while fft_length < frame_length:
         fft_pow = fft_pow+1
         fft_length = 2**fft_pow
     noverlap = frame_length-hop
 
-    f, t, Zxx = signal.stft(x, fs, window="hann", nperseg=fft_length,
-                            noverlap=noverlap,padded=False)
+    # The window is `frame_length` samples (64 ms) long, zero padded to `fft_length` points by nfft.  (nperseg must be
+    # the window length, because it also sets the step: step = nperseg - noverlap.)
+    f, t, Zxx = signal.stft(x, fs, window=signal.windows.hann(frame_length, sym=False), nperseg=frame_length,
+                            noverlap=noverlap, nfft=fft_length, padded=False)
    
     # Warp the linear scale spectra onto the mel-scale.
     num_freq_bins = len(f)

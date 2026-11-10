@@ -3,6 +3,7 @@ from scipy.signal import find_peaks
 from collections import namedtuple
 from .multitaper_ import compute_mt_sgram, tandem_spectrum
 from ..utils.deprecation import renamed_kwargs
+from ..utils.validate import positive_step
 
 def dB(x, out=None):
     if out is None:
@@ -148,7 +149,7 @@ Parameters
     NW : float, default = 4
         the time-bandwidth product of the multitaper analysis.  The bandwidth (smoothness) of the spectrum is 2*NW/`length` Hz (400 Hz with the defaults), and about 2*NW-1 tapers are averaged to stabilize the estimate.  To keep the same smoothness when `length` is changed, scale `NW` in proportion to `length`.
     order : integer or None, default = 12
-        determines the number of points in the FFT of the spectrum (2**`order` points, at least as many as in the window).  The value, `None`, uses no zero padding, so the spectrum has a point every 1/`w` Hz (50 Hz with the default window).  A larger value, such as 14, gives a spectrum with finer frequency spacing (for peak finding), but no more frequency resolution.
+        determines the number of points in the FFT of the spectrum (2**`order` points, at least as many as in the window).  The value, `None`, uses no zero padding, so the spectrum has a point every 1/`length` Hz (50 Hz with the default window).  A larger value, such as 14, gives a spectrum with finer frequency spacing (for peak finding), but no more frequency resolution.
 
 
 Returns
@@ -244,6 +245,7 @@ The figure here shows major peaks and COG in several different fricatives.
 
 
 @renamed_kwargs(w='length')
+@positive_step
 def tandem_fric(x,fs,t,length=0.02,NW=4,total=0.04,step=0.002):
     """
     Measure fricative acoustic values, from a 40 ms stretch of audio (by default) centered on time `t`.
@@ -267,7 +269,7 @@ Parameters
     NW : float, default = 4
         the time-bandwidth product of the multitaper analysis.  The bandwidth (smoothness) of the spectrum is 2*NW/`length` Hz (400 Hz with the defaults), and about 2*NW-1 tapers are averaged to stabilize the estimate.  To keep the same smoothness when `length` is changed, scale `NW` in proportion to `length`.
     total : float, default = 0.04
-        the total duration (in seconds) of audio, centered on `t`, that goes into the spectrum.  Windows of length `length` are spaced `step` apart across this duration and their power spectra are averaged (a "tandem" spectrum), which stabilizes peak finding.  It must be at least `w`.  If `total` equals `w` a single multitaper spectrum is used.  Because the windows are spread across `total`, a short fricative or a rapid transition will be blurred.
+        the total duration (in seconds) of audio, centered on `t`, that goes into the spectrum.  Windows of length `length` are spaced `step` apart across this duration and their power spectra are averaged (a "tandem" spectrum), which stabilizes peak finding.  It must be at least `length`.  If `total` equals `length` a single multitaper spectrum is used.  Because the windows are spread across `total`, a short fricative or a rapid transition will be blurred.
     step : float, default = 0.002
         the time (in seconds) between the starts of adjacent windows in the tandem spectrum.  With the defaults 11 spectra are averaged.  Steps much larger than 2 ms, or smaller `NW`, make the spectrum less stable.
 
@@ -349,7 +351,7 @@ The figure here shows major peaks and COG in several different fricatives.
 
     """
     if total < length:
-        raise ValueError("total must be at least as long as w")
+        raise ValueError("total must be at least as long as length")
     n_chunk = int(round(total*fs))      # number of samples of audio analyzed
     i_start = int(round(t*fs)) - n_chunk//2   # centered on time t: seconds to samples
     i_end = i_start + n_chunk

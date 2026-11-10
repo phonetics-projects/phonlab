@@ -9,6 +9,7 @@ from numba import jit
 from ..utils.prep_audio_ import prep_audio
 from ..acoustic.choose_order_ import choose_order
 from ..utils.deprecation import renamed_kwargs
+from ..utils.validate import positive_step, step_samples
 
 @jit(nopython=True, cache=True)
 def weighted_cov(x,weight,npoles):
@@ -29,8 +30,9 @@ def weighted_cor(x,weight,npoles):
             c1[j] += x[n] * x[n-j] * weight[n]
     return c1[1:npoles+1]
     
-@renamed_kwargs(s='step', l='length')
-def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC", step = 0.01, 
+@renamed_kwargs(s='step', l='length', preemphasis='preemph')
+@positive_step
+def RLPC_formants(x, fs, tf = 6000, preemph = 0.94,order = -1, base = "BIC", step = 0.01, 
                  length = 0.03, numiter=1, verbose=False):
     """An implementation of Lee's (1988) method for Robust Linear Prediction Coding. The method computes the residual signal from a conventional LPC analysis and then uses it to down-weight samples that produce large prediction error. It is possible to iterate the residual reweighting process more than once, though not much improvement is gained after the first iteration.  Formant frequencies are found from the LPC coefficients using polynomial root solving.  A couple of functions called by `RLPC_formants()` are accelerated by the use of numba just in time (JIT) compilation into machine code.  Therefore, the first call to `RLPC_formants()` will be slower (by about 10 ms) than subsequent calls.
 
@@ -44,7 +46,7 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
         the sampling rate of samples in x. 
     tf : int (default = 6000)
         The top frequency of the analysis band.  The input signal will be resampled to a rate of tf*2.  
-    preemphasis : float (default = 0.94)
+    preemph : float (default = 0.94)
         value of a high frequency preemphasis (spectral tilt) factor (0-1).
     order : int (default = -1)
         The LPC 'order' (i.e. the number of coefficients in the LPC filter.  A value of -1 uses the function phon.choose_order() to determine the best value for this parameter. 
@@ -82,11 +84,11 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
     """
     target_fs = tf*2
     
-    x, fs = prep_audio(x, fs, target_fs = target_fs, pre = preemphasis,
+    x, fs = prep_audio(x, fs, target_fs = target_fs, preemph = preemph,
                        scale = True, verbose = verbose, fix_polarity = True)
     
     frame_length = int(fs*length)
-    hop = int(fs*step)
+    hop = step_samples(step, fs)
        
     if order<0:  # guess the correct LPC order
         order,time = choose_order(x,fs,length, base='BIC', verbose=verbose)

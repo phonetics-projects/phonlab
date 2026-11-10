@@ -7,6 +7,7 @@ from pandas import DataFrame
 from scipy import signal
 
 from ..utils.prep_audio_ import prep_audio
+from ..utils.deprecation import renamed_kwargs
 
 # constants
 SR = 12000                     # sampling rate of the analysis
@@ -350,7 +351,8 @@ def ifc_warmup_numba(verbose=True):
         print(" done")
 
 
-def IFC_formants(x, fs, preemphasis = 0.94, speaker = 0, 
+@renamed_kwargs(preemphasis='preemph')
+def IFC_formants(x, fs, preemph = 0.94, speaker = 0, 
                  parallel = True, verbose=False):
     """Computes vowel formant values in audio of speech using the Inverse Filter Control method.
 
@@ -366,7 +368,7 @@ x : array
 fs : int
     the sampling rate of the audio in **x**.  The audio will be resampled to 12,000 Hz for analysis.
 
-preemphasis : float, default = 0.94
+preemph : float, default = 0.94
     value of a high frequency preemphasis (spectral tilt) factor (0-1).
 
 speaker : int, default = 0
@@ -434,7 +436,7 @@ Use Inverse Filter Control to track formants in a file
         print(f"IFC_formants(), with speaker set to {speaker}")
 
     y, fs = prep_audio(x, fs, target_fs = SR,  # downsample
-                       pre = preemphasis,  # apply preemphasis
+                       preemph = preemph,  # apply preemphasis
                        scale = True, verbose=verbose)  
  
     centers, res = _ifc_analyze(y, fs, speaker, parallel)

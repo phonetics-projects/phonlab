@@ -2,9 +2,11 @@ import numpy as np
 from scipy.signal import windows
 from numpy.lib.stride_tricks import sliding_window_view
 from ..utils.deprecation import renamed_kwargs
+from ..utils.validate import positive_step, step_samples
 
 
 @renamed_kwargs(w='length', s='step')
+@positive_step
 def compute_mt_sgram(x, fs, length=0.02, step=0.001, NW=4, order=12, low_bias=True, scale='psd'):
     """Compute a multitaper spectrogram from an input waveform array of samples.
 
@@ -54,9 +56,9 @@ def compute_mt_sgram(x, fs, length=0.02, step=0.001, NW=4, order=12, low_bias=Tr
         raise ValueError("scale must be 'psd' or 'nitime'")
 
     nperseg = int(round(length * fs))
-    hop = max(1, int(round(step * fs)))
+    hop = step_samples(step, fs)
     if nperseg < 2 or len(x) < nperseg:
-        raise ValueError("x must contain at least one analysis window of w seconds")
+        raise ValueError(f"x must contain at least one analysis window of `length` ({length}) seconds")
     nfft = nperseg if order is None else max(2**order, nperseg)  # the window is never truncated
 
     tapers, eigvals = windows.dpss(nperseg, NW, Kmax=int(2 * NW), sym=True, return_ratios=True)

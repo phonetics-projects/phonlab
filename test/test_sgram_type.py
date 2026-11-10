@@ -109,7 +109,7 @@ def test_sgram_verbose_passed_to_rlpc(sig, capsys):
 def test_sgram_multitaper_default_bandwidth(sig):
     x, fs = sig
     _, f, t, S = phon.sgram(x, fs, type="multitaper")
-    x2, fs2 = phon.prep_audio(x, fs, target_fs=16000, pre=0.94, verbose=False)  # as in sgram()
+    x2, fs2 = phon.prep_audio(x, fs, target_fs=16000, preemph=0.94, verbose=False)  # as in sgram()
     t2, f2, S2 = phon.compute_mt_sgram(x2, fs2, length=0.02, step=0.001, NW=3, order=13)
     plt.close("all")
     assert S.shape == S2.shape

@@ -58,7 +58,7 @@ def amplitude_envelope(x, fs, bounds = [], target_fs=22050, cutoff=30, order=2 )
 
     """
     y = np.copy(x)
-    y, fs = prep_audio(y,fs, target_fs = target_fs, pre=0, 
+    y, fs = prep_audio(y,fs, target_fs = target_fs, preemph=0, 
                        add_tiny_noise=False, verbose=False)
 
     if bounds:

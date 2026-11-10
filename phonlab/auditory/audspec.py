@@ -6,6 +6,7 @@ import scipy.stats as stats
 from ..utils.prep_audio_ import prep_audio
 import warnings
 from ..utils.deprecation import renamed_kwargs
+from ..utils.validate import positive_step, step_samples
 
 class Audspec(object):
     """ Create an Audspec object; analysis parameters and routines for creating auditory spectrograms.
@@ -179,7 +180,7 @@ class Audspec(object):
         if (np.max(data) < 1):   # floating point but we need 16bit int range
             data = (data*(2**15)) #.astype(np.int32)
 
-        hop = int(self.step * self.fs)
+        hop = step_samples(self.step, self.fs)
         frames = librosa.util.frame(data,frame_length=self.dft_n,hop_length=hop
             ).transpose()
         t = librosa.frames_to_time(np.arange(frames.shape[0]),
@@ -219,7 +220,7 @@ R. D. Patterson (1976) Auditory filter shapes derived with noise stimuli. `J. Ac
         
         x, fs = prep_audio(x, fs = fs, 
                            target_fs = self.fs, 
-                           pre = preemph,
+                           preemph = preemph,
                            scale=True)
         
         (sgram, self.time_axis) = self._make_sgram(x, kwargs)
@@ -363,6 +364,7 @@ R. D. Patterson (1976) Auditory filter shapes derived with noise stimuli. `J. Ac
         return self.step
 
     @renamed_kwargs(step_size='step')
+    @positive_step
     def __init__(self, fs=16000, step=0.03):
         float_t=np.float32
         int_t=np.int32

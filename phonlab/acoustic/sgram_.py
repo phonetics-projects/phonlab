@@ -1,10 +1,13 @@
 from scipy.signal import spectrogram
 from scipy.signal import windows
 import numpy as np
+import warnings
 from ..utils.prep_audio_ import prep_audio
 from ..utils.deprecation import renamed_kwargs
+from ..utils.validate import positive_step, check_step, step_samples
 
 @renamed_kwargs(w='length', s='step')
+@positive_step
 def compute_sgram(x,fs,length,step=0.001,order=13):
     """Compute a spectrogram from input waveform array of samples.
     
@@ -35,8 +38,8 @@ def compute_sgram(x,fs,length,step=0.001,order=13):
 
     """
     # set up parameters for signal.spectrogram()
-    noverlap = int((length-step)*fs) # skip forward by step between each frame
     nperseg = int(length*fs)         # number of samples per waveform window
+    noverlap = nperseg - step_samples(step, fs)   # skip forward by step between each frame
     nfft = np.power(2,order)    # number of points in the fft
     window = windows.blackmanharris(nperseg)
 
@@ -57,9 +60,7 @@ def _step_or_default(step, default):
     """The `step` (seconds) requested by the caller of sgram(), or the `default` if there was none."""
     if step is None:
         return default
-    if not step > 0:
-        raise ValueError(f"The `step` between spectra must be a positive number of seconds, not {step!r}.")
-    return step
+    return check_step(step, 'sgram')
 
 
 def _typed_sgram(x, fs, type, length, step=None, verbose=False, **kwargs):
@@ -102,7 +103,7 @@ def _typed_sgram(x, fs, type, length, step=None, verbose=False, **kwargs):
         order = kwargs.pop('order', -1)
         nfft = 2**kwargs.pop('nfft_order', 13)
         # The audio has already been resampled and preemphasized by sgram(), so don't do it again.
-        fmtdf, A = RLPC_formants(x, fs, tf=int(fs//2), step=_step_or_default(step, 0.005), length=length, preemphasis=0.0, 
+        fmtdf, A = RLPC_formants(x, fs, tf=int(fs//2), step=_step_or_default(step, 0.005), length=length, preemph=0.0, 
                                  order=order, verbose=verbose, **kwargs)
         # LPC spectra are not windowed, so (as in nasality()) a correction puts them on the
         # same dB scale as a Blackman-Harris windowed FFT spectrum.
@@ -168,7 +169,8 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
     save_name : Path, default = ''
         name of a file to save the figure pyplot.savefig(), by default no file is saved.
     slice_time : float, default = -1
-        location (in seconds) of an optional spectral slice.
+        location (in seconds) of an optional spectral slice.  The slice is drawn in an extra axes beside the
+        spectrogram, so it is not available (with a warning) when an axes is passed in with `ax`.
     resize : boolean, default = True
         if a matplotlib axes object is passed in (the `ax` parameter), resize it to 
         classical spectrogram dimensions.
@@ -262,7 +264,7 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
     
     # ----------- condition waveform -----------------------
     x2, fs = prep_audio(x,fs, target_fs = target_fs, 
-                        pre = preemph, verbose=verbose)
+                        preemph = preemph, verbose=verbose)
 
     i1 = int(start * fs)   # index of starting time: seconds to samples
     i2 = int(end * fs)     # index of ending time
@@ -308,6 +310,11 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
     ax1.locator_params(axis='y', prune="upper")  # for stacking sgram with other axes
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     # plt.subplots_adjust(left=0.1, bottom=0.148, right=0.99, top=0.99, wspace=0, hspace=0)
+
+    if slice_time > 0 and ax is not None:
+        warnings.warn("sgram(): slice_time is ignored when an axes object is passed in with `ax`, because there is "
+                      "no room for the spectral slice next to it.", UserWarning, stacklevel=2)
+        slice_time = -1
 
     if slice_time > 0:  # if spectral slice is desired, plot the spectrum
         i = np.argmin(np.abs(ts-slice_time))  # find the index of the spectral slice

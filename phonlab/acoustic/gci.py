@@ -42,9 +42,9 @@ def get_mbs(x,fs, f0median, width = 1.4):
 
 # GCI function
 
-def gci_sedreams(x,fs,f0median=170, target_fs = 16000, order=None, cthresh=0.0):
-    '''Identify glottal closure instants (GCI) using Drugman & Dutoit's (2009) `sedreams` algorithm which 
-was published as a Matlab function in the Covarep repository.   The function also returns f0 and vocal jitter 
+def gci(x,fs,f0median=170, target_fs = 16000, order=None, cthresh=0.0, gain='speech'):
+    '''Identify glottal closure instants (GCI).  This function is based on the `sedreams` function (the "SEDREAMS" algorithm of Drugman & Dutoit, 2009) 
+that was published as a Matlab function in the COVAREP repository (Degottex et al., 2014).  (It was called `gci_sedreams()` before version 0.2.0.)   The function also returns f0 and vocal jitter 
 based on the derived GCI estimates.  Two parameters are given here which were not a part of the original 
 implementation.  Based on a comment in D&D (2009), the function includes a process to choose different LPC 
 orders for different f0medians.  
@@ -84,6 +84,11 @@ Parameters
         By default the order used in LPC analysis (to calculate the LPC residual signal) is based on the values of target_fs and F0median.  Drugman & Dutoit (2009) used order=18.
     cthresh: float, default = 0.1
         A peak in the LPC residual must be greater than this threshold value to be considered a glottal closure instant.  The residual is amplitude normalized to the range [0,1], so 0.1 is 10% of the amplitude range.
+    gain: string {'speech', None}, default = 'speech'
+        How the level of each frame of the LPC residual is set (see the `gain` parameter of `lpcresidual()`).
+        The default, 'speech', is as in the COVAREP function: the level of the residual follows the level of the
+        speech, so the heights of the residual peaks (and so `soe` and `shimmer`) are comparable across frames.
+        With `None` the residual is the plain prediction error, as it was before version 0.2.0.
 
 Returns
 =======
@@ -107,6 +112,8 @@ References
 ==========
     T. Drugman, T. Dutoit (2009) Glottal Closure and Opening Instant Detection from Speech Signals, Interspeech09, Brighton, U.K.
 
+    G. Degottex, J. Kane, T. Drugman, T. Raitio, S. Scherer (2014) COVAREP - A collaborative voice analysis repository for speech technologies. ICASSP 2014, Florence, Italy.
+
     T. Drugman, M. Thomas, J. Gudnason, P. Naylor, T. Dutoit (2012) Detection of Glottal Closure Instants from Speech Signals: a Quantitative Review, IEEE Transactions on Audio, Speech and Language Processing, vol. 20, Issue 3, pp. 994-1006.
 
 
@@ -122,7 +129,7 @@ The example here shows glottal closure instants for a small 40 millisecond windo
         f0df = phon.get_f0(x,fs)
         f0med = np.nanmedian(f0df.f0)
 
-        gci_df, mbs,resid = phon.gci_sedreams(x,fs,f0med, cthresh = 0.01)
+        gci_df, mbs,resid = phon.gci(x,fs,f0med, cthresh = 0.01)
 
         times = np.array(range(len(x)))/fs  # construct a time axis for plotting
         start = 1.8                         # choose a chunk
@@ -147,7 +154,7 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
        
     '''
     
-    y,fs = prep_audio(x,fs,target_fs,pre=0,
+    y,fs = prep_audio(x,fs,target_fs,preemph=0,
                       fix_polarity=False,
                       scale=True, verbose=False)
 
@@ -176,7 +183,7 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
         else: order = low_order-6
             
 
-    resid,fs = lpcresidual(y,fs,target_fs, order = order)
+    resid,fs = lpcresidual(y,fs,target_fs, order = order, gain=gain)
     
     # ========================
     # 3. set an expectation for the median relative postion of the GCI in the MBS
@@ -244,3 +251,11 @@ The figure here shows the derived waves used in finding GCIs.  In the top trace,
     df = DataFrame({'sec': gci, 'f0':f0, 'jitter':jitter, 'soe':soe, 'shimmer':shimmer})
     
     return df,mbs,resid
+
+
+def gci_sedreams(*args, **kwargs):
+    """Deprecated name of `gci()`."""
+    import warnings
+    warnings.warn("gci_sedreams() has been renamed gci(). The name gci_sedreams() still works for now, but is "
+                  "deprecated and will be removed in a future release.", DeprecationWarning, stacklevel=2)
+    return gci(*args, **kwargs)

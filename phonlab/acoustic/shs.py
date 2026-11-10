@@ -6,6 +6,7 @@ from scipy.interpolate import interp1d
 from numpy.fft import rfft, rfftfreq
 from pandas import DataFrame
 from ..utils.deprecation import renamed_kwargs
+from ..utils.validate import positive_step, step_samples
 
 def _maxarg(x,axis = -1):
     try:
@@ -18,6 +19,7 @@ def _maxarg(x,axis = -1):
     return idx,val
 
 @renamed_kwargs(s='step', l='length')
+@positive_step
 def get_f0_shs(x,fs, f0_range=[50,400], length=0.06, step=0.005, shr_threshold = 0.3, target_time=None):
     ''' A pitch determination function implementing the subharmonic summation (SHS) algorithm proposed by Dik Hermes (1988), with a method of finding the relative amplitude of a subharmonic pitch (if there is evidence of a subharmonic) as suggested by Xuejing Sun (2002). The method is good at tracking pitch changes when the voice goes into creak, and is relatively insensitive to the setting of the f0_range parameter.  If you find that there is pitch halving, try increasing the shr_threshold, and if you find pitch doubling try decreasing shr_threshold and/or the top end of the f0_range.
 
@@ -95,7 +97,7 @@ This example shows diagnostic plots from the get_f0_shs() function. The top left
     
     frame_length = round(length*fs)
     half_frame = frame_length//2
-    hop = round(step*fs)
+    hop = step_samples(step, fs)
 
     if target_time != None:  # ---- for the diagnostic print -------
         fn = int(((target_time * fs)-half_frame)/hop) # frame number
@@ -200,6 +202,7 @@ This example shows diagnostic plots from the get_f0_shs() function. The top left
 
     return DataFrame({'sec': ts, 'f0': F0, 'rms':rms, 'shr': SHR})
 
+@positive_step
 def _shr_pitch(x,fs, f0_range=[64,400], length=0.04, step=0.005, shr_threshold = 0.15, top_freq = 1000, target_time=None):
     '''An implementation of Xuejing Sun's (2002) SubHarmonic-to-Harmonic Ratio (SHR) pitch determination method.  
 This method is a variant of Hermes' (1988) subharmonic summation method.  In addition to computing pitch, the 
@@ -278,11 +281,11 @@ This example shows diagnostic plots from the shr_pitch() function. The top left 
     Pitch trace produced by shr_pitch() function.
 
     '''
-    y,fs = prep_audio(x,fs,target_fs=16000,quiet=True)
+    y,fs = prep_audio(x,fs,target_fs=16000)
 
     frame_length = round(length*fs)
     half_frame = frame_length//2
-    hop = round(step*fs)
+    hop = step_samples(step, fs)
 
     if target_time != None:  # ---- for the diagnostic print -------
         fn = int(((target_time * fs)-half_frame)/hop) # frame number

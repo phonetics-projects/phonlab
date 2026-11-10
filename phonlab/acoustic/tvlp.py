@@ -1,10 +1,12 @@
+import warnings
 import numpy as np
 import pandas as pd
 from numba import jit, prange
 from ..utils.prep_audio_ import prep_audio
-from ..acoustic.gci import gci_sedreams
+from ..acoustic.gci import gci
 from ..acoustic.choose_order_ import choose_order
 from ..utils.deprecation import renamed_kwargs
+from ..utils.validate import positive_step, step_samples
 
 # This set of functions was written interactively with the AI model Claude, translating
 # and adapting Gowda's ftrack matlab code.  Keith Johnson, Feb 2026
@@ -364,7 +366,7 @@ def tvlptoformants(all_ak, frame_length_samples, step, fs,
     
     # Calculate sample indices for formant extraction
     # Start from the middle of the first interval
-    interval_samples = int(step * fs)
+    interval_samples = step_samples(step, fs)
     start_offset = interval_samples // 2
     sample_times = np.arange(start_offset, frame_length_samples, interval_samples, dtype=np.int64)
     n_timepoints = len(sample_times)
@@ -451,8 +453,11 @@ def tvlp_batch(x, fs, frame_length, p, q, norm, qcp=True,
     # Convert to float32 and ensure contiguous
     x = np.ascontiguousarray(x, dtype=np.float32)
     if qcp: 
-        gci,mbs,resid = gci_sedreams(x,fs,f0median, target_fs=fs,order=None,cthresh=0.0)
-        w = qcp_wt(x, gci['sec'], fs)
+        # gain=None keeps the results of 0.1.0.  (With the default gain='speech' the glottal closure instants of the synthetic
+        # very low pitched rumble in test_tvlp_low_frequency.py are as good or better, but one of them moves by 17 ms and
+        # the median F4 of the TVLP analysis moves from 680 to 758 Hz, so TVLP's results are sensitive to a few instants.)
+        gci_df,mbs,resid = gci(x,fs,f0median, target_fs=fs,order=None,cthresh=0.0, gain=None)
+        w = qcp_wt(x, gci_df['sec'], fs)
     else:
         w = np.ones(len(x), dtype=np.float32)
         
@@ -621,9 +626,10 @@ def tvlp_warmup_numba(verbose=True):
     _ = _process_frames_l1_parallel(frames[:2], weights[:2], 10, 3, max_iter=1)
     
 
-@renamed_kwargs(frame_duration_sec='length')
+@renamed_kwargs(frame_duration_sec='length', pre='preemph')
+@positive_step
 def TVLP_formants(x, fs, tf = 6000, order=-1, length=0.1, q=3, 
-                  norm='l2', qcp=True, step=0.01, nformants=4, f0median=200, pre=0.95,
+                  norm='l2', qcp=True, step=0.01, nformants=4, f0median=200, preemph=0.95,
                   min_freq=None, max_bandwidth=800, use_parallel=False, verbose=False):
     """
     This formant tracking function implements the time-varying, pitch synchronous, method that was described by Gowda et al. (2020).  The most important innovation of this method is that it smooths the Linear Prediction coefficients over time, providing a continuity constraint at the level of the LP coefficients. The second most important feature of the method is that (like Robust LPC) the method can optionally weight the audio samples pitch synchronously so the LP coefficients are calculated from the glottal closed phase where the assumptions of LPC analysis are better met.  The third innovation, which also seems to be both the most computationally costly and least important for good formant tracking, is that the LP coefficients can be calculated minimizing the L1 (city-block) norm rather than the default L2 norm (Euclidean distance).  The L1 norm is much slower than the L2 norm and results in almost no change in the derived formant frequencies.   
@@ -641,7 +647,8 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, length=0.1, q=3,
     order : int, default = -1
         The number of LPC coefficients to use -- the 'order' of the LPC filter.  If this parameter is -1 then we will use `phon.choose_order(base='BIC')` to determine the best value for this parameter.  `choose_order()` assumes speech, so for other vocalizations set the order directly.
     length : float, default 0.1 = 100ms
-        Duration of each frame in seconds.  Gowda et al.'s tests found that 100ms provides the most accurate formant measurements.  For voices with very low F0 (such as elephant rumbles), a longer frame may be needed so that each frame contains several glottal cycles.
+        Duration of each frame in seconds.  With `qcp=True` the frame must have at least two glottal pulses in it, so if `length` is shorter than
+        two periods of `f0median` (2/f0median seconds) a warning is given and that length is used.  Gowda et al.'s tests found that 100ms provides the most accurate formant measurements.  For voices with very low F0 (such as elephant rumbles), a longer frame may be needed so that each frame contains several glottal cycles.
     q : int, default = 3
         Time-varying polynomial order
     norm : str, default = 'l2'
@@ -650,17 +657,17 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, length=0.1, q=3,
         Choose whether or not to do a pitch synchronous analysis, limiting the estimation function to the glottal closed phase (the Quasi-Closed-Phase).  If True the analysis will be pitch synchronous.
     step : float, default = 0.01
         Time interval between formant measurements in seconds. Formants are taken from the middle of each interval
-    nformants : int, default=3
+    nformants : int, default=4
         Number of formants to extract
     f0median : float, default=200.0
         This is an estimate of the median F0 value to expect in the signal being analyzed.  This parameter is used in the pitch synchronous method (i.e. when `qcp` is **True**) to guide the algorithm's expectation for finding glottal closure intervals.  It is important to get this approximately correct. Unless **min_freq** is given, it is also the lowest frequency that will be reported as a formant.
-    pre : float, default=0.95
+    preemph : float, default=0.95
         Pre-emphasis factor applied to the signal before analysis (see `phon.prep_audio()`). Use a smaller value, or 0 for no pre-emphasis, when the formants of interest are at very low frequencies, because pre-emphasis attenuates the lowest part of the spectrum.
     min_freq : float, default=None
         The lowest frequency (in Hz) that will be reported as a formant.  If None, **f0median** is used.  Set this below the lowest expected formant when F1 may be close to F0, because a resonance below **min_freq** is not reported and the higher formants then move down a column (F2 is reported as F1, and so on).
     max_bandwidth : float, default=800
         Maximum formant bandwidth in Hz, formants with bandwidth greater than this are rejected.
-    use_parallel : bool, default=True
+    use_parallel : bool, default=False
         Try to use parallel processing for formant extraction.
         Note: Usually doesn't work in Jupyter notebooks, set to False for notebooks
     verbose : bool, default=False
@@ -675,8 +682,8 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, length=0.1, q=3,
     ====
     The columns in the output dataframe are:
         * sec - midpoint time of the frame 
-        * F1-4 - the lowest four vowel 'formants' - vocal tract resonances.
-        * BW1-4 - bandwidths of the vowel formants
+        * F1-n - the lowest `nformants` vowel 'formants' - vocal tract resonances.
+        * BW1-n - bandwidths of the vowel formants
 
     References
     ==========
@@ -684,10 +691,16 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, length=0.1, q=3,
     D. Gowda, R. Kadiri, B. Story, P. Alku (2020) `Time-varying quasi-closed-phase analysis for accurate formant tracking in speech signals.` in IEEE/ACM Transactions on Audio, Speech, and Language Processing, vol. 28, pp. 1901-1914, doi: 10.1109/TASLP.2020.3000037.
     """
 
+    if qcp and length < 2.0/f0median:
+        # the pitch-synchronous analysis needs at least two glottal pulses in each frame
+        warnings.warn(f"TVLP_formants(): length ({length} s) is shorter than two periods of f0median ({f0median} Hz), "
+                      f"so a frame may have fewer than two glottal pulses.  Using length = {2.0/f0median:.4g} s.", UserWarning, stacklevel=2)
+        length = 2.0/f0median
+
     target_fs = tf * 2
     x, fs = prep_audio(x, fs, target_fs = target_fs,
                        scale = True,
-                       pre = pre,
+                       preemph = preemph,
                        fix_polarity = True,
                        pad_to=length,
                        verbose = verbose)

@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore")
 
 FORMANTS = [40, 170, 400, 650]
 BANDWIDTHS = [20, 40, 60, 80]
-LOW_FREQ = dict(tf=1000, order=10, pre=0, length=0.3)  # settings for low-frequency input
+LOW_FREQ = dict(tf=1000, order=10, preemph=0, length=0.3)  # settings for low-frequency input
 
 
 def synth_rumble(f0=15, fs=16000, dur=3.0, jitter=0.01, snr_db=60, seed=0):
@@ -70,7 +70,7 @@ def test_choose_order_peak_at_edge(where):
 
 def test_TVLP_formants_low_tf_automatic_order():
     x, fs = synth_rumble(dur=1.0)
-    df = phon.TVLP_formants(x, fs, tf=1000, order=-1, f0median=15, pre=0,
+    df = phon.TVLP_formants(x, fs, tf=1000, order=-1, f0median=15, preemph=0,
                             length=0.3)
     assert len(df) > 0
 

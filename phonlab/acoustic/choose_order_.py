@@ -67,7 +67,7 @@ Returns
         resid = lfilter(A,[1.0],myframe) # get residual signal
         sigma2 = np.mean(abs(resid)**2) #  error variance 
         n= frame_length-o
-        BIC = (n*np.log(sigma2)) + (o * np.log(n))
+        BIC = (n*np.log(max(sigma2, np.finfo(float).tiny))) + (o * np.log(n))   # (a silent frame has no error variance)
         if BIC < BICmin:  
             BICmin = BIC
             BICorder = o

@@ -174,7 +174,8 @@ Example
     t = frames_to_time(range(len(frames)), sr=fs_env, hop_length=step,n_fft = frame_length)
     w = scipy.signal.windows.tukey(frame_length,0.1)
     frames = np.multiply(frames,w)   # apply a Tukey window to each frame
-    norm_frames = frames.T / np.sqrt(np.var(frames,axis=1))  # normalize the amplitudes in the frames
+    with np.errstate(divide='ignore', invalid='ignore'):   # (a silent frame has no variance, and its values are NaN)
+        norm_frames = frames.T / np.sqrt(np.var(frames,axis=1))  # normalize the amplitudes in the frames
     freq, psd = scipy.signal.periodogram(norm_frames.T,fs=fs_env, nfft=512, scaling="spectrum")  # spectrum
     min_freq = 1/(flen_sec*(1/2))
     i = np.where((freq < 7) & (freq > min_freq))  # pick indices for spectrum less than lowpass Hz

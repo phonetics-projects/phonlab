@@ -1,10 +1,9 @@
 import numpy as np
 from scipy.signal import iirpeak,filtfilt,windows, convolve, find_peaks
 from scipy import fft
-from librosa.util import frame
 from ..utils.prep_audio_ import prep_audio
 
-def h2h1(resid,fs,f0df,f0med=None,use_ac=True):
+def h2h1(resid,fs,f0df,f0med=None,use_ac=True,length=None):
     '''Estimate the amplitude ratio of harmonic 2 and harmonic 1, in decibels.  This function 
 uses the method described by Drugman, Kane & Gobl (2012), and was inspired by the matlab
 function `get_creak_h2h1()` published in the Covarep Matlab repository of speech analysis software.  
@@ -36,11 +35,19 @@ Parameters
     use_ac : boolean, default = True
         Following Drugman et al. (2012), the function by default finds H1 and H2 in the spectrum 
         of the autocorrelation function.
+    length : float, default = None
+        The length (in seconds) of the analysis window, which is centered on the time `sec` of each row of `f0df`.
+        By default it is twice the first `sec` in `f0df`, which is the window length of the f0 function when `f0df`
+        starts with its first frame (e.g. 0.05 for `get_f0_acd()`).  If you give `h2h1()` a dataframe that does not start at the first frame (for
+        example one that has been filtered to the voiced frames), pass the window length of the f0 analysis here.
         
 Returns
 =======
     df : Dataframe
-        The input dataframe `f0df` is returned with a new column `h2h1`
+        The input dataframe `f0df` is returned with a new column `h2h1`.  There is one measurement for each row
+        of `f0df`, made in a window centered on its `sec`.  The rows can be in any order and need not be evenly spaced, and
+        the index of `f0df` can be anything, so the dataframe can be filtered before it is passed in.  The h2h1 of a row is NaN if no
+        spectral peak is found.
 
 References
 ==========
@@ -53,7 +60,7 @@ Example
         example_file = importlib.resources.files('phonlab') / 'data/example_audio/sf3_cln.wav'
         x,fs = phon.loadsig(example_file,chansel=[0])
 
-        x,fs = phon.prep_audio(x, fs, target_fs=16000, pre = 0, quiet=True)  # resample, scale
+        x,fs = phon.prep_audio(x, fs, target_fs=16000, preemph = 0)  # resample, scale
         resid,fs = phon.lpcresidual(x,fs)
         f0df = phon.get_f0_acd(x,fs)
 
@@ -78,26 +85,36 @@ Example
     x,fs = prep_audio(resid, fs, target_fs = 16000, 
                       scale = True, verbose=False)
 
-    # get analysis window length and step size from the input f0 dataframe
-    l = np.round(f0df['sec'][0]*2, 3) # to the nearest ms
-    s = np.round(f0df['sec'][1] - f0df['sec'][0], 3)  # to the nearest ms
-    
-    step = int(fs * s)  # number of samples between frames
-    frame_length = int(fs * l)
-    half_frame = round(frame_length/2)
+    # The analysis window is centered on the time of each row of the f0 dataframe, so no assumption is made
+    # about the step between rows, or about the first row being the first frame of the f0 analysis.
+    sec = f0df['sec'].to_numpy(dtype=float)
+    if np.isnan(sec).any():
+        raise ValueError("h2h1(): the `sec` column of f0df has missing values")
+    if length is None:
+        # The first frame of the f0 analysis is centered half a window from the start of the audio.
+        if not 0.005 <= sec[0] <= 0.1:
+            raise ValueError(f"h2h1(): the window length cannot be found from the first time in f0df ({sec[0]} s), "
+                             "which is not the center of the first f0 analysis frame. Give the `length` of the f0 analysis window.")
+        half_frame = int(round(sec[0] * fs))
+    elif length <= 0:
+        raise ValueError(f"h2h1(): length must be positive, not {length}")
+    else:
+        half_frame = round(int(fs * length)/2)
     frame_length = half_frame * 2 + 1    # odd number in frame  
-    window = windows.hann(frame_length)
+    centers = np.round(sec * fs).astype(int)   # sample at the center of each frame
 
     if f0med==None:
         f0med = np.nanmedian(f0df.f0)
 
     bandwidth = 150  # narrow band around the median f0
     b,a = iirpeak(f0med,f0med/bandwidth,fs=fs)
-    res_n = filtfilt(1,a,resid)  # narrowband filtered residual
+    res_n = filtfilt(1,a,x)  # narrowband filtered residual (x is `resid` at 16000 Hz, the rate `a` was designed for)
     res_n = res_n/np.max(res_n)
 
-    frames = frame(res_n,frame_length=frame_length, hop_length=step,axis=0)
-    F0 = np.nan_to_num(f0df.f0,nan=f0med).astype(int)  # f0 values passed into the function
+    # one window of frame_length samples centered on each time in f0df (zeros where the window is outside the audio)
+    padded = np.pad(res_n, half_frame)
+    frames = padded[np.clip(centers[:,None] + np.arange(frame_length)[None,:], 0, len(padded)-1)]
+    F0 = np.nan_to_num(f0df.f0.to_numpy(dtype=float),nan=f0med).astype(int)  # f0 values passed into the function
 
     # ------- autocorrelations of all of the frames in the file -----------
     if use_ac:    
@@ -116,10 +133,12 @@ Example
     spec = np.abs(spec[:,0:int(fs/2)-1])
     spec = np.divide(spec.T,np.sqrt(np.sum(spec**2,axis=-1))).T
     spec = 20 * np.log10(np.maximum(spec, np.finfo(spec.dtype).tiny))
-    h2h1 = np.empty(F0.shape[0])
+    h2h1 = np.full(F0.shape[0], np.nan)
     #h2h1 = np.diagonal(spec[:,F0*2]) - np.diagonal(spec[:,F0])  
     for n in range(F0.shape[0]):
-        peaks,props = find_peaks(spec[n,0:1000],distance = F0[n]/2)
+        peaks,props = find_peaks(spec[n,0:1000],distance = max(F0[n]/2, 1))
+        if len(peaks) == 0:   # e.g. a window with no audio in it
+            continue
         peak1 = int(np.argmin(np.fabs(peaks-F0[n])))
         peak2 = int(np.argmin(np.fabs(peaks-(F0[n]*2))))
         h2h1[n] = spec[n,peaks[peak2]] - spec[n,peaks[peak1]]

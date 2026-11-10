@@ -23,7 +23,7 @@ CASES = {
     "scale_-6dB": dict(scale=-6),
     "scale_False": dict(scale=False),
     "native_fs": dict(target_fs=None),
-    "pre_0.97": dict(target_fs=16000, pre=0.97, scale=-6),
+    "pre_0.97": dict(target_fs=16000, preemph=0.97, scale=-6),
     "padded": dict(target_fs=16000, pad_to=0.1),
     "int": dict(target_fs=16000, scale=-3, outtype="int"),
 }

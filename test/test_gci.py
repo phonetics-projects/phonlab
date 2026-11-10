@@ -51,26 +51,51 @@ def test_get_mbs_unchanged_for_typical_speech_f0(f0median):
 
 @pytest.mark.parametrize("fs", [2000, 4000])
 @pytest.mark.parametrize("f0", [5, 7.5, 10, 12.5, 15, 20, 25])
-def test_gci_sedreams_tracks_very_low_f0(f0, fs):
+def test_gci_tracks_very_low_f0(f0, fs):
     dur = max(2.0, 20 / f0)  # at least 20 glottal cycles
     x = synth_voice(f0, [40, 170, 400, 650], [20, 40, 60, 80], fs, dur=dur)
-    df, mbs, resid = phon.gci_sedreams(x, fs, f0median=f0, target_fs=fs)
+    df, mbs, resid = phon.gci(x, fs, f0median=f0, target_fs=fs)
     expected = dur * f0
     assert abs(len(df) - expected) <= 2
     assert np.median(df.f0) == pytest.approx(f0, rel=0.05)
 
 
-def test_TVLP_formants_pre_default():
-    assert inspect.signature(phon.TVLP_formants).parameters["pre"].default == 0.95
+def test_TVLP_formants_preemph_default():
+    assert inspect.signature(phon.TVLP_formants).parameters["preemph"].default == 0.95
 
 
-def test_TVLP_formants_pre_is_used():
+def test_TVLP_formants_preemph_is_used():
     fs = 12000
     x = synth_voice(120, [500, 1500, 2500, 3500], [80, 100, 150, 200], fs, dur=0.5)
     kw = dict(order=12, f0median=120, verbose=False)
     default = phon.TVLP_formants(x, fs, **kw)
-    explicit = phon.TVLP_formants(x, fs, pre=0.95, **kw)
-    none = phon.TVLP_formants(x, fs, pre=0, **kw)
+    explicit = phon.TVLP_formants(x, fs, preemph=0.95, **kw)
+    none = phon.TVLP_formants(x, fs, preemph=0, **kw)
     cols = [c for c in default.columns if c.startswith("F")]
     np.testing.assert_array_equal(default[cols].values, explicit[cols].values)
     assert not np.allclose(default[cols].values, none[cols].values, equal_nan=True)
+
+
+def test_gci_sedreams_is_a_deprecated_name_of_gci():
+    import warnings
+    x = phon.test_signal("sawtooth", fs=16000, dur=0.6, freq=120)
+    np.random.seed(0)
+    new = phon.gci(x, 16000, f0median=120)
+    np.random.seed(0)
+    with pytest.warns(DeprecationWarning, match="renamed gci"):
+        old = phon.gci_sedreams(x, 16000, f0median=120)
+    np.testing.assert_array_equal(new[0].to_numpy(), old[0].to_numpy())
+
+
+def test_TVLP_formants_lengthens_a_frame_that_has_fewer_than_two_pulses():
+    x = phon.test_signal("sawtooth", fs=8000, dur=1.0, freq=20)
+    kw = dict(tf=3000, order=8, step=0.02, f0median=20, use_parallel=False)
+    with pytest.warns(UserWarning, match="shorter than two periods"):
+        short = phon.TVLP_formants(x, 8000, length=0.05, **kw)
+    np.random.seed(0)
+    ok = phon.TVLP_formants(x, 8000, length=0.1, **kw)       # 2/20 = 0.1 s: long enough, no warning
+    assert len(short) == len(ok)
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        phon.TVLP_formants(x, 8000, length=0.05, qcp=False, **kw)    # no pitch synchronous analysis: no pulses needed

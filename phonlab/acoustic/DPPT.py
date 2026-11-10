@@ -6,6 +6,7 @@ import numpy as np
 from numba import jit
 from ..utils.prep_audio_ import prep_audio
 from ..utils.deprecation import renamed_kwargs
+from ..utils.validate import positive_step, step_samples
 
 def formantPeakPick(spec,n=6):  # maybe replace with scipy.pickpeaks ??
     '''
@@ -22,8 +23,9 @@ def formantPeakPick(spec,n=6):  # maybe replace with scipy.pickpeaks ??
     return peakIndex
 
     
-@renamed_kwargs(s='step', l='length')
-def DPPT_formants(x,fs, pre=0, length=0.03, step=0.01, deltaF=1100, n=6):
+@renamed_kwargs(s='step', l='length', pre='preemph', preemphasis='preemph')
+@positive_step
+def DPPT_formants(x,fs, preemph=0, length=0.03, step=0.01, deltaF=1100, n=6):
     '''Bozkurt et al.'s (2004) Differential-Phase Peak Tracking (DPPT) method of vowel formant 
     tracking is implemented in this function. The implementation here is a translation and 
     interpretation of the matlab routine `formant_CGDZP()` written by Bozkurt and Drugman and 
@@ -54,11 +56,11 @@ def DPPT_formants(x,fs, pre=0, length=0.03, step=0.01, deltaF=1100, n=6):
     deltaF : int, default = 1100
         The expected average interval between formants, used to sort peaks into formant numbers.
 
-    preemphasis : float, default = 0
+    preemph : float, default = 0
         value of the preemphasis factor (0-1).  It almost never helps to change this.
 
     length : float, default = 0.03
-        Length of the pitch analysis window in seconds. The default is 30 milliseconds.  
+        Length of the analysis window in seconds. The default is 30 milliseconds.  
 
     step : float, default = 0.01
         "Hop" interval between successive analysis windows. The default is 10 milliseconds
@@ -130,14 +132,14 @@ def DPPT_formants(x,fs, pre=0, length=0.03, step=0.01, deltaF=1100, n=6):
 
     '''
     x,fs = prep_audio(x, fs, target_fs=16000, 
-                      pre=pre, fix_polarity=True) 
+                      preemph=preemph, fix_polarity=True) 
 
     numFormants = 5
     fsLR = 2048
     viewRange = round(fsLR/3.2)
 
     frame_length = int(length*fs)
-    hop = int(step*fs)
+    hop = step_samples(step, fs)
     half_frame = round(frame_length/2)
     frame_length = half_frame * 2 + 1    # odd number in frame
     NFFT = int(2**(np.ceil(np.log(frame_length)/np.log(2))))

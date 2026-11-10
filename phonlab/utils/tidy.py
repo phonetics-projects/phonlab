@@ -1151,7 +1151,7 @@ df : dataframe or dict of dataframes
     for spkr, gdf in spgroups:
         overlaps = gdf[t2].shift(1) > gdf[t1]
         if overlaps.any():
-            sys.stderr.write(f'WARNING: Found time overlaps that need to be corrected in "{srtfile}" for speaker "{spkr}" at time(s):\n')
+            sys.stderr.write(f'WARNING: Found time overlaps that need to be corrected for speaker "{spkr}" at time(s):\n')
             for row in gdf[overlaps].itertuples():
                 sys.stderr.write(f'{pd.to_timedelta(getattr(row, t1), unit="s")}: {row.text}\n')
             sys.stderr.write('\n')

@@ -1,4 +1,3 @@
-import pandas as df
 import numpy as np
 
 def get_deltaF(df, return_value = "deltaF"):
@@ -49,16 +48,17 @@ Parameters
 df: DataFrame
     The input dataframe must contain columns for F1, F2, F3, and F4.  See phon.LPC_formants() or phon.IFC_formants().  If multiple dataframes from different talkers have been combined into a large multitalker data frame, then there should be a column identifying the speaker for each row, and the name of this column should be passed as the `groupby` input variable.
 
-groupby: string, default=None
-    If `df` contains data from more than one talker, the talker identity should be indicated in a column and the name of that column passed in this input variable.
+column: string, default=None
+    If `df` contains data from more than one talker, the talker identity should be indicated in a column and the name of that column passed in this input variable.  A separate deltaF is then computed for each talker.
 
 deltaF: numeric or None, default=None
-    Supply a value of deltaF to be used for the normalization.  By default the deltaF normalization factor is computed by the function phon.get_deltaF() over the data in the DataFrame you pass in. 
+    Supply a value of deltaF to be used for the normalization (for every talker, if `column` is given).  By default the deltaF normalization factor is computed by the function phon.get_deltaF() over the data in the DataFrame you pass in (or over the rows of each talker). 
 
-Note
-====
+Returns
+=======
 
-Nothing is returned by this function.  The input dataframe is modified in place with the addition of five new columns -- normalized values of the formants 'F1/∆F', 'F2/∆F', 'F3/∆F', 'F4/∆F', and the 'deltaF' factor used for normalization.
+df: DataFrame
+    The dataframe has five new columns -- normalized values of the formants 'F1/∆F', 'F2/∆F', 'F3/∆F', 'F4/∆F', and the 'deltaF' factor used for normalization.  If `column` is None the input dataframe is modified in place (and returned).  If `column` is given a new dataframe is returned and the input is not changed.
 
 References
 ==========
@@ -93,9 +93,7 @@ Example
     if column is None:
         result = _norm_one(df,deltaf=deltaF)
     else:
-        if deltaF is not None:
-            print(f"Grouping by {column}, and ignoring the deltaF value {deltaf}")
-        result = df.groupby(column).apply(_norm_one,include_groups=False)
+        result = df.groupby(column).apply(_norm_one,deltaf=deltaF,include_groups=False)
         result = result.reset_index()
        
     return result
