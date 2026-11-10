@@ -5,6 +5,7 @@ from scipy.signal import windows, lfilter
 
 from ..utils.prep_audio_ import prep_audio
 from numba import njit
+from ..utils.deprecation import renamed_kwargs
 
 @njit(cache=True)
 def overlap_add(frames, hop_length, window_vec):
@@ -49,7 +50,8 @@ def _invalid_lpc(A, order):
     return ~np.isfinite(A).all(axis=-1) | (np.abs(A) > bound).any(axis=-1)
 
 
-def lpcresidual(y, fs, target_fs=16000, order = 18, l=0.04, s=0.005, window='cosine'):    
+@renamed_kwargs(s='step', l='length')
+def lpcresidual(y, fs, target_fs=16000, order = 18, length=0.04, step=0.005, window='cosine'):    
     """Compute the residual signal which results from filtering the input audio array **y** 
 using LPC inverse filtering. This signal is useful in voice quality and periodicity routines.
 
@@ -68,9 +70,9 @@ Parameters
         The default value is that recommended by Drugman, Kane, and Gobl (2013) for voice quality
         analysis (fs/1000 + 2), with the caveat that a smaller number may be more appropriate for 
         voices with higher fundamental frequency.
-    l: float, default = 0.04
+    length: float, default = 0.04
         The duration of the LPC analysis window, 40 milliseconds
-    s: float, default = 0.005
+    step: float, default = 0.005
         The interval between successive frames in the LPC analysis, 5 milliseconds
     window : str, tuple, numeric, callable, list-like (default 'hann')
         Window function applied to each frame. This parameter is passed as the
@@ -92,12 +94,12 @@ Returns
     x, fs = prep_audio(y, fs, target_fs=target_fs, pre=0, fix_polarity=True)
     x = x.astype(np.float32) # Use float32 for speed and memory efficiency
     
-    frame_length = int(fs * l)
-    step = int(fs * s)
+    frame_length = int(fs * length)
+    hop = int(fs * step)
 
     # 2. Frame the signal
     # util.frame creates a 'view', which is O(1) memory and time.
-    frames = util.frame(x, frame_length=frame_length, hop_length=step, axis=0)
+    frames = util.frame(x, frame_length=frame_length, hop_length=hop, axis=0)
     
     # 3. Compute LPC Coefficients
     # librosa.lpc is generally efficient, we process frames in one go.
@@ -143,7 +145,7 @@ Returns
     # 6. Overlap-Add
     window = window = 'boxcar' if window is None else window
     w = windows.get_window(window, Nx=frames.shape[1], fftbins=False)
-    lpc_resid = overlap_add(inv, step, w)
+    lpc_resid = overlap_add(inv, hop, w)
 
     # 7. Final Normalization and Padding
     #lpc_resid = lpc_resid/np.max(np.fabs(lpc_resid))

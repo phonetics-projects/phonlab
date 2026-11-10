@@ -8,6 +8,7 @@ from numba import jit
 # prep_audio, choose_order
 from ..utils.prep_audio_ import prep_audio
 from ..acoustic.choose_order_ import choose_order
+from ..utils.deprecation import renamed_kwargs
 
 @jit(nopython=True, cache=True)
 def weighted_cov(x,weight,npoles):
@@ -28,8 +29,9 @@ def weighted_cor(x,weight,npoles):
             c1[j] += x[n] * x[n-j] * weight[n]
     return c1[1:npoles+1]
     
-def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC", s = 0.01, 
-                 l = 0.03, numiter=1, verbose=False):
+@renamed_kwargs(s='step', l='length')
+def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC", step = 0.01, 
+                 length = 0.03, numiter=1, verbose=False):
     """An implementation of Lee's (1988) method for Robust Linear Prediction Coding. The method computes the residual signal from a conventional LPC analysis and then uses it to down-weight samples that produce large prediction error. It is possible to iterate the residual reweighting process more than once, though not much improvement is gained after the first iteration.  Formant frequencies are found from the LPC coefficients using polynomial root solving.  A couple of functions called by `RLPC_formants()` are accelerated by the use of numba just in time (JIT) compilation into machine code.  Therefore, the first call to `RLPC_formants()` will be slower (by about 10 ms) than subsequent calls.
 
     Note that unlike other formant analysis functions, this one returns both a dataframe with analysis results and also a 2D matrix with time-varying LPC coefficients.
@@ -48,9 +50,9 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
         The LPC 'order' (i.e. the number of coefficients in the LPC filter.  A value of -1 uses the function phon.choose_order() to determine the best value for this parameter. 
     base : string (default = 'BIC')
         If `order` is -1, then use this base ('BIC' or 'coef') in phon.choose_order().
-    s : float (default = 0.01)
+    step : float (default = 0.01)
         the interval (in seconds) between successive formant measurements.
-    l : float (default = 0.03)
+    length : float (default = 0.03)
         duration (in seconds) of analysis frames.  The frames are not windowed: neither Burg's method, which provides the starting LPC coefficients, nor the weighted covariance method that refines them assumes that the signal is zero outside of the frame, so no window is needed to avoid edge effects.  (Tapering the signal would also interact with the robust sample weights, because it makes the residuals near the edges of a frame small.)
     numiter : integer (default = 1)
         Number of robust LPC iterations to perform.  If this value is 0 the results of the conventional LPC analysis are returned with no robust recalculation of the linear prediction.
@@ -83,18 +85,18 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
     x, fs = prep_audio(x, fs, target_fs = target_fs, pre = preemphasis,
                        scale = True, verbose = verbose, fix_polarity = True)
     
-    frame_length = int(fs*l)
-    step = int(fs*s)
+    frame_length = int(fs*length)
+    hop = int(fs*step)
        
     if order<0:  # guess the correct LPC order
-        order,time = choose_order(x,fs,l, base='BIC', verbose=verbose)
+        order,time = choose_order(x,fs,length, base='BIC', verbose=verbose)
         if verbose:
             print(f"in RLPC_formants(), order is {order}, taken at time {time:.3f}")
     
     frames = util.frame(x, frame_length=frame_length, 
-                                hop_length=step, axis=0) 
+                                hop_length=hop, axis=0) 
     t = frames_to_time(range(frames.shape[0]),sr=fs, 
-                               hop_length=step, n_fft=frame_length)
+                               hop_length=hop, n_fft=frame_length)
     resid = np.zeros_like(frames)
 
     A = lpc(frames, order=order)  # get conventional lpc coefficients
@@ -134,9 +136,9 @@ def RLPC_formants(x, fs, tf = 6000, preemphasis = 0.94,order = -1, base = "BIC",
         wide = bw>800
         fr[wide] = np.nan  # reject formants with too wide bandwidth, NaN sorts to the end of the array
         bw[wide] = np.nan  # and don't report the bandwidth of a rejected formant
-        s = np.argsort(fr)  # get the sort order so you can apply it more than one array
-        fr = fr[s]  # sort the formants from lowest to highest
-        bw = bw[s]  # use the same sort order with the bandwidth array
+        srt = np.argsort(fr)  # get the sort order so you can apply it more than one array
+        fr = fr[srt]  # sort the formants from lowest to highest
+        bw = bw[srt]  # use the same sort order with the bandwidth array
 
         n = min(nf, len(fr))  # a frame with several real roots can have fewer than nf resonances
         formants[i,:] = np.nan

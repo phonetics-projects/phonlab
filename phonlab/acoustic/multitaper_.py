@@ -1,9 +1,11 @@
 import numpy as np
 from scipy.signal import windows
 from numpy.lib.stride_tricks import sliding_window_view
+from ..utils.deprecation import renamed_kwargs
 
 
-def compute_mt_sgram(x, fs, w=0.02, s=0.001, NW=4, order=12, low_bias=True, scale='psd'):
+@renamed_kwargs(w='length', s='step')
+def compute_mt_sgram(x, fs, length=0.02, step=0.001, NW=4, order=12, low_bias=True, scale='psd'):
     """Compute a multitaper spectrogram from an input waveform array of samples.
 
     This is a multitaper version of `compute_sgram()`.  In each analysis frame the (mean-removed) audio is multiplied by each of a set of orthogonal Slepian (DPSS) tapers, computed with `scipy.signal.windows.dpss()`, and the power spectra of the tapered frames are averaged, weighted by the eigenvalue (spectral concentration) of each taper.  This gives a low-variance spectral estimate from a short window.
@@ -14,14 +16,14 @@ def compute_mt_sgram(x, fs, w=0.02, s=0.001, NW=4, order=12, low_bias=True, scal
         a one-dimensional array of audio samples
     fs : integer
         The sampling frequency of the audio samples in `x`
-    w : float, default = 0.02
-        Length in seconds of the analysis window.  The effective bandwidth of the analysis depends on both `w` and `NW` (see below), so it is not described as "wideband" or "narrow band" as in `compute_sgram()`.
-    s : float, default = 0.001
+    length : float, default = 0.02
+        Length in seconds of the analysis window.  The effective bandwidth of the analysis depends on both `length` and `NW` (see below), so it is not described as "wideband" or "narrow band" as in `compute_sgram()`.
+    step : float, default = 0.001
         The time (in seconds) between adjacent spectra in the spectrogram.
     NW : float, default = 4
-        The time-bandwidth product of the tapers.  The half-bandwidth of the analysis is NW/w Hz, and up to 2*NW tapers are used. Larger values produce smoother spectra with poorer frequency resolution.
+        The time-bandwidth product of the tapers.  The half-bandwidth of the analysis is NW/length Hz, and up to 2*NW tapers are used. Larger values produce smoother spectra with poorer frequency resolution.
     order : integer or None, default = 12
-        This parameter determines the number of points in the FFT analysis that produces the spectrogram.  The number of points is 2**order and should be larger than the number of points in the analysis window (which is w*fs); the window is zero padded to this length.  If `order` is `None` there is no zero padding, and the FFT is as long as the analysis window.
+        This parameter determines the number of points in the FFT analysis that produces the spectrogram.  The number of points is 2**order and should be larger than the number of points in the analysis window (which is length*fs); the window is zero padded to this length.  If `order` is `None` there is no zero padding, and the FFT is as long as the analysis window.
     low_bias : boolean, default = True
         If True, only use the tapers that have better than 90% spectral concentration within the bandwidth.
     scale : string, default = 'psd'
@@ -42,7 +44,7 @@ def compute_mt_sgram(x, fs, w=0.02, s=0.001, NW=4, order=12, low_bias=True, scal
     .. code-block:: Python
 
          x, fs = phon.loadsig("sf3_cln.wav", chansel=[0])
-         t, f, Sxx = phon.compute_mt_sgram(x, fs, w=0.008, s=0.001)
+         t, f, Sxx = phon.compute_mt_sgram(x, fs, length=0.008, step=0.001)
          plt.pcolormesh(t, f, Sxx, cmap='Greys')
     """
     x = np.asarray(x, dtype=float)
@@ -51,8 +53,8 @@ def compute_mt_sgram(x, fs, w=0.02, s=0.001, NW=4, order=12, low_bias=True, scal
     if scale not in ('psd', 'nitime'):
         raise ValueError("scale must be 'psd' or 'nitime'")
 
-    nperseg = int(round(w * fs))
-    step = max(1, int(round(s * fs)))
+    nperseg = int(round(length * fs))
+    hop = max(1, int(round(step * fs)))
     if nperseg < 2 or len(x) < nperseg:
         raise ValueError("x must contain at least one analysis window of w seconds")
     nfft = nperseg if order is None else max(2**order, nperseg)  # the window is never truncated
@@ -72,7 +74,7 @@ def compute_mt_sgram(x, fs, w=0.02, s=0.001, NW=4, order=12, low_bias=True, scal
     if nfft % 2 == 0:
         onesided[-1] = 1.0
 
-    frames = sliding_window_view(x, nperseg)[::step]
+    frames = sliding_window_view(x, nperseg)[::hop]
     nframes = frames.shape[0]
     Sxx = np.empty((nfreq, nframes))
 
@@ -86,7 +88,7 @@ def compute_mt_sgram(x, fs, w=0.02, s=0.001, NW=4, order=12, low_bias=True, scal
 
     Sxx = 10 * np.log10(np.maximum(Sxx, np.finfo(Sxx.dtype).tiny))
     f = np.fft.rfftfreq(nfft, 1 / fs)
-    ts = (np.arange(nframes) * step + nperseg / 2) / fs
+    ts = (np.arange(nframes) * hop + nperseg / 2) / fs
     return (ts, f, Sxx)
 
 

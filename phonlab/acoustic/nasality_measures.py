@@ -275,7 +275,7 @@ def nasality(x,fs, order=-1, analysis_band=(100,1200),
         print(f"calling phon.RLPC_formants() with order = {order} and top_freq = {top_freq}")
     # this call is why RLPC is different from other xxx_formants() functions.  In this function
     # we need both the fmtdf and the A matrix
-    fmtdf, A =  RLPC_formants(x, fs, s=step, l=length, tf = top_freq, 
+    fmtdf, A =  RLPC_formants(x, fs, step=step, length=length, tf = top_freq, 
                                       preemphasis=0.0, order=order, verbose=verbose)
     if Sxx.shape[1] != A.shape[0]:
         raise RuntimeError(f"nasality(): {Sxx.shape[1]} spectra but {A.shape[0]} LPC frames; analysis frames do not line up")

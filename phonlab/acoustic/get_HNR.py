@@ -4,13 +4,15 @@ import numpy as np
 from librosa import util
 from numpy.fft import rfft, irfft
 from pandas import DataFrame
+from ..utils.deprecation import renamed_kwargs
 
-def HNR(x,fs, f0_range = [64,400], l= 0.06, s=0.005, target_time = None):
+@renamed_kwargs(s='step', l='length')
+def HNR(x,fs, f0_range = [64,400], length= 0.06, step=0.005, target_time = None):
     '''Compute the Harmonics-to-Noise Ratio using the Cepstrum-Based method given by de Krom (1993).
 The matlab implementation by Yen-Liang Shue (2009) which is a part of the VoiceSauce collection of 
 software provided some valuable pointers in how to implement de Krom's method.  One difference between
 the Shue implementation and this one is that here we use a fixed window size (specified with the input 
-parameter **l** and by default 60 ms) where Shue's algorithm required that F0 estimates be provided as 
+parameter **length** and by default 60 ms) where Shue's algorithm required that F0 estimates be provided as 
 input and then HNR is calculated over windows of variable length, always long enough for 5 pitch periods
 according to the estimated F0 for that location in the audio.
 
@@ -25,9 +27,9 @@ Parameters
         Sampling rate of **x**
     f0_range : an array of two numbers, default=[64,400]
         The expected range for f0.
-    l : float, default = 0.06
+    length : float, default = 0.06
         Length of analysis windows.  The default is 60 milliseconds.
-    s : float, default = 0.005
+    step : float, default = 0.005
         Step size, of hops between analysis windows. The default is 5 milliseconds.
     target_time : float, default = None
         If a time value (in seconds) is given, diagnostic matplotlib plots of the spectrum and cepstrum 
@@ -77,17 +79,17 @@ at time 2.1 seconds in the file 'sf3_cln.wav'. In the top panel we see the log m
     x,fs = prep_audio(x,fs,target_fs=16000,
                       scale=True, fix_polarity=True)
     
-    frame_length = int(l*fs)
-    step = int(s*fs)
+    frame_length = int(length*fs)
+    hop = int(step*fs)
     half_frame = frame_length//2
     frame_length = half_frame * 2 + 1    # odd number in frame
     #NFFT = int(2**(np.ceil(np.log(frame_length)/np.log(2)))*2)
     NFFT = frame_length
     
-    frames = util.frame(x,frame_length=frame_length, hop_length=step,axis=0)
+    frames = util.frame(x,frame_length=frame_length, hop_length=hop,axis=0)
 
     nb = frames.shape[0]  # number of frames
-    ts = (np.array(range(nb)) * step + half_frame)/fs  # time axis for output
+    ts = (np.array(range(nb)) * hop + half_frame)/fs  # time axis for output
     w = np.blackman(frame_length)
     mag = np.abs(rfft(w*frames,NFFT))
     S = 20 * np.log10(np.maximum(mag, np.finfo(mag.dtype).tiny))
@@ -140,7 +142,7 @@ at time 2.1 seconds in the file 'sf3_cln.wav'. In the top panel we see the log m
         quef = (np.array(range(1,NFFT//2+1))/fs *1000)  # the quefrecy axis of the cepstra (in ms)
         freqs = np.array(range(1,NFFT//2+1)) * (fs/NFFT)
 
-        fn = int(((target_time * fs)-half_frame)/step)
+        fn = int(((target_time * fs)-half_frame)/hop)
         print(f"{ts[fn]}, {T0[fn]/fs*5}, {F0[fn]}, {HNR500[fn]}, {HNR1500[fn]}")
         print(f"T0[fn] = {T0[fn]}, {quef[T0[fn]]}")
         ax1.plot(freqs[:NFFT//4],N[fn,:NFFT//4],color="orange")

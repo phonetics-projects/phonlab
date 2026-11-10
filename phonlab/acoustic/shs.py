@@ -5,6 +5,7 @@ from librosa import util
 from scipy.interpolate import interp1d
 from numpy.fft import rfft, rfftfreq
 from pandas import DataFrame
+from ..utils.deprecation import renamed_kwargs
 
 def _maxarg(x,axis = -1):
     try:
@@ -16,7 +17,8 @@ def _maxarg(x,axis = -1):
         
     return idx,val
 
-def get_f0_shs(x,fs, f0_range=[50,400], l=0.06, s=0.005, shr_threshold = 0.3, target_time=None):
+@renamed_kwargs(s='step', l='length')
+def get_f0_shs(x,fs, f0_range=[50,400], length=0.06, step=0.005, shr_threshold = 0.3, target_time=None):
     ''' A pitch determination function implementing the subharmonic summation (SHS) algorithm proposed by Dik Hermes (1988), with a method of finding the relative amplitude of a subharmonic pitch (if there is evidence of a subharmonic) as suggested by Xuejing Sun (2002). The method is good at tracking pitch changes when the voice goes into creak, and is relatively insensitive to the setting of the f0_range parameter.  If you find that there is pitch halving, try increasing the shr_threshold, and if you find pitch doubling try decreasing shr_threshold and/or the top end of the f0_range.
 
     
@@ -28,9 +30,9 @@ Parameters
         Sampling rate of **x**
     f0_range : an array of two numbers, default=[50,400]
         The expected range for f0.  There is rarely any need to adjust the lower value.
-    l : float, default = 0.06
+    length : float, default = 0.06
         Length of analysis windows.  The default is 60 milliseconds.
-    s : float, default = 0.005
+    step : float, default = 0.005
         Step size, of hops between analysis windows. The default is 5 milliseconds.
     shr_threshold : float, default = 0.3
         A value which determines how sensitive the algorithm is in deciding that a subharmonic 
@@ -91,12 +93,12 @@ This example shows diagnostic plots from the get_f0_shs() function. The top left
 
     top_freq = f0_range[1]*2.5
     
-    frame_length = round(l*fs)
+    frame_length = round(length*fs)
     half_frame = frame_length//2
-    step = round(s*fs)
+    hop = round(step*fs)
 
     if target_time != None:  # ---- for the diagnostic print -------
-        fn = int(((target_time * fs)-half_frame)/step) # frame number
+        fn = int(((target_time * fs)-half_frame)/hop) # frame number
     else:
         fn = None
     
@@ -120,7 +122,7 @@ This example shows diagnostic plots from the get_f0_shs() function. The top left
     N = int(top_freq/f0_range[0])  # number of harmonics to consider
     N = N - N%2                    # make sure it is an even number
 
-    frames = util.frame(y,frame_length=frame_length, hop_length=step,axis=0)
+    frames = util.frame(y,frame_length=frame_length, hop_length=hop,axis=0)
     nb = frames.shape[0]
     f = frames.shape[1]  # number of frequency steps
     
@@ -157,16 +159,16 @@ This example shows diagnostic plots from the get_f0_shs() function. The top left
     # consider the possibility that idx1 is a subharmonic - look for harmonic peak at log2(f)+log2(1)
     step1 = round(np.log2(2 - 0.0625)/minbin) # search bounds for later, with subharmonics
     step2 = round(np.log2(2 + 0.0625)/minbin)
-    s = idx1 + step1 # where to find the possible harmonic peak
+    lo = idx1 + step1 # where to find the possible harmonic peak
     e = idx1 + step2
     top = min(s_points,upperbound)
     e = np.where(e>top,top,e)
 
-    idx2,mag2 = np.array([_maxarg(Hxx[i,s[i]:e[i]]) for i in range(nb)]).T
-    idx2 = (idx2 + s).astype(np.int16)
+    idx2,mag2 = np.array([_maxarg(Hxx[i,lo[i]:e[i]]) for i in range(nb)]).T
+    idx2 = (idx2 + lo).astype(np.int16)
 
-    idx2 = np.where(s>upperbound,idx1,idx2)
-    mag2 = np.where(s>upperbound,mag1,mag2)
+    idx2 = np.where(lo>upperbound,idx1,idx2)
+    mag2 = np.where(lo>upperbound,mag1,mag2)
     mag2 = np.where(mag2<=0,mag1,mag2)
 
     SHR = (mag1-mag2)/(mag1+mag2)
@@ -174,7 +176,7 @@ This example shows diagnostic plots from the get_f0_shs() function. The top left
     f0idx = np.where(SHR<shr_threshold,idx2,idx1)
     F0 = ifreq[f0idx]
     
-    ts = (np.array(range(nb)) * step + half_frame)/fs  # time axis for output
+    ts = (np.array(range(nb)) * hop + half_frame)/fs  # time axis for output
 
     if fn!=None:
         import matplotlib.pyplot as plt
@@ -198,7 +200,7 @@ This example shows diagnostic plots from the get_f0_shs() function. The top left
 
     return DataFrame({'sec': ts, 'f0': F0, 'rms':rms, 'shr': SHR})
 
-def _shr_pitch(x,fs, f0_range=[64,400], l=0.04, s=0.005, shr_threshold = 0.15, top_freq = 1000, target_time=None):
+def _shr_pitch(x,fs, f0_range=[64,400], length=0.04, step=0.005, shr_threshold = 0.15, top_freq = 1000, target_time=None):
     '''An implementation of Xuejing Sun's (2002) SubHarmonic-to-Harmonic Ratio (SHR) pitch determination method.  
 This method is a variant of Hermes' (1988) subharmonic summation method.  In addition to computing pitch, the 
 function returns the SHR when there is a measureable subhamonic component, otherwise the value is NaN.  
@@ -216,9 +218,9 @@ Parameters
         Sampling rate of **x**
     f0_range : an array of two numbers, default=[64,400]
         The expected range for f0.  Choose the top value deliberately for the speaker being analyzed.
-    l : float, default = 0.04
+    length : float, default = 0.04
         Length of analysis windows.  The default is 40 milliseconds.
-    s : float, default = 0.005
+    step : float, default = 0.005
         Step size, of hops between analysis windows. The default is 5 milliseconds.
     shr_threshold : float, default = 0.15
         A value which determines how sensitive the algorithm is in deciding that a subharmonic 
@@ -278,12 +280,12 @@ This example shows diagnostic plots from the shr_pitch() function. The top left 
     '''
     y,fs = prep_audio(x,fs,target_fs=16000,quiet=True)
 
-    frame_length = round(l*fs)
+    frame_length = round(length*fs)
     half_frame = frame_length//2
-    step = round(s*fs)
+    hop = round(step*fs)
 
     if target_time != None:  # ---- for the diagnostic print -------
-        fn = int(((target_time * fs)-half_frame)/step) # frame number
+        fn = int(((target_time * fs)-half_frame)/hop) # frame number
     else:
         fn = None
     
@@ -307,7 +309,7 @@ This example shows diagnostic plots from the shr_pitch() function. The top left 
     N = int(top_freq/f0_range[0])  # number of harmonics to consider
     N = N - N%2                    # make sure it is an even number
 
-    frames = util.frame(y,frame_length=frame_length, hop_length=step,axis=0)
+    frames = util.frame(y,frame_length=frame_length, hop_length=hop,axis=0)
     nb = frames.shape[0]
     SHR = np.ones(nb) * np.nan
     F0 = np.ones(nb) * np.nan
@@ -340,19 +342,19 @@ This example shows diagnostic plots from the shr_pitch() function. The top left 
     # consider the possibility that idx1 is a subharmonic - look for harmonic peak at log2(f)+log2(1)
     step1 = round(np.log2(2 - 0.0625)/minbin) # search bounds for later, with subharmonics
     step2 = round(np.log2(2 + 0.0625)/minbin)
-    s = idx1 + step1 # where to find the possible harmonic peak
+    lo = idx1 + step1 # where to find the possible harmonic peak
     e = idx1 + step2
     #top = min(s_points,upperbound)
     e = np.where(e>s_points,s_points,e)
     
-    idx2,mag2 = np.array([_maxarg(DA[i,s[i]:e[i]]) for i in range(nb)]).T
-    idx2 = (idx2 + s).astype(np.int16)
+    idx2,mag2 = np.array([_maxarg(DA[i,lo[i]:e[i]]) for i in range(nb)]).T
+    idx2 = (idx2 + lo).astype(np.int16)
     
     # if start > upperbound - then idx2,mag2 are invalid - f0 = ifreq[idx1]*2, SHR = 0
     # if mag1 < 0 - then f0 = np.nan, SHR = np.nan
     # if mag2 < 0 - then f0 = ifreq[idx1]*2, SHR = 0
    
-    mask = (s<upperbound) & (mag1>0) & (mag2>0)   # constraints on calculating SHR
+    mask = (lo<upperbound) & (mag1>0) & (mag2>0)   # constraints on calculating SHR
     SHR[mask] = (mag1[mask]-mag2[mask])/(mag1[mask]+mag2[mask])
     SHR = np.where(mag1<=0,np.nan,SHR)
     SHR = np.where(mag2<=0,0,SHR)
@@ -360,7 +362,7 @@ This example shows diagnostic plots from the shr_pitch() function. The top left 
     F0 = np.where(SHR<shr_threshold,ifreq[idx2]*2,F0)
     F0 = np.where(F0>f0_range[1],F0/2, F0)
 
-    ts = (np.array(range(nb)) * step + half_frame)/fs  # time axis for output
+    ts = (np.array(range(nb)) * hop + half_frame)/fs  # time axis for output
 
     if fn!=None:
         import matplotlib.pyplot as plt
@@ -374,7 +376,7 @@ This example shows diagnostic plots from the shr_pitch() function. The top left 
         ax4.axvline(ilogf[upperbound],linestyle="dashed")
         ax4.axvline(ilogf[idx2[fn]],color="red",linestyle="dotted")
         ax4.axvline(ilogf[idx1[fn]],color="green",linestyle="dotted")
-        print(f"SHR={SHR[fn]}, F0={F0[fn]}, N={N}, s={s[fn]}, e={e[fn]}, upperbound = {upperbound}")
+        print(f"SHR={SHR[fn]}, F0={F0[fn]}, N={N}, lo={lo[fn]}, e={e[fn]}, upperbound = {upperbound}")
         print(f"   (idx1={ifreq[idx1[fn]]}, mag1={mag1[fn]}), (idx2={ifreq[idx2[fn]]}, mag2={mag2[fn]})")
 
     return DataFrame({'sec': ts, 'f0': F0, 'shr': SHR})

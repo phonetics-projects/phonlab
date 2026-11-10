@@ -2,8 +2,10 @@ import scipy.signal
 import numpy as np
 import librosa
 import pandas as pd
+from ..utils.deprecation import renamed_kwargs
 
-def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
+@renamed_kwargs(hop_dur='step')
+def egg_to_oq(x, fs, step = 0.005, f0_range = [60,400],
            hp_cut = 70, hp_order = 8, threshold=0.43, norm_window=0.7, center=True,
            egg_norm_window=None, floor=True, floor_window=0.3, peak_height=0.5, diagnostics=False):
     """Get glottal open quotient from electroglottography data
@@ -21,7 +23,7 @@ def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
             A one-dimensional array of samples in an electroglottograph waveform
         fs : int
             the sampling rate of **x**
-        hop_dur : float, default = 0.005
+        step : float, default = 0.005
             interval in seconds between frames (0.005 seconds = 5 milliseconds)
         f0_range : list of two integers, default = [63,400]
             The lowest and highest allowed values of f0.
@@ -116,7 +118,7 @@ def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
     """
     window_length = (1.0/f0_range[0]) * 1.5 
     win = int(window_length*fs)  # window for the longest period 
-    hop = int(hop_dur*fs)  # 5ms hop
+    hop = int(step*fs)  # 5ms hop
  
     # highpass filter the egg signal
     coefs = scipy.signal.butter(hp_order, hp_cut, fs=fs, btype='highpass', output='sos')
@@ -166,7 +168,7 @@ def egg_to_oq(x, fs, hop_dur = 0.005, f0_range = [60,400],
             glottal[i] = -1
 
     frames = librosa.util.frame(glottal, frame_length=win, hop_length=hop, axis=0)
-    frame_rate = 1/hop_dur
+    frame_rate = 1/step
     
     sec = np.array([(i/frame_rate)+(window_length/2) for i in range(frames.shape[0])])  # get times of frames
     f0 = np.full(frames.shape[0],np.nan)

@@ -137,9 +137,9 @@ def test_track_formants_rejects_unknown_method():
 
 def test_get_rms_columns_and_length():
     x, fs = _vowelish()
-    df = phon.get_rms(x, fs, s=0.005)
+    df = phon.get_rms(x, fs, step=0.005)
     assert "rms" in df.columns and 150 < len(df) <= 200
-    louder = phon.get_rms(x * 2, fs, s=0.005)["rms"]
+    louder = phon.get_rms(x * 2, fs, step=0.005)["rms"]
     assert (louder - df["rms"]).mean() == pytest.approx(6.02, abs=0.1)  # dB
 
 
@@ -285,7 +285,7 @@ def test_lpc_formants_defaults_and_frame_timing():
     assert len(df) == (12000 - 360)//120 + 1
     assert df["sec"].iloc[0] == pytest.approx(0.015)
     assert np.diff(df["sec"]).tolist() == pytest.approx([0.01]*(len(df)-1))
-    df2 = phon.LPC_formants(x, fs, order=12, s=0.02, l=0.02, verbose=False)
+    df2 = phon.LPC_formants(x, fs, order=12, step=0.02, length=0.02, verbose=False)
     assert len(df2) == (12000 - 240)//240 + 1
     assert df2["sec"].iloc[0] == pytest.approx(0.01)
 
@@ -305,9 +305,9 @@ def test_lpc_formants_window_is_gaussian_and_scales_with_l():
 def test_lpc_formants_rejects_bad_times():
     x, fs = _vowelish()
     with pytest.raises(ValueError, match="must be positive"):
-        phon.LPC_formants(x, fs, order=12, s=0, verbose=False)
+        phon.LPC_formants(x, fs, order=12, step=0, verbose=False)
     with pytest.raises(ValueError, match="must be positive"):
-        phon.LPC_formants(x, fs, order=12, l=-0.02, verbose=False)
+        phon.LPC_formants(x, fs, order=12, length=-0.02, verbose=False)
 
 
 def test_ifc_formants_default_preemphasis_is_0_94():
@@ -395,7 +395,7 @@ def test_cepstral_smooth_matches_frame_by_frame_fft_reference():
     # the batched/direct implementation must give what a plain frame-by-frame FFT liftering gives
     x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0], duration=0.5)
     for lift in (0.0015, 0.003):
-        ts, freqE, Exx, freqS, Sxx, quef, Cxx = phon.cepstral_smooth(x, fs, tf=5000, l=0.04, lift=lift)
+        ts, freqE, Exx, freqS, Sxx, quef, Cxx = phon.cepstral_smooth(x, fs, tf=5000, length=0.04, lift=lift)
         xp, fsp = phon.prep_audio(x, fs, target_fs=10000, pre=0.0, verbose=False)
         _, _, S = phon.compute_sgram(xp, fsp, 0.04, 0.005)
         nl = int(lift * fsp)
@@ -420,8 +420,8 @@ def test_nasality_band_limited_sd_matches_full_spectrum_computation():
     # SD is computed only at frequencies in the analysis band; compare with the full-spectrum calculation
     x, fs, xp, fsp = _prepared_example()
     df = phon.nasality(x, fs)
-    t, freq, Exx, freqS, Sxx, _, _ = phon.cepstral_smooth(xp, fsp, s=0.005, l=0.03, tf=6000, preemphasis=0.0, lift=0.002)
-    fmt, A = phon.RLPC_formants(xp, fsp, s=0.005, l=0.03, tf=6000, preemphasis=0.0, order=-1)
+    t, freq, Exx, freqS, Sxx, _, _ = phon.cepstral_smooth(xp, fsp, step=0.005, length=0.03, tf=6000, preemphasis=0.0, lift=0.002)
+    fmt, A = phon.RLPC_formants(xp, fsp, step=0.005, length=0.03, tf=6000, preemphasis=0.0, order=-1)
     Lxx = -20 * np.log10(np.abs(np.fft.rfft(A, n=Exx.shape[0] * 2 - 1)).T)   # constant gain terms drop out of SD
     lo, hi = np.argmin(abs(freq - 100)), np.argmin(abs(freq - 1200))
     L, E = Lxx[lo:hi], Exx[lo:hi]

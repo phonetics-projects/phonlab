@@ -2,6 +2,7 @@
 from librosa.util import frame
 import scipy.signal as signal
 import numpy as np
+from ..utils.deprecation import renamed_kwargs
 
 def mel_to_Hz(m):
     """Converts frequencies in `m` from the mel scale to linear scale using the following formula::
@@ -117,7 +118,8 @@ Raises
 
     return(mel_weights_matrix.T)
 
-def compute_mel_sgram(x,fs, step_sec = 0.01):
+@renamed_kwargs(step_sec='step')
+def compute_mel_sgram(x,fs, step = 0.01):
     """Compute a Mel frequency spectrogram of the signal in **x**.  This function is adapted from the code example given in the documentation for the `tensorflow` function `mfccs_from_log_mel_spectrograms()`.
 
 Parameters
@@ -128,7 +130,7 @@ Parameters
     fs: int
         The sampling rate of the audio samples in **x**.  The `tensorflow` example
         assumed that fs=16000
-    step_sec: float, default = 0.01
+    step: float, default = 0.01
         The step size between successive spectral slices.  The `tensorflow` example
         used t=0.016, 16 milliseconds.
 
@@ -140,7 +142,7 @@ Returns
         a one dimensional array of mel frequency values - the frequency axis of the spectrogram
     mel_sgram: ndarray
         A two-dimensional (time,frequency) array of amplitude values.  The interval between 
-        time slices is set by the **step_sec** input parameter, by default 10 ms, and the 
+        time slices is set by the **step** input parameter, by default 10 ms, and the 
         frequencies are evenly spaced on the mel scale from 80 to 7600 Hz in 80 steps.
 
 Example
@@ -151,7 +153,7 @@ that to the tensor flow function to compute mel-frequency cepstral coefficients 
 .. code-block:: Python
 
     # Compute log_mel_spectrogram.
-    sec, mel_f, mel_sgram = phon.compute_mel_sgram(x,fs,step_sec=0.005)
+    sec, mel_f, mel_sgram = phon.compute_mel_sgram(x,fs,step=0.005)
 
     vmin = np.min(mel_sgram) + (np.max(mel_sgram)-np.min(mel_sgram))*0.2
 
@@ -180,12 +182,12 @@ that to the tensor flow function to compute mel-frequency cepstral coefficients 
     fft_pow = 10
 
     frame_length = int(frame_length_sec*fs)
-    step = int(step_sec*fs)
+    hop = int(step*fs)
     fft_length = int(2**fft_pow)
     while fft_length < frame_length:
         fft_pow = fft_pow+1
         fft_length = 2**fft_pow
-    noverlap = frame_length-step
+    noverlap = frame_length-hop
 
     f, t, Zxx = signal.stft(x, fs, window="hann", nperseg=fft_length,
                             noverlap=noverlap,padded=False)

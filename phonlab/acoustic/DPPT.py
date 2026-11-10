@@ -5,6 +5,7 @@ from pandas import DataFrame
 import numpy as np
 from numba import jit
 from ..utils.prep_audio_ import prep_audio
+from ..utils.deprecation import renamed_kwargs
 
 def formantPeakPick(spec,n=6):  # maybe replace with scipy.pickpeaks ??
     '''
@@ -21,7 +22,8 @@ def formantPeakPick(spec,n=6):  # maybe replace with scipy.pickpeaks ??
     return peakIndex
 
     
-def DPPT_formants(x,fs, pre=0, l=0.03, s=0.01, deltaF=1100, n=6):
+@renamed_kwargs(s='step', l='length')
+def DPPT_formants(x,fs, pre=0, length=0.03, step=0.01, deltaF=1100, n=6):
     '''Bozkurt et al.'s (2004) Differential-Phase Peak Tracking (DPPT) method of vowel formant 
     tracking is implemented in this function. The implementation here is a translation and 
     interpretation of the matlab routine `formant_CGDZP()` written by Bozkurt and Drugman and 
@@ -55,10 +57,10 @@ def DPPT_formants(x,fs, pre=0, l=0.03, s=0.01, deltaF=1100, n=6):
     preemphasis : float, default = 0
         value of the preemphasis factor (0-1).  It almost never helps to change this.
 
-    l : float, default = 0.03
+    length : float, default = 0.03
         Length of the pitch analysis window in seconds. The default is 30 milliseconds.  
 
-    s : float, default = 0.01
+    step : float, default = 0.01
         "Hop" interval between successive analysis windows. The default is 10 milliseconds
 
     n : int, default = 6
@@ -134,15 +136,15 @@ def DPPT_formants(x,fs, pre=0, l=0.03, s=0.01, deltaF=1100, n=6):
     fsLR = 2048
     viewRange = round(fsLR/3.2)
 
-    frame_length = int(l*fs)
-    step = int(s*fs)
+    frame_length = int(length*fs)
+    hop = int(step*fs)
     half_frame = round(frame_length/2)
     frame_length = half_frame * 2 + 1    # odd number in frame
     NFFT = int(2**(np.ceil(np.log(frame_length)/np.log(2))))
     n_list = range(NFFT)  # 0,1,2,3,...NFFT-1
     #ScalingFreqAxis = np.arange(0.5,1.5,1/(viewRange-1))
 
-    frames = util.frame(x,frame_length=frame_length, hop_length=step,axis=0)
+    frames = util.frame(x,frame_length=frame_length, hop_length=hop,axis=0)
 
     nb = frames.shape[0]
     f = frames.shape[1]
@@ -154,7 +156,7 @@ def DPPT_formants(x,fs, pre=0, l=0.03, s=0.01, deltaF=1100, n=6):
     Rfix = meanR = 1.12
     Rlist = np.array([])  # history of found R values
 
-    ts = (np.array(range(nb)) * step + half_frame)/fs
+    ts = (np.array(range(nb)) * hop + half_frame)/fs
     formants = np.ones((nb,numFormants))*np.nan   # fill with NaN
 
     for kk in range(nb):

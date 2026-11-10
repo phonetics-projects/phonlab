@@ -6,8 +6,10 @@ from scipy import fft
 from pandas import DataFrame
 from scipy.signal import windows,filtfilt
 from scipy.ndimage import gaussian_filter1d
+from ..utils.deprecation import renamed_kwargs
 
-def compute_cepstrogram(x,fs, dBscale=True, l= 0.04, s=0.005):
+@renamed_kwargs(s='step', l='length')
+def compute_cepstrogram(x,fs, dBscale=True, length= 0.04, step=0.005):
     '''Compute a `cepstrogram` of an audio signal.  Cepstral analysis was introduced by Bogert et al. (1963).  
 Sounds (such as voiced vowels) that have a harmonic structure, with peaks of amplitude at integral multiples of
 the fundamental frequency will have a strong peak in the cepstrum at the period of the fundamental.  The cepstrum
@@ -21,9 +23,9 @@ Parameters
         Sampling rate of **x**
     dBscale : boolean, default = True
         Scale the cepstrum in dB
-    l : float, default = 0.04
+    length : float, default = 0.04
         Length of analysis windows.  The default is 40 milliseconds.
-    s : float, default = 0.005
+    step : float, default = 0.005
         Step size, of hops between analysis windows. The default is 5 milliseconds.  
 
 Returns
@@ -42,13 +44,13 @@ References
 
     '''
     x = np.asarray(x, dtype=np.float32)  # see dtype note below
-    frame_length = int(l*fs)
-    step = int(s*fs)
+    frame_length = int(length*fs)
+    hop = int(step*fs)
     half_frame = round(frame_length/2)
     frame_length = half_frame * 2 + 1    # odd number in frame
     NFFT = int(2**(np.ceil(np.log(frame_length)/np.log(2))))
     quef = (np.array(range(NFFT//2))/fs *1000)  # the quefrecy axis of the cepstra (in ms)
-    frames = util.frame(x,frame_length=frame_length, hop_length=step,axis=0)
+    frames = util.frame(x,frame_length=frame_length, hop_length=hop,axis=0)
 
     nb = frames.shape[0]
     f = frames.shape[1]
@@ -67,11 +69,12 @@ References
     else:
         np.log(Ceps, out=Ceps)
         
-    ts = (np.array(range(nb)) * step + half_frame)/fs
+    ts = (np.array(range(nb)) * hop + half_frame)/fs
 
     return(quef, ts, Ceps)
 
-def CPP(x,fs, target_fs = 16000, smooth=2, norm=True, dBscale=True, f0_range = [60,400], l= 0.04, s=0.005):
+@renamed_kwargs(s='step', l='length')
+def CPP(x,fs, target_fs = 16000, smooth=2, norm=True, dBscale=True, f0_range = [60,400], length= 0.04, step=0.005):
     '''Measure Cepstral Peak Prominence - an acoustic measure that has been shown to be highly correlated with 
 perceived breathy vocal quality (Hillenbrand & Houde, 1996).  This implementation drew inspiration and ideas from 
 John Kane's cpp() matlab function in the `covarep` repository.
@@ -93,9 +96,9 @@ Parameters
         Scale the cepstrum in dB
     f0_range : an array of two numbers, default=[50,500]
         The expected range for f0.
-    l : float, default = 0.04
+    length : float, default = 0.04
         Length of analysis windows.  The default is 40 milliseconds.
-    s : float, default = 0.005
+    step : float, default = 0.005
         Step size, of hops between analysis windows. The default is 5 milliseconds.  If `smooth` is non-zero, the step size
         is reduced to 0.002 (2 millisecond).
     return_Sxx : boolean, default = False
@@ -162,9 +165,9 @@ This example plots the cepstral peak prominence in a recording of "the Soviet Un
     y,fs = prep_audio(x, fs, target_fs=target_fs, 
                       pre=0.0, verbose=False)  # resample to 16kHz
 
-    if smooth: s = 0.002  # faster framerate if smoothed
+    if smooth: step = 0.002  # faster framerate if smoothed
 
-    quef, sec, Sxx = compute_cepstrogram(y, fs, dBscale, l, s)
+    quef, sec, Sxx = compute_cepstrogram(y, fs, dBscale, length, step)
     
     if smooth:
         # Equivalent to gaussian_filter(Sxx, sigma=smooth, truncate=3), but ~20% faster: Sxx has
@@ -279,7 +282,8 @@ axis, the smoothed spectra and the cepstra (freqE, Exx, Cxx), as documented for 
     return freqE, Exx, Cxx
 
 
-def cepstral_smooth(x, fs, tf=5000, s=0.005, l=0.04, preemphasis=0.0, lift=0.003):
+@renamed_kwargs(s='step', l='length')
+def cepstral_smooth(x, fs, tf=5000, step=0.005, length=0.04, preemphasis=0.0, lift=0.003):
     '''Smooth spectra by cepstral 'liftering' to remove the periodic source, leaving only the overall spectral envelope shape. 
 The implementation here borrows heavily from Seonju Kim's repository (https://github.com/hwang9u/pyceps).  
 
@@ -291,9 +295,9 @@ Parameters
         Sampling rate of **x**
     tf : int, default = 5000
         The top frequency (in Hz) of the smoothed spectrum.  The audio will be resampled to the sampling rate `tf` * 2.
-    s : float, default = 0.005
+    step : float, default = 0.005
         Step size, of hops between analysis windows. The default is 5 milliseconds.  
-    l : float, default = 0.04
+    length : float, default = 0.04
         Length of analysis windows.  The default is 40 milliseconds.  The actual size of the analysis windows will 
         be the smallest power of 2 that is greater than or equal to this length in samples.
     lift : float, default = 0.003
@@ -357,11 +361,11 @@ References
     x,fs = prep_audio(x, fs, target_fs=target_fs, 
                       pre=preemphasis, verbose=False) 
 
-    step = int(fs*s)
-    frame_length = int(fs*l)
+    hop = int(fs*step)
+    frame_length = int(fs*length)
     half_frame = frame_length//2
 
-    ts,freqS,Sxx = compute_sgram(x,fs,l,s)
+    ts,freqS,Sxx = compute_sgram(x,fs,length,step)
                               
     freqE, Exx, Cxx = _smooth_sgram(Sxx, fs, lift)
     quef = np.arange(Cxx.shape[0])/fs

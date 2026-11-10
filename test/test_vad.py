@@ -22,7 +22,7 @@ def im12():
 
 
 def test_columns_and_grid(im12):
-    df = phon.VAD(*im12, s=0.005)
+    df = phon.VAD(*im12, step=0.005)
     assert list(df.columns) == ['sec', 'f0', 'cpp', 'amp', 'probv', 'voiced']
     assert np.allclose(np.diff(df.sec), 0.005, atol=1e-4)      # the frames of CPP()
     assert np.isfinite(df[['cpp', 'amp', 'probv']]).all().all()

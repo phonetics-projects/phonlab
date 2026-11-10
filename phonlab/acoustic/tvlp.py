@@ -4,6 +4,7 @@ from numba import jit, prange
 from ..utils.prep_audio_ import prep_audio
 from ..acoustic.gci import gci_sedreams
 from ..acoustic.choose_order_ import choose_order
+from ..utils.deprecation import renamed_kwargs
 
 # This set of functions was written interactively with the AI model Claude, translating
 # and adapting Gowda's ftrack matlab code.  Keith Johnson, Feb 2026
@@ -620,7 +621,8 @@ def tvlp_warmup_numba(verbose=True):
     _ = _process_frames_l1_parallel(frames[:2], weights[:2], 10, 3, max_iter=1)
     
 
-def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3, 
+@renamed_kwargs(frame_duration_sec='length')
+def TVLP_formants(x, fs, tf = 6000, order=-1, length=0.1, q=3, 
                   norm='l2', qcp=True, step=0.01, nformants=4, f0median=200, pre=0.95,
                   min_freq=None, max_bandwidth=800, use_parallel=False, verbose=False):
     """
@@ -638,7 +640,7 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
         Top frequency.  The signal will be resampled to tf*2.  The LPC poles are spread across the whole band from 0 to **tf**, so **tf** should not be much higher than the highest formant of interest.  The default is suitable for adult speech.
     order : int, default = -1
         The number of LPC coefficients to use -- the 'order' of the LPC filter.  If this parameter is -1 then we will use `phon.choose_order(base='BIC')` to determine the best value for this parameter.  `choose_order()` assumes speech, so for other vocalizations set the order directly.
-    frame_duration_sec : float, default 0.1 = 100ms
+    length : float, default 0.1 = 100ms
         Duration of each frame in seconds.  Gowda et al.'s tests found that 100ms provides the most accurate formant measurements.  For voices with very low F0 (such as elephant rumbles), a longer frame may be needed so that each frame contains several glottal cycles.
     q : int, default = 3
         Time-varying polynomial order
@@ -687,9 +689,9 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
                        scale = True,
                        pre = pre,
                        fix_polarity = True,
-                       pad_to=frame_duration_sec,
+                       pad_to=length,
                        verbose = verbose)
-    frame_length_samples = round(frame_duration_sec * fs)  # must match prep_audio()'s pad_to rounding, or the reshape in tvlp_batch() breaks
+    frame_length_samples = round(length * fs)  # must match prep_audio()'s pad_to rounding, or the reshape in tvlp_batch() breaks
 
     p=order
     if p<0:  # guess the correct LPC order
@@ -708,7 +710,7 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
         print(f"TRACKING FORMANTS WITH TIME-VARYING LP")
         print("=" * 60)
         print(f"Audio: {len(x)} samples ({duration_sec:.2f}s at {fs} Hz)")
-        print(f"Frame duration: {frame_duration_sec}s ({frame_length_samples} samples)")
+        print(f"Frame length: {length}s ({frame_length_samples} samples)")
         print(f"Formant interval: {step} sec")
         print(f"LP order: p={p}, q={q}, norm={norm}")
         if qcp:
@@ -756,7 +758,7 @@ def TVLP_formants(x, fs, tf = 6000, order=-1, frame_duration_sec=0.1, q=3,
     formant_bws_flat = formant_bws.reshape(-1, n_formants)
     
     # Create time array in seconds
-    frame_starts = np.arange(n_frames) * frame_duration_sec
+    frame_starts = np.arange(n_frames) * length
     sample_offsets = sample_times / fs
     ta = frame_starts[:, np.newaxis] + sample_offsets[np.newaxis, :]
     time_array = ta.ravel()

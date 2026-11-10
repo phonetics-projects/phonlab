@@ -29,6 +29,63 @@ documentation stays on Read the Docs, e.g. https://phonlab.readthedocs.io/en/v0.
 The docs for the newest release are at https://phonlab.readthedocs.io/en/stable/ .
 
 
+Unreleased
+----------
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+
+* **sgram(): a step of zero or less is now an error.**  ``step`` (formerly ``s``) must be
+  a positive number of seconds.  Before, ``s=0`` was quietly replaced by the default.
+* **sgram(type='mel') and sgram(type='bark') use ``step``.**  Before, ``s`` was ignored
+  for ``type='mel'`` (it needed ``step_sec``), and ``s`` was raised to at least 5 ms for
+  ``type='bark'``.  Now ``step`` sets the step for every type, and the default step of
+  each type is unchanged.
+
+Deprecated
+~~~~~~~~~~
+
+* **The step between analysis frames is always called** ``step`` **and the length of an
+  analysis frame is always called** ``length``, **both in seconds.**  The functions had
+  used ``s``, ``step_sec``, ``step_size`` and ``hop_dur`` for the step, and ``l``, ``w``
+  and ``frame_duration_sec`` for the length.  The old names still work by keyword, but
+  give a ``DeprecationWarning``, and will be removed in a later release.  Positional
+  calls are not affected, because the order of the parameters did not change.  The
+  results are the same.
+
+  - ``step`` (formerly ``s``): ``CPP()``, ``DPPT_formants()``, ``HNR()``,
+    ``LPC_formants()``, ``RLPC_formants()``, ``VAD()``, ``cepstral_smooth()``,
+    ``compute_cepstrogram()``, ``compute_mt_sgram()``, ``compute_sgram()``, ``get_f0()``,
+    ``get_f0_acd()``, ``get_f0_shs()``, ``get_f0_srh()``, ``get_rms()`` and
+    ``lpcresidual()``.
+  - ``step`` (formerly ``step_sec``): ``compute_mel_sgram()``.  ``step`` (formerly
+    ``step_size``): ``Audspec()``, whose attribute is now ``Audspec.step``.  ``step``
+    (formerly ``hop_dur``): ``egg_to_oq()``.
+  - ``length`` (formerly ``l``): ``CPP()``, ``DPPT_formants()``, ``HNR()``,
+    ``LPC_formants()``, ``RLPC_formants()``, ``cepstral_smooth()``, ``choose_order()``,
+    ``compute_cepstrogram()``, ``get_f0_acd()``, ``get_f0_shs()``, ``get_f0_srh()``,
+    ``get_rms()`` and ``lpcresidual()``.
+  - ``length`` (formerly ``w``): ``compute_mt_sgram()``, ``compute_sgram()``,
+    ``fricative()`` and ``tandem_fric()``.  ``length`` (formerly ``frame_duration_sec``):
+    ``TVLP_formants()``.
+  - ``sgram()`` accepts ``step`` and ``length`` for every type of spectrogram.  The old
+    names ``s``, ``step_sec``, ``step_size``, ``w`` and ``l`` still work.
+  - ``smooth1d()`` and ``smoothn()`` keep their ``s``, which is the amount of smoothing and
+    not a step.
+
+Fixed
+~~~~~
+
+* ``get_f0_srh()`` no longer changes its ``f0_range`` argument.  It lowered the top of
+  the list that was passed in, and so of its default, which made later calls in the same
+  session use a narrower range than the first call.
+
+Added
+~~~~~
+
+* ``get_rms()`` documents its ``step`` and ``length`` parameters.
+
+
 0.1.0 (2026-11-09)
 ------------------
 

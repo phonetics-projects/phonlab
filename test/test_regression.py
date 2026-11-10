@@ -204,7 +204,7 @@ def test_lpc_formants_matches_track_formants_golden(monkeypatch):
     monkeypatch.setattr(lpc_formant, "_analysis_window",
                         lambda n, fs, l: scipy.signal.windows.hamming(n))  # the window track_formants() uses
     x, fs = _clip()
-    df = phon.LPC_formants(x, fs, preemphasis=1.0, l=0.02, verbose=False)
+    df = phon.LPC_formants(x, fs, preemphasis=1.0, length=0.02, verbose=False)
     with np.load(GOLDEN / "track_formants_lpc.npz", allow_pickle=True) as g:
         fcols = [c[2:] for c in g.files if c[2:] in ("F1", "F2", "F3", "F4")]
         assert list(df.columns) == ["sec"] + fcols + [f"BW{i}" for i in range(1, len(fcols)+1)]

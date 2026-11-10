@@ -2,6 +2,7 @@ import numpy as np
 
 from .amp_env import amplitude_envelope
 from .cepstral import CPP
+from ..utils.deprecation import renamed_kwargs
 
 # Low frequency band (Hz) whose amplitude envelope is a predictor of voicing, and the logistic
 # regression coefficients of the voicing decision.  Both were fit by examples/train_vad.py against
@@ -21,20 +22,21 @@ def band_db(x, fs, sec, bounds, target_fs=12000):
     return db[np.minimum((np.asarray(sec) * fs_env).astype(int), len(db) - 1)]
 
 
-def vad_features(y, fs, f0_range=[63, 400], s=0.005):
+def vad_features(y, fs, f0_range=[63, 400], step=0.005):
     """Measure the predictors used by `VAD()`: `cpp` (from `CPP()`) and `amp` (from `band_db()`).
 
     The dataframe from `CPP()` (columns `sec`, `f0` and `cpp`) gets an `amp` column measured at the same
     times.  `CPP()` is called without smoothing (smooth=0), which costs about a quarter as much as the
-    default and predicts voicing as well (see examples/compare_cpp_smooth.py).  Its frames are `s`
+    default and predicts voicing as well (see examples/compare_cpp_smooth.py).  Its frames are `step`
     seconds apart, rather than the 2 ms that smoothing would give.
     """
-    df = CPP(y, fs, norm=False, smooth=0, s=s, f0_range=list(f0_range))
+    df = CPP(y, fs, norm=False, smooth=0, step=step, f0_range=list(f0_range))
     df['amp'] = band_db(y, fs, df['sec'], AMP_BAND)
     return df
 
 
-def VAD(y, fs, f0_range=[63, 400], s=0.005, threshold=0.8):
+@renamed_kwargs(s='step')
+def VAD(y, fs, f0_range=[63, 400], step=0.005, threshold=0.8):
     """Voice activity detection: the probability that each frame of audio is voiced.
 
     The voicing decision is a logistic regression on two measurements made in each frame: the level of
@@ -53,7 +55,7 @@ def VAD(y, fs, f0_range=[63, 400], s=0.005, threshold=0.8):
             Sampling rate of **y**
         f0_range : list of two integers, default = [63,400]
             The lowest and highest values to consider in pitch tracking.
-        s : float, default = 0.005
+        step : float, default = 0.005
             "Hop" interval between successive analysis windows (seconds).
         threshold : float (0-1), default = 0.8
             Frames that have a value of **probv** greater than this will have
@@ -62,7 +64,7 @@ def VAD(y, fs, f0_range=[63, 400], s=0.005, threshold=0.8):
     Returns
     =======
         df : pandas DataFrame
-            measurements at `s` second intervals.
+            measurements at `step` second intervals.
 
     Note
     ====
@@ -75,7 +77,7 @@ def VAD(y, fs, f0_range=[63, 400], s=0.005, threshold=0.8):
         * voiced - a boolean, true if probv > threshold
     """
     threshold = np.max([0.0,np.min([1.0,threshold])])  # limit range to 0-1
-    df = vad_features(y, fs, f0_range=f0_range, s=s)
+    df = vad_features(y, fs, f0_range=f0_range, step=step)
     z = VAD_COEFS['intercept'] + VAD_COEFS['amp'] * df['amp'] + VAD_COEFS['cpp'] * df['cpp']
     df['probv'] = 1 / (1 + np.exp(-z))
     df['voiced'] = df['probv'] > threshold

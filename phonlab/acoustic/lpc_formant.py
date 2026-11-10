@@ -5,24 +5,26 @@ from pandas import DataFrame
 
 from ..utils.prep_audio_ import prep_audio
 from ..acoustic.choose_order_ import choose_order
+from ..utils.deprecation import renamed_kwargs
 
 # constants
 SR = 12000                     # sampling rate of the analysis
-WINDOW_STD = 1/4.5             # standard deviation of the Gaussian analysis window, as a fraction of l
+WINDOW_STD = 1/4.5             # standard deviation of the Gaussian analysis window, as a fraction of length
 
 
-def _analysis_window(frame_length, fs, l):
+def _analysis_window(frame_length, fs, length):
     '''The Gaussian window applied to each frame.  Its standard deviation is defined in time, as
-    WINDOW_STD * l seconds, and converted to samples.  With WINDOW_STD = 1/4.5 the window reaches
+    WINDOW_STD * length seconds, and converted to samples.  With WINDOW_STD = 1/4.5 the window reaches
     all the way to the ends of the frame (the ends are 2.25 standard deviations from the center,
     where the weight is 0.08) and is about as wide (FWHM 0.52 of the frame) as a Hamming window of
     the same length, but without Hamming's sidelobes.'''
-    return signal.windows.gaussian(frame_length, WINDOW_STD * l * fs, sym=True).astype(np.float32)  # as the audio
+    return signal.windows.gaussian(frame_length, WINDOW_STD * length * fs, sym=True).astype(np.float32)  # as the audio
 
 
 
+@renamed_kwargs(s='step', l='length')
 def LPC_formants(x, fs, preemphasis = 0.94, order = -1, 
-                 max_bw = 800, s = 0.01, l = 0.03, verbose=False):
+                 max_bw = 800, step = 0.01, length = 0.03, verbose=False):
     """Computes vowel formant values in audio of speech using linear predictive coding (LPC).
 
 The function uses the Librosa implementation of Burg's (1975) method for linear predictive coding and then polynomial root solving of the LPC coefficients to find the vowel formant frequencies (the resonant frequencies of the vocal tract) and their bandwidths in overlapping frames (by default 30 ms long, at 10 ms intervals).
@@ -46,10 +48,10 @@ order : int, default = -1
 max_bw : float, default = 800
     the widest bandwidth (Hz) that a resonance can have and still be counted as a formant.  A wide bandwidth criterion (about 800 Hz) is needed to capture fast moving formants.  Resonances with a wider bandwidth are rejected: the formant frequency is NaN (and NaN sorts to the end of the frame's formants).
 
-s : float, default = 0.01
+step : float, default = 0.01
     the interval (in seconds) between successive formant measurements.
 
-l : float, default = 0.03
+length : float, default = 0.03
     the duration (in seconds) of analysis frames.  This is also the frame duration that `choose_order()` uses when `order` is -1.  Each frame is multiplied by a Gaussian window whose standard deviation is `l`/4.5, so the window spans the whole frame, with the ends at 2.25 standard deviations from the center (a weight of 0.08, like a Hamming window).  The window scales with `l`.
 
 quiet : boolean, default = True
@@ -63,7 +65,7 @@ df : dataframe
 Raises
 ======
 ValueError
-    if `x` is shorter than one frame of `l` seconds (after resampling to 12,000 Hz), or if `s` or `l` is not positive.
+    if `x` is shorter than one frame of `length` seconds (after resampling to 12,000 Hz), or if `step` or `length` is not positive.
 
 Note
 ====
@@ -111,8 +113,8 @@ Track formants in a file with LPC analysis, which by default will try to pick th
 
 """
 
-    if s <= 0 or l <= 0:
-        raise ValueError(f"LPC_formants(): s ({s}) and l ({l}) must be positive")
+    if step <= 0 or length <= 0:
+        raise ValueError(f"LPC_formants(): step ({step}) and length ({length}) must be positive")
 
     if verbose: 
         print(f"LPC_formants(), with order set to {order}")
@@ -121,19 +123,19 @@ Track formants in a file with LPC analysis, which by default will try to pick th
                        pre = preemphasis,  # no preemphasis
                        scale = True, verbose = verbose) 
     
-    frame_length = int(fs*l)  # samples in a frame
-    step = int(fs*s)          # number of samples between frames
+    frame_length = int(fs*length)  # samples in a frame
+    hop = int(fs*step)          # number of samples between frames
     if len(x) < frame_length:
         raise ValueError(f"LPC_formants(): audio is shorter than one {frame_length}-sample frame")
 
     if order < 0:  # guess the correct LPC order
-        order, time = choose_order(x, fs, l)
+        order, time = choose_order(x, fs, length)
         if verbose: print(f"Selected LPC order is: {order}, measured at time {time:.3f}")
 
     # LPC coefficients for each (windowed) frame of the whole file
-    frames = util.frame(x, frame_length=frame_length, hop_length=step, axis=0)
-    frames = np.multiply(frames, _analysis_window(frame_length, fs, l))
-    t = frames_to_time(range(frames.shape[0]), sr=fs, hop_length=step, n_fft=frame_length)
+    frames = util.frame(x, frame_length=frame_length, hop_length=hop, axis=0)
+    frames = np.multiply(frames, _analysis_window(frame_length, fs, length))
+    t = frames_to_time(range(frames.shape[0]), sr=fs, hop_length=hop, n_fft=frame_length)
     A = lpc(frames, order=order, axis=-1)
 
     nb = A.shape[0]  # the number of frames (or blocks) in the LPC analysis

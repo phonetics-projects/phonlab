@@ -45,7 +45,7 @@ warnings.filterwarnings("ignore")
 def variants(smooths, split_cost=False):
     v = {'off (5 ms)': dict(smooth=0)}
     if split_cost:
-        v['off (2 ms)'] = dict(smooth=0, s=0.002)
+        v['off (2 ms)'] = dict(smooth=0, step=0.002)
     v.update({f'smooth={n}': dict(smooth=n) for n in smooths})
     return v
 

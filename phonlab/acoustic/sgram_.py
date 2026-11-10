@@ -2,8 +2,10 @@ from scipy.signal import spectrogram
 from scipy.signal import windows
 import numpy as np
 from ..utils.prep_audio_ import prep_audio
+from ..utils.deprecation import renamed_kwargs
 
-def compute_sgram(x,fs,w,s=0.001,order=13):
+@renamed_kwargs(w='length', s='step')
+def compute_sgram(x,fs,length,step=0.001,order=13):
     """Compute a spectrogram from input waveform array of samples.
     
     Parameters
@@ -12,12 +14,12 @@ def compute_sgram(x,fs,w,s=0.001,order=13):
         array of audio samples
     fs : integer
         The sampling frequency of the audio samples in `x` 
-    w : float
-        Length in seconds of the analysis window.  For an effective filter bandwidth of 300 Hz use w = 0.008, and for an effective filter bandwidth of 45 Hz use w = 0.04.
-    s : float, default=0.001
+    length : float
+        Length in seconds of the analysis window.  For an effective filter bandwidth of 300 Hz use length = 0.008, and for an effective filter bandwidth of 45 Hz use length = 0.04.
+    step : float, default=0.001
         The time (in seconds) between adjacent spectra in the spectrogram. 
     order : integer, default = 13
-        This parameter determines the number of points in the FFT analysis that produces the spectrogram.  The number of points will be a power of 2 (2**order) and should be larger than the number of points in the analysis window (which is w*fs).
+        This parameter determines the number of points in the FFT analysis that produces the spectrogram.  The number of points will be a power of 2 (2**order) and should be larger than the number of points in the analysis window (which is length*fs).
 
     Returns
     ======= 
@@ -32,11 +34,9 @@ def compute_sgram(x,fs,w,s=0.001,order=13):
 
 
     """
-    step = s  # step size between spectral slices (sec)
-     
     # set up parameters for signal.spectrogram()
-    noverlap = int((w-step)*fs) # skip forward by step between each frame
-    nperseg = int(w*fs)         # number of samples per waveform window
+    noverlap = int((length-step)*fs) # skip forward by step between each frame
+    nperseg = int(length*fs)         # number of samples per waveform window
     nfft = np.power(2,order)    # number of points in the fft
     window = windows.blackmanharris(nperseg)
 
@@ -53,8 +53,20 @@ SGRAM_TYPES = ('fft', 'multitaper', 'cepstral', 'lpc', 'mel', 'bark')
 DEFAULT_MIN_PROP = {'fft': -0.1, 'multitaper': 0, 'cepstral': 0, 'lpc': 0, 'mel': 0, 'bark': -0.1}
 
 
-def _typed_sgram(x, fs, type, w, s=None, verbose=False, **kwargs):
+def _step_or_default(step, default):
+    """The `step` (seconds) requested by the caller of sgram(), or the `default` if there was none."""
+    if step is None:
+        return default
+    if not step > 0:
+        raise ValueError(f"The `step` between spectra must be a positive number of seconds, not {step!r}.")
+    return step
+
+
+def _typed_sgram(x, fs, type, length, step=None, verbose=False, **kwargs):
     """Compute a spectrogram of the requested `type` and return it in the common layout used by `sgram()`.
+
+    `length` is the analysis window length (sec), or None to use the default of the `type`.  `step` is the
+    time between spectra (sec), or None to use the default of the `type`.
 
     Returns
     =======
@@ -70,52 +82,51 @@ def _typed_sgram(x, fs, type, w, s=None, verbose=False, **kwargs):
         the effective length (sec) of the analysis window, used to size the figure
     """
     if type == 'fft':
-        ts, f, Sxx = compute_sgram(x, fs, w, s=s or 0.001, **kwargs)
-        return ts, f, Sxx, "Frequency (Hz)", w
+        ts, f, Sxx = compute_sgram(x, fs, length, step=_step_or_default(step, 0.001), **kwargs)
+        return ts, f, Sxx, "Frequency (Hz)", length
     elif type == 'multitaper':
         from .multitaper_ import compute_mt_sgram
         kwargs.setdefault('order', 13)  # same FFT size as compute_sgram()
-        kwargs.setdefault('NW', 3)      # half-bandwidth NW/w = 150 Hz when w = 0.02
-        ts, f, Sxx = compute_mt_sgram(x, fs, w=w, s=s or 0.001, **kwargs)
-        return ts, f, Sxx, "Frequency (Hz)", w
+        kwargs.setdefault('NW', 3)      # half-bandwidth NW/length = 150 Hz when length = 0.02
+        ts, f, Sxx = compute_mt_sgram(x, fs, length=length, step=_step_or_default(step, 0.001), **kwargs)
+        return ts, f, Sxx, "Frequency (Hz)", length
     elif type == 'cepstral':
         from .cepstral import cepstral_smooth
-        l = kwargs.pop('l', 0.04)
+        length = 0.04 if length is None else length
         # the cepstrally smoothed spectrum, Exx, has shape (frequency, time)
-        ts, f, Exx, _, _, _, _ = cepstral_smooth(x, fs, tf=int(fs//2), s=s or 0.005, l=l, **kwargs)
-        return ts, f, Exx, "Frequency (Hz)", l
+        ts, f, Exx, _, _, _, _ = cepstral_smooth(x, fs, tf=int(fs//2), step=_step_or_default(step, 0.005), length=length, **kwargs)
+        return ts, f, Exx, "Frequency (Hz)", length
     elif type == 'lpc':
         from .rlpc import RLPC_formants
-        l = kwargs.pop('l', 0.03)
+        length = 0.03 if length is None else length
         order = kwargs.pop('order', -1)
         nfft = 2**kwargs.pop('nfft_order', 13)
         # The audio has already been resampled and preemphasized by sgram(), so don't do it again.
-        fmtdf, A = RLPC_formants(x, fs, tf=int(fs//2), s=s or 0.005, l=l, preemphasis=0.0, 
+        fmtdf, A = RLPC_formants(x, fs, tf=int(fs//2), step=_step_or_default(step, 0.005), length=length, preemphasis=0.0, 
                                  order=order, verbose=verbose, **kwargs)
         # LPC spectra are not windowed, so (as in nasality()) a correction puts them on the
         # same dB scale as a Blackman-Harris windowed FFT spectrum.
-        window = windows.blackmanharris(int(l*fs))
+        window = windows.blackmanharris(int(length*fs))
         amp_correction = 2.5 + 20 * np.log10(np.sum(window)/np.sqrt(np.sum(np.square(window))))
         tiny = np.finfo(float).tiny
         gain = fmtdf.gain.to_numpy()
         lpc_mag = np.abs(np.fft.rfft(A, n=nfft)).T      # shape (frequency, time)
         Lxx = 20 * np.log10(np.maximum(np.sqrt(gain), tiny)/np.maximum(lpc_mag, tiny)) - amp_correction
-        return fmtdf.sec.to_numpy(), np.fft.rfftfreq(nfft, 1/fs), Lxx, "Frequency (Hz)", l
+        return fmtdf.sec.to_numpy(), np.fft.rfftfreq(nfft, 1/fs), Lxx, "Frequency (Hz)", length
     elif type == 'mel':
         from ..auditory.mel_sgram import compute_mel_sgram
-        # compute_mel_sgram() uses a fixed 64 ms window and 10 ms step unless step_sec is given,
-        # and returns an array with shape (time, mel)
-        ts, f, Sxx = compute_mel_sgram(x, fs, **kwargs)
+        # compute_mel_sgram() uses a fixed 64 ms window, and returns an array with shape (time, mel)
+        ts, f, Sxx = compute_mel_sgram(x, fs, step=_step_or_default(step, 0.01), **kwargs)
         return ts, f, Sxx.T, "Frequency (mel)", 0.064
     elif type == 'bark':
         from ..auditory.audspec import Audspec
-        step = kwargs.pop('step_size', max(s or 0.005, 0.005))
-        aud = Audspec(fs=fs, step_size=step)
+        aud = Audspec(fs=fs, step=_step_or_default(step, 0.005))
         aud.make_zgram(x, fs, preemph=0, **kwargs)   # preemphasis was already applied by sgram()
         return aud.time_axis, aud.zfreqs, aud.zgram.T, "Frequency (Bark)", 0.05
     raise ValueError(f"Unknown sgram type {type!r}. Choose one of {SGRAM_TYPES}.")
 
 
+@renamed_kwargs(w='length', l='length', s='step', step_sec='step', step_size='step')
 def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size = 14,
     min_prop = None, save_name='', slice_time=-1, cmap='Greys', resize=True, ax=None,
     type='fft', verbose=False, **kwargs):
@@ -143,8 +154,8 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
         ending time (in seconds) of the waveform chunk to plot (-1 means go to the end)
     tf : integer, default = 8000
         the top frequency (in Hz) to show in the spectrogram
-    band : string, {'wb','nb'}
-        effective filter bandwidth of the analysis filter ('wb' = 300 Hz, 'nb' = 45 Hz)
+    band : string, {'wb','nb'}, default = 'wb'
+        effective filter bandwidth of the analysis filter in spectrogram type 'fft' ('wb' = 300 Hz, 'nb' = 45 Hz)
     preemph : float, default = 0.94
         add high frequency preemphasis before making the spectrogram, a value between 0 and 1
     font_size : integer, default = 14
@@ -163,21 +174,21 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
         classical spectrogram dimensions.
     ax : a matplotlib axes object, default = None
         the user may provide a matplotlib object to which the spectrogram will be plotted.
-    cmap : string, default = "Grays"
+    cmap : string, default = "Greys"
         name of a matplotlib colormap for the spectrogram
     type : string, {'fft','multitaper','cepstral','lpc','mel','bark'}, default = 'fft'
         the kind of spectrogram to compute and display.  
         
         * 'fft' - a Blackman-Harris windowed FFT magnitude spectrogram in dB, from `compute_sgram()`.
-        * 'multitaper' - a multitaper power spectrogram in dB, from `compute_mt_sgram()`.  `band` is ignored: the effective bandwidth is determined by the analysis window length and the time-bandwidth product, so the defaults are a 20 ms window (`w=0.02`) and `NW=3` (a half-bandwidth of NW/w = 150 Hz).  Pass `w` and `NW` to change them.
-        * 'cepstral' - a cepstrally smoothed spectrogram (the spectral envelope without the harmonics), from `cepstral_smooth()`.  `band` is ignored: the analysis window is 40 ms (pass `l` to change it), the default step is 5 ms, and the amount of smoothing is set by `lift`.
-        * 'lpc' - a spectrogram of the spectral envelope found by robust linear prediction, from `RLPC_formants()`, computed as in `nasality()`.  `band` is ignored: the analysis window is 30 ms (pass `l` to change it), the default step is 5 ms, and the LPC order is chosen automatically unless `order` is passed.  The LPC spectrum is evaluated with a 2**13 point FFT (pass `nfft_order` to change it).
-        * 'mel' - a log mel-frequency spectrogram from `compute_mel_sgram()`.  The window length (64 ms) and frequency range (80-7600 Hz) are fixed by that function, so `band` is ignored, `tf` is treated as at least 8000, and the frequency axis is in mels. The default step size is 10 ms; pass `step_sec` to change it.
-        * 'bark' - an auditory (critical band) spectrogram from `Audspec.make_zgram()`.  `band` is ignored and the frequency axis is in Bark.  The default step size is 5 ms; pass `step_size` to change it.
+        * 'multitaper' - a multitaper power spectrogram in dB, from `compute_mt_sgram()`. The effective bandwidth is determined by the analysis window length and the time-bandwidth product, so the defaults are a 20 ms window (`length=0.02`) and `NW=3` (a half-bandwidth of NW/length = 150 Hz).  Pass `length` and `NW` to change them.
+        * 'cepstral' - a cepstrally smoothed spectrogram (the spectral envelope without the harmonics), from `cepstral_smooth()`.  The analysis window is 40 ms (pass `length` to change it), the default step is 5 ms, and the amount of smoothing is set by `lift`.
+        * 'lpc' - a spectrogram of the spectral envelope found by robust linear prediction, from `RLPC_formants()`, computed as in `nasality()`.  The analysis window is 30 ms (pass `length` to change it), the default step is 5 ms, and the LPC order is chosen automatically unless `order` is passed.  The LPC spectrum is evaluated with a 2**13 point FFT (pass `nfft_order` to change it).
+        * 'mel' - a log mel-frequency spectrogram from `compute_mel_sgram()`.  The window length (64 ms) and frequency range (80-7600 Hz) are fixed by that function. `tf` is treated as at least 8000, and the frequency axis is in mels. The default step is 10 ms; pass `step` to change it.
+        * 'bark' - an auditory (critical band) spectrogram from `Audspec.make_zgram()`.  The frequency axis is in Bark.  The default step is 5 ms; pass `step` to change it.
     verbose : boolean, default = False
-        print diagnostic messages.  This is passed to `prep_audio()` (resampling and preemphasis of the audio) and, for `type='lpc'`, to `RLPC_formants()`.
+        print diagnostic messages.
     **kwargs :
-        additional keyword arguments are passed to the function that computes the spectrogram.  The exception is `w`, the length (in seconds) of the analysis window, which overrides the window length implied by `band` for the 'fft' and 'multitaper' types (and is the same as `l` for the 'cepstral' and 'lpc' types; it is an error for 'mel' and 'bark').  For example, `NW=4` for `type='multitaper'`, `s=0.002` or `order=12` for `type='fft'`, `lift=0.002` for `type='cepstral'`, `order=14` for `type='lpc'`, or `step_sec=0.005` for `type='mel'`.
+        additional keyword arguments are passed to the function that computes the spectrogram.  Two keyword arguments work for every type of spectrogram: `step`, the time (in seconds) between spectra (each `type` has its own default, which is given above or is that of `compute_sgram()`), and `length`, the length (in seconds) of the analysis window.  `length` sets the window length of the 'fft', 'multitaper', 'cepstral' and 'lpc' types (for 'fft' it overrides the length implied by `band`), and is an error for 'mel' and 'bark'.  For example, `NW=4` for `type='multitaper'`, `step=0.002` or `order=12` for `type='fft'`, `lift=0.002` for `type='cepstral'`, `order=14` for `type='lpc'`, or `step=0.005` for `type='mel'`.
 
     Returns
     ======= 
@@ -227,21 +238,20 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
         tf = max(tf, 8000)   # the mel filterbank extends to 7600 Hz
 
     if band=='nb':
-        w = 0.04    # analysis window size for narrow band spectrogram (sec)
+        length = 0.04    # analysis window size for narrow band spectrogram (sec)
     else:
-        w = 0.008   # analysis window size for wide band spectrogram
+        length = 0.008   # analysis window size for wide band spectrogram
     if type == 'multitaper':
-        w = 0.02    # the effective bandwidth of a multitaper spectrogram depends on both w and NW, not on `band`
+        length = 0.02    # the effective bandwidth of a multitaper spectrogram depends on both length and NW, not on `band`
 
     # an explicit window length (sec) overrides the one implied by `band`
-    w_user = kwargs.pop('w', None)
-    if w_user is not None:
+    length_user = kwargs.pop('length', None)
+    if length_user is not None:
         if type in ('mel', 'bark'):
-            raise ValueError(f"The analysis window length of a '{type}' spectrogram cannot be set with `w`.")
-        elif type in ('cepstral', 'lpc'):
-            kwargs.setdefault('l', w_user)   # these functions call the window length `l`
-        else:
-            w = w_user
+            raise ValueError(f"The analysis window length of a '{type}' spectrogram cannot be set with `length`.")
+        length = length_user
+    elif type in ('cepstral', 'lpc'):
+        length = None    # these use their own default window lengths, not the one implied by `band`
 
     # set up parameters for the spectrogram window
     figheight = 4.5  # height in inches
@@ -263,7 +273,7 @@ def sgram(x,fs, start=0, end=-1, tf=8000, band='wb', preemph = 0.94, font_size =
     
     
     # ----------- compute the spectrogram ---------------------------------
-    ts,f,Sxx,ylabel,win = _typed_sgram(x2[i1:i2],fs,type,w,verbose=verbose,**kwargs)
+    ts,f,Sxx,ylabel,win = _typed_sgram(x2[i1:i2],fs,type,length,verbose=verbose,**kwargs)
     
     # ------------ display in a matplotlib figure --------------------
     ts = np.add(ts,start)  # increment the spectrogram times by the start value

@@ -4,6 +4,8 @@ from numpy.polynomial import Polynomial
 from scipy.fft import rfft
 import scipy.stats as stats
 from ..utils.prep_audio_ import prep_audio
+import warnings
+from ..utils.deprecation import renamed_kwargs
 
 class Audspec(object):
     """ Create an Audspec object; analysis parameters and routines for creating auditory spectrograms.
@@ -12,7 +14,7 @@ class Audspec(object):
     ==========
     fs : int, default=16000
         The desired sampling rate of audio analysis, determines the frequency range of the auditory spectrogram.  Note that if the value given here exceeds the sampling rate of the file passed, there can be 'empty' space at the top of the auditory spectrogram.
-    step_size : float, default=0.03
+    step : float, default=0.03
         The interval (in seconds) between successive analysis frames.
 
     Returns
@@ -177,7 +179,7 @@ class Audspec(object):
         if (np.max(data) < 1):   # floating point but we need 16bit int range
             data = (data*(2**15)) #.astype(np.int32)
 
-        hop = int(self.step_size * self.fs)
+        hop = int(self.step * self.fs)
         frames = librosa.util.frame(data,frame_length=self.dft_n,hop_length=hop
             ).transpose()
         t = librosa.frames_to_time(np.arange(frames.shape[0]),
@@ -230,7 +232,7 @@ R. D. Patterson (1976) Auditory filter shapes derived with noise stimuli. `J. Ac
         if (dimension=="frequency"):  # default value
             steps = int(span / self._zinc)
         else:  # otherwise assume temporal sharpening
-            steps = int(span / self.step_size)
+            steps = int(span / self.step)
             
         if steps % 2 == 0:
             steps += 1
@@ -352,7 +354,16 @@ R. D. Patterson (1976) Auditory filter shapes derived with noise stimuli. `J. Ac
             **{'custom_vars': list(kwargs.keys())}
         )
     
-    def __init__(self, fs=16000, step_size=0.03):
+    @property
+    def step_size(self):
+        """Deprecated alias of `step`."""
+        warnings.warn("Audspec.step_size has been renamed Audspec.step. The name 'step_size' still works "
+                      "for now, but is deprecated and will be removed in a future release.",
+                      DeprecationWarning, stacklevel=2)
+        return self.step
+
+    @renamed_kwargs(step_size='step')
+    def __init__(self, fs=16000, step=0.03):
         float_t=np.float32
         int_t=np.int32
         super(Audspec, self).__init__()
@@ -373,7 +384,7 @@ R. D. Patterson (1976) Auditory filter shapes derived with noise stimuli. `J. Ac
         
         self.zfreqs = np.arange(1, self.ncoef+1) * self._zinc #: ndarray - Center frequencies of the critical bands in Bark
         self.freqs = self.bark2hz(self.zfreqs) #: ndarray - Center frequencies of the critical bands in Hz
-        self.step_size = float_t(step_size)  #: temporal interval between frames in sec
+        self.step = float_t(step)  #: temporal interval between frames in sec
         self.time_axis = np.zeros(0, dtype=float_t)  #: ndarray - time axis for auditory spectrogram
         self.extent = [0,0,0,0] #: ndarray - [xmin,xmax,ymin,ymax] plotting limits of the auditory spectrogram for imshow()
 

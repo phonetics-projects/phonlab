@@ -2,6 +2,7 @@ import numpy as np
 from scipy.signal import find_peaks
 from collections import namedtuple
 from .multitaper_ import compute_mt_sgram, tandem_spectrum
+from ..utils.deprecation import renamed_kwargs
 
 def dB(x, out=None):
     if out is None:
@@ -123,7 +124,8 @@ def _measure(spec, freq, fspace):
     )
 
 
-def fricative(x,fs,t,w=0.02,NW=4,order=12):
+@renamed_kwargs(w='length')
+def fricative(x,fs,t,length=0.02,NW=4,order=12):
     """
     Measure fricative acoustic values, from a window (20 ms by default) centered on time `t`.
 
@@ -141,10 +143,10 @@ Parameters
         the sampling frequency of `x` (ideally should be at least 16000)
     t : float
         the time (in seconds) at which to take measurements (this is usually in a fricative, but doesn't have to be).
-    w : float, default = 0.02
+    length : float, default = 0.02
         the length (in seconds) of the analysis window, centered on `t`.
     NW : float, default = 4
-        the time-bandwidth product of the multitaper analysis.  The bandwidth (smoothness) of the spectrum is 2*NW/`w` Hz (400 Hz with the defaults), and about 2*NW-1 tapers are averaged to stabilize the estimate.  To keep the same smoothness when `w` is changed, scale `NW` in proportion to `w`.
+        the time-bandwidth product of the multitaper analysis.  The bandwidth (smoothness) of the spectrum is 2*NW/`length` Hz (400 Hz with the defaults), and about 2*NW-1 tapers are averaged to stabilize the estimate.  To keep the same smoothness when `length` is changed, scale `NW` in proportion to `length`.
     order : integer or None, default = 12
         determines the number of points in the FFT of the spectrum (2**`order` points, at least as many as in the window).  The value, `None`, uses no zero padding, so the spectrum has a point every 1/`w` Hz (50 Hz with the default window).  A larger value, such as 14, gives a spectrum with finer frequency spacing (for peak finding), but no more frequency resolution.
 
@@ -225,7 +227,7 @@ The figure here shows major peaks and COG in several different fricatives.
        Marking major peaks (red lines) and COG (green line) in fricative spectra.
 
     """
-    winsize = w   # window centered at midpoint (mp)
+    winsize = length   # window centered at midpoint (mp)
     
     i_center = int(t * fs)   # index of midpoint time: seconds to samples
     i_start  = int(i_center - winsize/2*fs)  # back half a window
@@ -234,14 +236,15 @@ The figure here shows major peaks and COG in several different fricatives.
     
     # one multitaper spectrum, by default with no zero padding (order=None), as in the nitime-based version.
     # scale='nitime' keeps the dB levels the same as in that version.
-    _, freq, sgram = compute_mt_sgram(chunk, fs, w=len(chunk)/fs, s=winsize, NW=NW, order=order, scale='nitime')
+    _, freq, sgram = compute_mt_sgram(chunk, fs, length=len(chunk)/fs, step=winsize, NW=NW, order=order, scale='nitime')
     spec = sgram[:, 0]       # multi-taper spectrum (dB)
     fspace = (fs/2)/len(freq)  # frequency spacing in spectrum - map from frequency to array index
     
     return _measure(spec, freq, fspace)
 
 
-def tandem_fric(x,fs,t,w=0.02,NW=4,total=0.04,step=0.002):
+@renamed_kwargs(w='length')
+def tandem_fric(x,fs,t,length=0.02,NW=4,total=0.04,step=0.002):
     """
     Measure fricative acoustic values, from a 40 ms stretch of audio (by default) centered on time `t`.
 
@@ -259,12 +262,12 @@ Parameters
         the sampling frequency of `x` (ideally 32000, so that the high frequency energy of sibilants is included)
     t : float
         the time (in seconds) at which to take measurements (this is usually in a fricative, but doesn't have to be).
-    w : float, default = 0.02
+    length : float, default = 0.02
         the length (in seconds) of each multitaper analysis window.
     NW : float, default = 4
-        the time-bandwidth product of the multitaper analysis.  The bandwidth (smoothness) of the spectrum is 2*NW/`w` Hz (400 Hz with the defaults), and about 2*NW-1 tapers are averaged to stabilize the estimate.  To keep the same smoothness when `w` is changed, scale `NW` in proportion to `w`.
+        the time-bandwidth product of the multitaper analysis.  The bandwidth (smoothness) of the spectrum is 2*NW/`length` Hz (400 Hz with the defaults), and about 2*NW-1 tapers are averaged to stabilize the estimate.  To keep the same smoothness when `length` is changed, scale `NW` in proportion to `length`.
     total : float, default = 0.04
-        the total duration (in seconds) of audio, centered on `t`, that goes into the spectrum.  Windows of length `w` are spaced `step` apart across this duration and their power spectra are averaged (a "tandem" spectrum), which stabilizes peak finding.  It must be at least `w`.  If `total` equals `w` a single multitaper spectrum is used.  Because the windows are spread across `total`, a short fricative or a rapid transition will be blurred.
+        the total duration (in seconds) of audio, centered on `t`, that goes into the spectrum.  Windows of length `length` are spaced `step` apart across this duration and their power spectra are averaged (a "tandem" spectrum), which stabilizes peak finding.  It must be at least `w`.  If `total` equals `w` a single multitaper spectrum is used.  Because the windows are spread across `total`, a short fricative or a rapid transition will be blurred.
     step : float, default = 0.002
         the time (in seconds) between the starts of adjacent windows in the tandem spectrum.  With the defaults 11 spectra are averaged.  Steps much larger than 2 ms, or smaller `NW`, make the spectrum less stable.
 
@@ -345,7 +348,7 @@ The figure here shows major peaks and COG in several different fricatives.
        Marking major peaks (red lines) and COG (green line) in fricative spectra.
 
     """
-    if total < w:
+    if total < length:
         raise ValueError("total must be at least as long as w")
     n_chunk = int(round(total*fs))      # number of samples of audio analyzed
     i_start = int(round(t*fs)) - n_chunk//2   # centered on time t: seconds to samples
@@ -355,7 +358,7 @@ The figure here shows major peaks and COG in several different fricatives.
 
     # multitaper spectra in closely spaced windows, averaged (on the power scale) into one stabilized spectrum
     # scale='nitime' keeps dB levels comparable with fricative()
-    _, freq, sgram = compute_mt_sgram(x[i_start:i_end], fs, w=w, s=step, NW=NW, order=12, scale='nitime')
+    _, freq, sgram = compute_mt_sgram(x[i_start:i_end], fs, length=length, step=step, NW=NW, order=12, scale='nitime')
     spec = tandem_spectrum(sgram)   # tandem multitaper spectrum (dB)
     fspace = freq[1]-freq[0]  # frequency spacing in spectrum - map from frequency to array index
 
