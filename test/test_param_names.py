@@ -72,11 +72,11 @@ def test_signatures_use_the_new_names():
 STEP_FUNCTIONS = ["CPP", "DPPT_formants", "HNR", "LPC_formants", "RLPC_formants", "TVLP_formants", "VAD",
                   "cepstral_smooth", "compute_cepstrogram", "compute_mel_sgram", "compute_mt_sgram",
                   "compute_sgram", "egg_to_oq", "get_f0", "get_f0_acd", "get_f0_shs", "get_f0_srh",
-                  "get_rms", "lpcresidual", "nasality", "nasalance", "tandem_fric", "Audspec"]
+                  "get_rms", "lpcresidual", "nasality", "nasalance", "tandem_fric", "Audspec", "mfcc"]
 LENGTH_FUNCTIONS = ["CPP", "DPPT_formants", "HNR", "LPC_formants", "RLPC_formants", "TVLP_formants",
                     "cepstral_smooth", "choose_order", "compute_cepstrogram", "compute_mt_sgram",
                     "compute_sgram", "fricative", "get_f0_acd", "get_f0_shs", "get_f0_srh", "get_rms",
-                    "lpcresidual", "nasality", "tandem_fric"]
+                    "lpcresidual", "nasality", "tandem_fric", "mfcc"]
 
 
 @pytest.mark.parametrize("name", STEP_FUNCTIONS)
@@ -164,7 +164,7 @@ def test_old_name_frame_duration_sec_still_works():
 # ---- the pre-emphasis factor is always `preemph` ----
 
 PREEMPH_FUNCTIONS = ["DPPT_formants", "IFC_formants", "LPC_formants", "RLPC_formants", "TVLP_formants",
-                     "cepstral_smooth", "nasality", "prep_audio", "sgram", "track_formants"]
+                     "cepstral_smooth", "mfcc", "nasality", "prep_audio", "sgram", "track_formants"]
 
 
 @pytest.mark.parametrize("name", PREEMPH_FUNCTIONS)

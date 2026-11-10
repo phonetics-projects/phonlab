@@ -167,6 +167,10 @@ Added
 ~~~~~
 
 * ``get_rms()`` documents its ``step`` and ``length`` parameters.
+* ``mfcc()``, which computes mel frequency cepstral coefficients (c0 and c1 - c12 by default, every 10 ms, in a dataframe
+  with the column names that ``mfcc_to_df()`` uses for Praat's MFCC), with options for the number of
+  coefficients, the filterbank, liftering, delta and delta-delta coefficients and cepstral mean normalization.  It
+  needs nothing but numpy, scipy, librosa and pandas, which phonlab already uses.
 * ``lpcresidual()`` has a ``gain`` parameter (``'speech'``, the default, or ``None`` for the plain
   prediction error, which the LPC filters turn back into the audio, for use as the source in a
   source-filter resynthesis), and a ``normalize`` parameter (``False`` keeps the level of the residual

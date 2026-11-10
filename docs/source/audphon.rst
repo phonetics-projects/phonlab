@@ -14,6 +14,7 @@ Signal Manipulation
 Auditory Representations
 ------------------------
 .. autofunction:: phonlab.compute_mel_sgram
+.. autofunction:: phonlab.mfcc
 .. autofunction:: phonlab.mfcc_to_df
 .. autoclass:: phonlab.Audspec
     :members:

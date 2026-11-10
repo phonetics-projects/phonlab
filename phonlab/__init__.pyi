@@ -111,6 +111,9 @@ __all__ += ["peak_rms",
 from .auditory.audspec import Audspec
 __all__ += ["Audspec"]
 
+from .auditory.mfcc_ import mfcc
+__all__ += ["mfcc"]
+
 from .auditory.mel_sgram import compute_mel_sgram, linear_to_mel_weight_matrix, mel_to_Hz, Hz_to_mel
 __all__ += ["compute_mel_sgram", 
             "mel_to_Hz", 

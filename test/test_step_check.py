@@ -40,6 +40,7 @@ CALLS = {
     "lpcresidual": lambda s: phon.lpcresidual(X, FS, step=s),
     "nasality": lambda s: phon.nasality(X, FS, step=s),
     "tandem_fric": lambda s: phon.tandem_fric(X, FS, 0.5, step=s),
+    "mfcc": lambda s: phon.mfcc(X, FS, step=s),
     "sgram": lambda s: phon.sgram(X, FS, step=s),
     "sgram_mel": lambda s: phon.sgram(X, FS, type="mel", step=s),
     "sgram_old_name": lambda s: phon.sgram(X, FS, s=s),
