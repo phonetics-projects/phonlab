@@ -176,6 +176,16 @@ Added
   source-filter resynthesis), and a ``normalize`` parameter (``False`` keeps the level of the residual
   instead of scaling its peak to 1).  ``gci()`` has the same ``gain`` parameter.
 * ``mfcc()`` a new function to calculate melfrequency cepstral coefficients.
+* ``IFC_formants()`` accepts a dict of speaker parameters as ``speaker``, for a speaker the three
+  presets do not fit, and has ``frame_length`` and ``step`` parameters.  ``ifc_speaker_params(n)``
+  returns preset ``n`` as such a dict to start from.  Two quantities that were fixed inside the
+  tracker are now keys of the dict with their old values as defaults: the extra 5500 Hz inverse
+  filter of the male preset (``extra_upper_fs``, ``extra_upper_bws``) and the 200-6000 Hz range the
+  estimates are clamped to (``fmin``, ``fmax``).  For vocal tracts far outside the human range
+  (an elephant's, say) the key ``ref_f1`` -- the F1 of a neutral vowel, by default the dict's own F1
+  expectation -- scales everything the method sized for speech: the 12 kHz analysis rate, the
+  zero-crossing search windows, the f0-notch bandwidth, the 20 ms frame and the clamp.  The
+  presets give exactly the same results as before.
 
 
 
