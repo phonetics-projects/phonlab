@@ -511,8 +511,9 @@ def test_ifc_formants_float32_matches_float64():
     x, fs = phon.loadsig(str(AUDIO / "sf3_cln.wav"), chansel=[0])
     y, fs = prep_audio(x, fs, target_fs=12000, preemph=0.94, verbose=False)
     assert y.dtype == np.float32
-    _, r32 = ifc_formant._ifc_analyze(y, fs, 1, True)
-    _, r64 = ifc_formant._ifc_analyze(y.astype(np.float64), fs, 1, True)
+    speaker = ifc_formant.resolve_speaker_params(1)
+    _, r32 = ifc_formant._ifc_analyze(y, fs, speaker, True)
+    _, r64 = ifc_formant._ifc_analyze(y.astype(np.float64), fs, speaker, True)
     assert np.abs(r32 - r64).max() < 0.1   # Hz
 
 

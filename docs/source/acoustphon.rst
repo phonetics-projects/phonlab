@@ -23,6 +23,7 @@ Formant Tracking
 .. autofunction:: phonlab.TVLP_formants
 .. autofunction:: phonlab.tvlp_warmup_numba
 .. autofunction:: phonlab.IFC_formants
+.. autofunction:: phonlab.ifc_speaker_params
 .. autofunction:: phonlab.DPPT_formants
 .. autofunction:: phonlab.track_formants	
 .. autofunction:: phonlab.formant_to_df

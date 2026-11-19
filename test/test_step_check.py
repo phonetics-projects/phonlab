@@ -34,6 +34,7 @@ CALLS = {
     "RLPC_formants": lambda s: phon.RLPC_formants(X, FS, step=s),
     "DPPT_formants": lambda s: phon.DPPT_formants(X, FS, step=s),
     "TVLP_formants": lambda s: phon.TVLP_formants(X, FS, step=s),
+    "IFC_formants": lambda s: phon.IFC_formants(X, FS, step=s),
     "egg_to_oq": lambda s: phon.egg_to_oq(X, FS, step=s),
     "compute_mel_sgram": lambda s: phon.compute_mel_sgram(X, FS, step=s),
     "Audspec": lambda s: phon.Audspec(fs=FS, step=s),
